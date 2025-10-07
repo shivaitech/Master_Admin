@@ -1,0 +1,77 @@
+
+html,
+body {
+  font-weight: 400;
+  font-style: normal;
+  scroll-behavior: smooth;
+}
+@import "tailwindcss";
+
+input::-webkit-outer-spin-button,
+input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+:where(.css-dev-only-do-not-override-os2fvf).ant-select-outlined:not(
+    .ant-select-customize-input
+  )
+  .ant-select-selector {
+  border: 1px solid #d9d9d9;
+  background: #ffffff;
+  height: 44px !important;
+  padding: 6px 12px;
+}
+
+input,
+textarea,
+select,
+.ant-input {
+  font-size: 12px !important;
+}
+
+@media (max-width: 768px) {
+  input,
+  textarea,
+  select,
+  .ant-input {
+    font-size: 14px !important;
+    padding: 8px !important;
+  }
+}
+
+@media (max-width: 480px) {
+  input,
+  textarea,
+  select,
+  .ant-input {
+    font-size: 16px !important;
+    padding: 12px !important;
+  }
+}
+input[type="number"] {
+  -moz-appearance: textfield;
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none !important;
+}
+.no-scrollbar {
+  -ms-overflow-style: none !important;
+  scrollbar-width: none !important;
+  overflow: auto;
+}
+
+:where(.css-dev-only-do-not-override-os2fvf).ant-modal
+  .ant-modal-body::-webkit-scrollbar {
+  display: none !important;
+}
+:where(.css-dev-only-do-not-override-os2fvf).ant-modal .ant-modal-body {
+  -ms-overflow-style: none !important;
+  scrollbar-width: none !important;
+  overflow: auto;
+}
+:where(.css-dev-only-do-not-override-os2fvf).ant-modal .ant-modal-content {
+  padding: 0 !important;
+  border-radius: 12px !important;
+}
+

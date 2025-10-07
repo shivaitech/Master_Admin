@@ -1,0 +1,17 @@
+<svg width="18" height="22" viewBox="0 0 18 22" fill="none" xmlns="http://www.w3.org/2000/svg">
+<mask id="mask0_408_3904" style="mask-type:alpha" maskUnits="userSpaceOnUse" x="0" y="0" width="18" height="22">
+<circle cx="2.64052" cy="2.2863" r="1.78701" fill="#02324F"/>
+<circle cx="1.78701" cy="1.78701" r="1.78701" transform="matrix(-1 0 0 1 13.3633 13.9018)" fill="#02324F"/>
+<circle cx="7.10732" cy="6.75386" r="1.78701" fill="#02324F"/>
+<circle cx="1.78701" cy="1.78701" r="1.78701" transform="matrix(-1 0 0 1 8.89453 18.3694)" fill="#02324F"/>
+<circle cx="11.5761" cy="11.2214" r="1.78701" fill="#02324F"/>
+<circle cx="7.10732" cy="2.28634" r="1.78701" fill="#02324F"/>
+<circle cx="1.78701" cy="1.78701" r="1.78701" transform="matrix(-1 0 0 1 8.89453 13.9018)" fill="#02324F"/>
+<circle cx="11.5761" cy="6.75386" r="1.78701" fill="#02324F"/>
+<circle cx="1.78701" cy="1.78701" r="1.78701" transform="matrix(-1 0 0 1 4.42773 18.3694)" fill="#02324F"/>
+<circle cx="16.0429" cy="11.2214" r="1.78701" fill="#02324F"/>
+</mask>
+<g mask="url(#mask0_408_3904)">
+<rect x="-5.40039" y="-3.07471" width="27.6986" height="28.5921" fill="black"/>
+</g>
+</svg>
