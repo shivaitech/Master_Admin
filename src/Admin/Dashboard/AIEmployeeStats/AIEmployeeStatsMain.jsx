@@ -958,7 +958,7 @@ const AIEmployeeStatsMain = ({ onViewEmployee }) => {
         {/* Transcript Modal - Mobile Optimized */}
         {selectedSession && (
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-2 sm:p-4 backdrop-blur-sm">
-            <div className="bg-[#f6f5f4] rounded-lg sm:rounded-xl w-full max-w-4xl max-h-[95vh] sm:max-h-[85vh] overflow-hidden shadow-2xl">
+            <div className="bg-[#f6f5f4] rounded-lg sm:rounded-xl w-full max-w-4xl  max-h-[95vh] sm:max-h-[85vh] overflow-hidden shadow-2xl">
               {/* Header - Mobile Optimized */}
               <div className="flex items-center justify-between p-3 sm:p-4 lg:p-6 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white">
                 <div className="flex items-center gap-2 sm:gap-3 lg:gap-4 min-w-0 flex-1">
@@ -1158,6 +1158,7 @@ const AIEmployeeStatsMain = ({ onViewEmployee }) => {
             </div>
           </div>
         )}
+
         {/* Pagination Footer - Mobile Optimized */}
         <div className="mt-3 sm:mt-4 md:mt-6 pt-3 sm:pt-4 border-t border-gray-200">
           {/* Mobile-first responsive pagination info */}
