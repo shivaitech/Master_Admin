@@ -6,6 +6,5 @@
       "config": { "distDir": "dist" }
     }
   ],
-  "routes": [],
   "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }]
 }
