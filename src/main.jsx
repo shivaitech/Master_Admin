@@ -6,13 +6,10 @@ import "./index.css";
 
 // Loading component
 const Loading = () => (
-  <div className="loader-container">
-    <div className="logo-loader">
-      <img
-        src="/Shivailogo.svg"
-        alt="Loading"
-        className="mx-auto h-20 w-20 animate-pulse"
-      />
+  <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 flex items-center justify-center">
+    <div className="text-center">
+      <div className="w-8 h-8 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin mx-auto mb-4"></div>
+      <p className="text-slate-600">Loading...</p>
     </div>
   </div>
 );
