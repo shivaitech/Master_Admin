@@ -315,7 +315,10 @@ const WidgetManagementPlaceholder = () => {
                 }}
               >
                 <div className="w-8/12 h-8/12  rounded-sm flex items-center justify-center">
-                  <Bot className="text-white" size={previewDevice === "mobile" ? 16 : 20} />
+                  <Bot
+                    className="text-white"
+                    size={previewDevice === "mobile" ? 16 : 20}
+                  />
                 </div>
               </div>
 
@@ -393,8 +396,6 @@ const WidgetManagementPlaceholder = () => {
                     & <span className="text-blue-500 cursor-pointer">T&C</span>
                   </p>
 
-                
-
                   {/* Responsive Bottom Navigation */}
                   <div className="flex">
                     <button
@@ -423,8 +424,8 @@ const WidgetManagementPlaceholder = () => {
                     <button
                       className={`flex-1 flex flex-col items-center text-gray-900 *:
                         border-b-2 border-dark  ${
-                        previewDevice === "mobile" ? "py-2" : "py-3"
-                      }`}
+                          previewDevice === "mobile" ? "py-2" : "py-3"
+                        }`}
                     >
                       <Phone
                         size={
@@ -1607,7 +1608,7 @@ const WidgetManagementPlaceholder = () => {
                   <StyledButton
                     onClick={() =>
                       copyToClipboard(
-                        `<script src="https://cdn.shivai.com/widget.js" data-client-id="CLIENT_123"></script>`
+                        `<script src="https://master-admin-mu.vercel.app/widget.js" data-client-id="CLIENT_123"></script>`
                       )
                     }
                     className="flex items-center justify-center gap-2 px-3 py-2 sm:py-1 text-sm touch-manipulation"
@@ -1619,12 +1620,12 @@ const WidgetManagementPlaceholder = () => {
                 </div>
                 <div className="relative">
                   <pre className="bg-gray-900 text-gray-100 p-3 sm:p-4 rounded-lg text-xs sm:text-sm overflow-x-auto">
-                    {`<script src="https://cdn.shivai.com/widget.js" data-client-id="CLIENT_123"></script>`}
+                    {`<script src="https://master-admin-mu.vercel.app/widget.js" data-client-id="CLIENT_123"></script>`}
                   </pre>
                   <button
                     onClick={() =>
                       copyToClipboard(
-                        `<script src="https://cdn.shivai.com/widget.js" data-client-id="CLIENT_123"></script>`
+                        `<script src="https://master-admin-mu.vercel.app/widget.js" data-client-id="CLIENT_123"></script>`
                       )
                     }
                     className="sm:hidden absolute top-2 right-2 p-1.5 bg-gray-700 hover:bg-gray-600 text-white rounded text-xs"
@@ -1648,7 +1649,7 @@ const WidgetManagementPlaceholder = () => {
                       copyToClipboard(`<script>
   window.ShivAIConfig = ${JSON.stringify(widgetConfig, null, 2)};
 </script>
-<script src="https://cdn.shivai.com/widget.js" data-client-id="CLIENT_123"></script>`)
+<script src="https://master-admin-mu.vercel.app/widget.js" data-client-id="CLIENT_123"></script>`)
                     }
                     className="flex items-center justify-center gap-2 px-3 py-2 sm:py-1 text-sm touch-manipulation"
                     title="Copy Configuration"
@@ -1662,14 +1663,14 @@ const WidgetManagementPlaceholder = () => {
                     {`<script>
   window.ShivAIConfig = ${JSON.stringify(widgetConfig, null, 2)};
 </script>
-<script src="https://cdn.shivai.com/widget.js" data-client-id="CLIENT_123"></script>`}
+<script src="https://master-admin-mu.vercel.app/widget.js" data-client-id="CLIENT_123"></script>`}
                   </pre>
                   <button
                     onClick={() =>
                       copyToClipboard(`<script>
   window.ShivAIConfig = ${JSON.stringify(widgetConfig, null, 2)};
 </script>
-<script src="https://cdn.shivai.com/widget.js" data-client-id="CLIENT_123"></script>`)
+<script src="https://master-admin-mu.vercel.app/widget.js" data-client-id="CLIENT_123"></script>`)
                     }
                     className="sm:hidden absolute top-2 right-2 p-1.5 bg-gray-700 hover:bg-gray-600 text-white rounded text-xs"
                     title="Copy Configuration"
