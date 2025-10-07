@@ -20,30 +20,34 @@
       primaryColor: '#000000',
       secondaryColor: '#ffffff',
       accentColor: '#3b82f6',
-      borderRadius: '12px',
+      borderRadius: '16px',
       fontFamily: 'Inter, sans-serif',
-      shadowLevel: 'medium'
+      shadowIntensity: 'medium'
     },
     features: {
       chatEnabled: true,
       voiceEnabled: true,
       showPrivacyPolicy: true,
-      showBranding: false,
+      showBranding: true,
       autoGreeting: true,
-      soundEffects: true
+      soundEffects: true,
+      autoOpen: false
     },
     ui: {
       position: 'bottom-right',
       buttonSize: 'medium',
       animationSpeed: 'normal',
-      chatHeight: '400px',
-      chatWidth: '350px'
+      chatHeight: '450px',
+      chatWidth: '380px',
+      animationType: 'slide'
     },
     content: {
-      welcomeMessage: 'Hi! How can I help you today?',
+      welcomeMessage: 'ShivAI offers 24/7 voice support to handle your business calls efficiently and professionally.',
       placeholderText: 'Type your message...',
       voiceGreeting: 'Hello! I\'m your AI assistant. How can I help?',
-      privacyPolicyUrl: 'https://shivai.com/privacy'
+      privacyPolicyUrl: 'https://shivai.com/privacy',
+      companyName: 'ShivAI',
+      subtitle: 'AI-Powered Support'
     }
   };
 
@@ -164,6 +168,59 @@
         return 'Sorry, I\'m having trouble with voice processing right now. Please try typing your message.';
       }
     }
+
+    async startCall(conversationId = null) {
+      try {
+        const response = await fetch(`${this.baseURL}/call/start`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Client-ID': this.clientId
+          },
+          body: JSON.stringify({
+            conversationId,
+            timestamp: new Date().toISOString()
+          })
+        });
+
+        if (!response.ok) {
+          throw new Error(`Start call API request failed: ${response.status}`);
+        }
+
+        const data = await response.json();
+        return data;
+      } catch (error) {
+        console.error('ShivAI Start Call API Error:', error);
+        throw error;
+      }
+    }
+
+    async endCall(conversationId = null, callDuration = 0) {
+      try {
+        const response = await fetch(`${this.baseURL}/call/end`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Client-ID': this.clientId
+          },
+          body: JSON.stringify({
+            conversationId,
+            callDuration,
+            timestamp: new Date().toISOString()
+          })
+        });
+
+        if (!response.ok) {
+          throw new Error(`End call API request failed: ${response.status}`);
+        }
+
+        const data = await response.json();
+        return data;
+      } catch (error) {
+        console.error('ShivAI End Call API Error:', error);
+        throw error;
+      }
+    }
   }
 
   // Widget class
@@ -179,6 +236,11 @@
       this.hasGreeted = false;
       this.isMuted = false;
       this.conversationId = this.generateId();
+      this.isCallActive = false;
+      this.callStartTime = null;
+      this.callDuration = 0;
+      this.callInterval = null;
+      this.hasStarted = false;
       
       this.recognition = null;
       this.synthesis = window.speechSynthesis;
@@ -213,10 +275,16 @@
           cursor: pointer;
           outline: none;
           transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+          background: linear-gradient(0deg, #0a0a0a 0%, #000 100%);
+          box-shadow: 0 1.688px 0.844px 0 #33332f inset,
+                      0 3.797px 0.844px 0 #5e5e5e inset, 
+                      0 -6.75px 10.126px 0 #171717 inset,
+                      0 13.501px 20.251px -10.126px rgba(0, 0, 0, 0.25);
         }
         
         .shivai-widget-button:hover {
           transform: scale(1.05);
+          opacity: 0.9;
         }
         
         .shivai-widget-button:active {
@@ -228,8 +296,9 @@
           flex-direction: column;
           background: white;
           border-radius: ${this.config.theme.borderRadius};
-          box-shadow: 0 20px 60px rgba(0,0,0,0.2);
+          box-shadow: 0 8px 30px rgba(0,0,0,0.15);
           overflow: hidden;
+          border: 1px solid #e5e7eb;
         }
         
         .shivai-widget-messages {
@@ -360,12 +429,10 @@
           width: size,
           height: size,
           borderRadius: this.config.theme.borderRadius,
-          backgroundColor: this.config.theme.primaryColor,
-          color: this.config.theme.secondaryColor,
+          color: '#ffffff',
           display: 'flex',
           alignItems: 'center',
-          justifyContent: 'center',
-          boxShadow: '0 4px 12px rgba(0,0,0,0.15)'
+          justifyContent: 'center'
         }
       }, [createIcon('message-circle', 24)]);
 
@@ -392,102 +459,243 @@
     createHeader() {
       this.header = createElement('div', {
         style: {
-          backgroundColor: this.config.theme.primaryColor,
-          color: this.config.theme.secondaryColor,
-          padding: '12px 16px',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between'
+          position: 'relative',
+          textAlign: 'center',
+          borderBottom: '1px solid #e5e7eb',
+          padding: '24px 16px'
         }
       });
 
-      const leftSide = createElement('div', {
-        style: { display: 'flex', alignItems: 'center', gap: '12px' }
-      });
-
-      const avatar = createElement('div', {
+      // Close button
+      this.closeButton = createElement('button', {
         style: {
+          position: 'absolute',
+          top: '16px',
+          right: '16px',
           width: '32px',
           height: '32px',
-          backgroundColor: 'rgba(255,255,255,0.2)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          color: '#9ca3af',
+          background: 'transparent',
+          border: 'none',
+          borderRadius: '8px',
+          cursor: 'pointer',
+          fontSize: '20px',
+          transition: 'color 0.2s'
+        }
+      }, ['×']);
+
+      // Avatar/Logo
+      const avatar = createElement('div', {
+        style: {
+          width: '64px',
+          height: '64px',
+          margin: '0 auto 16px',
           borderRadius: this.config.theme.borderRadius,
+          background: 'linear-gradient(0deg, #0a0a0a 0%, #000 100%)',
+          boxShadow: `0 1.688px 0.844px 0 #33332f inset,
+                      0 3.797px 0.844px 0 #5e5e5e inset, 
+                      0 -6.75px 10.126px 0 #171717 inset,
+                      0 13.501px 20.251px -10.126px rgba(0, 0, 0, 0.25)`,
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center'
         }
-      }, [createIcon(this.currentMode === 'chat' ? 'message-circle' : 'phone', 16)]);
-
-      const info = createElement('div');
-      info.appendChild(createElement('div', { 
-        style: { fontWeight: '500', fontSize: '14px' } 
-      }, ['AI Assistant']));
-      info.appendChild(createElement('div', { 
-        style: { fontSize: '12px', opacity: '0.8' } 
-      }, ['Online']));
-
-      leftSide.appendChild(avatar);
-      leftSide.appendChild(info);
-
-      const rightSide = createElement('div', {
-        style: { display: 'flex', alignItems: 'center', gap: '4px' }
       });
 
-      if (this.config.features.voiceEnabled) {
-        this.modeToggle = createElement('button', {
-          class: 'shivai-widget-button',
-          style: {
-            padding: '8px',
-            backgroundColor: 'transparent',
-            color: 'inherit',
-            borderRadius: this.config.theme.borderRadius,
-            opacity: '0.8'
-          }
-        }, [createIcon(this.currentMode === 'chat' ? 'phone' : 'message-circle', 16)]);
-        
-        rightSide.appendChild(this.modeToggle);
-      }
+      const botIconContainer = createElement('div', {
+        style: {
+          width: '75%',
+          height: '75%',
+          borderRadius: '4px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center'
+        }
+      }, [createIcon('bot', 20)]);
+      botIconContainer.style.color = 'white';
 
-      if (this.config.features.voiceEnabled) {
-        this.muteToggle = createElement('button', {
-          class: 'shivai-widget-button',
-          style: {
-            padding: '8px',
-            backgroundColor: 'transparent',
-            color: 'inherit',
-            borderRadius: this.config.theme.borderRadius,
-            opacity: '0.8',
-            display: this.currentMode === 'voice' ? 'block' : 'none'
-          }
-        }, [createIcon(this.isMuted ? 'volume-x' : 'volume-2', 16)]);
-        
-        rightSide.appendChild(this.muteToggle);
-      }
+      avatar.appendChild(botIconContainer);
 
-      this.closeButton = createElement('button', {
+      // Title
+      const title = createElement('h3', {
+        style: {
+          fontSize: '20px',
+          fontWeight: '600',
+          color: '#111827',
+          margin: '0 0 8px 0'
+        }
+      }, ['ShivAI Support']);
+
+      // Description
+      const description = createElement('p', {
+        style: {
+          fontSize: '14px',
+          color: '#6b7280',
+          margin: '0 0 24px 0',
+          lineHeight: '1.5',
+          padding: '0 16px'
+        }
+      }, [this.config.content.welcomeMessage]);
+
+      this.header.appendChild(this.closeButton);
+      this.header.appendChild(avatar);
+      this.header.appendChild(title);
+      this.header.appendChild(description);
+
+      this.createModeButtons();
+      this.chatInterface.appendChild(this.header);
+    }
+
+    createModeButtons() {
+      // Start button (Chat or Call)
+      this.startButton = createElement('button', {
         class: 'shivai-widget-button',
         style: {
-          padding: '8px',
-          backgroundColor: 'transparent',
-          color: 'inherit',
-          borderRadius: this.config.theme.borderRadius,
-          opacity: '0.8'
+          width: '100%',
+          color: 'white',
+          fontWeight: '600',
+          borderRadius: '9999px',
+          padding: '16px',
+          marginBottom: '12px',
+          fontSize: '16px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: '8px',
+          transition: 'all 0.3s'
         }
-      }, [createIcon('minimize', 16)]);
-      
-      rightSide.appendChild(this.closeButton);
+      });
 
-      this.header.appendChild(leftSide);
-      this.header.appendChild(rightSide);
-      this.chatInterface.appendChild(this.header);
+      this.updateStartButton();
+
+      // Privacy text
+      const privacyText = createElement('p', {
+        style: {
+          fontSize: '12px',
+          color: '#6b7280',
+          margin: '0 0 24px 0',
+          lineHeight: '1.5'
+        }
+      });
+
+      const privacyContent = document.createTextNode('By starting ');
+      const modeText = document.createTextNode(this.currentMode === 'chat' ? 'chat' : 'call');
+      const privacyText2 = document.createTextNode(' you agree to ');
+      
+      const privacyLink = createElement('span', {
+        style: { color: '#3b82f6', cursor: 'pointer' }
+      }, ['Privacy policy']);
+      
+      const andText = document.createTextNode(' & ');
+      
+      const tcLink = createElement('span', {
+        style: { color: '#3b82f6', cursor: 'pointer' }
+      }, ['T&C']);
+
+      privacyText.appendChild(privacyContent);
+      privacyText.appendChild(modeText);
+      privacyText.appendChild(privacyText2);
+      privacyText.appendChild(privacyLink);
+      privacyText.appendChild(andText);
+      privacyText.appendChild(tcLink);
+
+      // Bottom navigation
+      const bottomNav = createElement('div', {
+        style: {
+          display: 'flex',
+          borderTop: '1px solid #f3f4f6'
+        }
+      });
+
+      this.chatNavButton = createElement('button', {
+        style: {
+          flex: '1',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          padding: '16px 8px',
+          background: 'transparent',
+          border: 'none',
+          cursor: 'pointer',
+          color: this.currentMode === 'chat' ? '#111827' : '#6b7280',
+          borderBottom: this.currentMode === 'chat' ? '2px solid #000' : 'none',
+          transition: 'color 0.2s'
+        }
+      });
+
+      const chatIcon = createIcon('message-circle', 20);
+      chatIcon.style.marginBottom = '4px';
+      const chatLabel = createElement('span', {
+        style: { fontSize: '14px', fontWeight: this.currentMode === 'chat' ? '600' : '400' }
+      }, ['Chat']);
+
+      this.chatNavButton.appendChild(chatIcon);
+      this.chatNavButton.appendChild(chatLabel);
+
+      this.voiceNavButton = createElement('button', {
+        style: {
+          flex: '1',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          padding: '16px 8px',
+          background: 'transparent',
+          border: 'none',
+          cursor: 'pointer',
+          color: this.currentMode === 'voice' ? '#111827' : '#6b7280',
+          borderBottom: this.currentMode === 'voice' ? '2px solid #000' : 'none',
+          transition: 'color 0.2s'
+        }
+      });
+
+      const voiceIcon = createIcon('phone', 20);
+      voiceIcon.style.marginBottom = '4px';
+      const voiceLabel = createElement('span', {
+        style: { fontSize: '14px', fontWeight: this.currentMode === 'voice' ? '600' : '400' }
+      }, ['Voice Call']);
+
+      this.voiceNavButton.appendChild(voiceIcon);
+      this.voiceNavButton.appendChild(voiceLabel);
+
+      bottomNav.appendChild(this.chatNavButton);
+      bottomNav.appendChild(this.voiceNavButton);
+
+      this.header.appendChild(this.startButton);
+      this.header.appendChild(privacyText);
+      this.header.appendChild(bottomNav);
+    }
+
+    updateStartButton() {
+      this.startButton.innerHTML = '';
+      
+      if (this.currentMode === 'chat') {
+        const icon = createIcon('message-circle', 20);
+        icon.style.marginRight = '8px';
+        this.startButton.appendChild(icon);
+        this.startButton.appendChild(document.createTextNode('Start Chat'));
+      } else {
+        const icon = createIcon('phone', 20);
+        icon.style.marginRight = '8px';
+        this.startButton.appendChild(icon);
+        this.startButton.appendChild(document.createTextNode(this.isCallActive ? 'End Call' : 'Start Call'));
+      }
     }
 
     createBody() {
       this.body = createElement('div', {
-        style: { flex: '1', display: 'flex', flexDirection: 'column' }
+        style: { 
+          flex: '1', 
+          display: 'flex', 
+          flexDirection: 'column',
+          minHeight: '200px'
+        }
       });
 
       this.createChatMode();
-      this.createVoiceMode();
+      this.createCallMode();
       
       this.chatInterface.appendChild(this.body);
     }
@@ -495,7 +703,7 @@
     createChatMode() {
       this.chatMode = createElement('div', {
         style: { 
-          display: this.currentMode === 'chat' ? 'flex' : 'none',
+          display: this.currentMode === 'chat' && this.hasStarted ? 'flex' : 'none',
           flexDirection: 'column',
           height: '100%'
         }
@@ -542,60 +750,131 @@
       this.body.appendChild(this.chatMode);
     }
 
-    createVoiceMode() {
-      this.voiceMode = createElement('div', {
+    createCallMode() {
+      this.callMode = createElement('div', {
         style: {
-          display: this.currentMode === 'voice' ? 'flex' : 'none',
+          display: this.currentMode === 'voice' && this.hasStarted ? 'flex' : 'none',
           flexDirection: 'column',
           alignItems: 'center',
           justifyContent: 'center',
           padding: '32px',
           textAlign: 'center',
-          height: '100%'
+          height: '100%',
+          backgroundColor: '#f9fafb'
         }
       });
 
-      const micContainer = createElement('div', {
+      // Call avatar
+      const callAvatar = createElement('div', {
         style: {
-          width: '80px',
-          height: '80px',
-          borderRadius: this.config.theme.borderRadius,
-          backgroundColor: '#f3f4f6',
+          width: '120px',
+          height: '120px',
+          borderRadius: '50%',
+          background: 'linear-gradient(0deg, #0a0a0a 0%, #000 100%)',
+          boxShadow: `0 1.688px 0.844px 0 #33332f inset,
+                      0 3.797px 0.844px 0 #5e5e5e inset, 
+                      0 -6.75px 10.126px 0 #171717 inset,
+                      0 13.501px 20.251px -10.126px rgba(0, 0, 0, 0.25)`,
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          marginBottom: '16px'
+          marginBottom: '24px'
         }
       });
-      
-      this.micIcon = createIcon('mic', 32);
-      micContainer.appendChild(this.micIcon);
 
-      const title = createElement('h3', {
-        style: { margin: '0 0 8px 0', fontSize: '16px', fontWeight: '500' }
-      }, ['Voice Assistant']);
+      const avatarIcon = createIcon('user', 40);
+      avatarIcon.style.color = 'white';
+      callAvatar.appendChild(avatarIcon);
 
-      this.voiceStatus = createElement('p', {
-        style: { margin: '0 0 24px 0', fontSize: '14px', color: '#6b7280' }
-      }, ['Tap to start speaking']);
+      // Call info
+      const callTitle = createElement('h3', {
+        style: { 
+          margin: '0 0 8px 0', 
+          fontSize: '20px', 
+          fontWeight: '600',
+          color: '#111827'
+        }
+      }, ['AI Assistant']);
 
-      this.voiceButton = createElement('button', {
-        class: 'shivai-widget-button',
-        style: {
-          padding: '12px 24px',
-          backgroundColor: this.config.theme.accentColor,
-          color: 'white',
-          borderRadius: this.config.theme.borderRadius,
-          fontSize: '14px',
+      this.callStatus = createElement('p', {
+        style: { 
+          margin: '0 0 8px 0', 
+          fontSize: '14px', 
+          color: '#6b7280' 
+        }
+      }, ['Connecting...']);
+
+      this.callTimer = createElement('p', {
+        style: { 
+          margin: '0 0 32px 0', 
+          fontSize: '16px', 
+          color: '#111827',
           fontWeight: '500'
         }
-      }, ['Start Recording']);
+      }, ['00:00']);
 
-      this.voiceMode.appendChild(micContainer);
-      this.voiceMode.appendChild(title);
-      this.voiceMode.appendChild(this.voiceStatus);
-      this.voiceMode.appendChild(this.voiceButton);
-      this.body.appendChild(this.voiceMode);
+      // Call controls
+      const controlsContainer = createElement('div', {
+        style: {
+          display: 'flex',
+          gap: '16px',
+          alignItems: 'center',
+          justifyContent: 'center'
+        }
+      });
+
+      // Mute button
+      this.muteButton = createElement('button', {
+        style: {
+          width: '56px',
+          height: '56px',
+          borderRadius: '50%',
+          backgroundColor: '#f3f4f6',
+          border: 'none',
+          cursor: 'pointer',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          transition: 'all 0.2s'
+        }
+      });
+
+      this.updateMuteButton();
+
+      // End call button
+      this.endCallButton = createElement('button', {
+        style: {
+          width: '56px',
+          height: '56px',
+          borderRadius: '50%',
+          backgroundColor: '#dc2626',
+          border: 'none',
+          cursor: 'pointer',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          color: 'white',
+          transition: 'all 0.2s'
+        }
+      }, [createIcon('phone', 20)]);
+
+      controlsContainer.appendChild(this.muteButton);
+      controlsContainer.appendChild(this.endCallButton);
+
+      this.callMode.appendChild(callAvatar);
+      this.callMode.appendChild(callTitle);
+      this.callMode.appendChild(this.callStatus);
+      this.callMode.appendChild(this.callTimer);
+      this.callMode.appendChild(controlsContainer);
+      this.body.appendChild(this.callMode);
+    }
+
+    updateMuteButton() {
+      this.muteButton.innerHTML = '';
+      const icon = createIcon(this.isMuted ? 'volume-x' : 'volume-2', 20);
+      icon.style.color = this.isMuted ? '#dc2626' : '#6b7280';
+      this.muteButton.appendChild(icon);
+      this.muteButton.style.backgroundColor = this.isMuted ? '#fef2f2' : '#f3f4f6';
     }
 
     createFooter() {
@@ -680,15 +959,12 @@
       // Close button
       this.closeButton.addEventListener('click', () => this.toggleWidget());
 
-      // Mode toggle
-      if (this.modeToggle) {
-        this.modeToggle.addEventListener('click', () => this.toggleMode());
-      }
+      // Start button (Chat/Call)
+      this.startButton.addEventListener('click', () => this.handleStart());
 
-      // Mute toggle
-      if (this.muteToggle) {
-        this.muteToggle.addEventListener('click', () => this.toggleMute());
-      }
+      // Navigation buttons
+      this.chatNavButton.addEventListener('click', () => this.setMode('chat'));
+      this.voiceNavButton.addEventListener('click', () => this.setMode('voice'));
 
       // Send message
       this.sendButton.addEventListener('click', () => this.sendMessage());
@@ -699,8 +975,13 @@
         }
       });
 
-      // Voice button
-      this.voiceButton.addEventListener('click', () => this.toggleRecording());
+      // Call controls
+      if (this.muteButton) {
+        this.muteButton.addEventListener('click', () => this.toggleMute());
+      }
+      if (this.endCallButton) {
+        this.endCallButton.addEventListener('click', () => this.endCurrentCall());
+      }
 
       // Outside click to close
       document.addEventListener('click', (e) => {
@@ -724,73 +1005,171 @@
         this.triggerButton.style.display = 'none';
         this.chatInterface.style.display = 'flex';
         
-        if (this.config.features.autoGreeting && !this.hasGreeted) {
-          this.addMessage('bot', this.config.content.welcomeMessage);
-          this.hasGreeted = true;
+        // Reset to welcome screen when opening
+        this.hasStarted = false;
+        this.updateUI();
+        
+        if (this.config.features.autoOpen && !this.hasGreeted) {
+          setTimeout(() => {
+            if (this.isOpen && !this.hasStarted) {
+              this.handleStart();
+            }
+          }, 3000);
         }
       } else {
         this.triggerButton.style.display = 'flex';
         this.chatInterface.style.display = 'none';
+        
+        // End any active call when closing
+        if (this.isCallActive) {
+          this.endCurrentCall();
+        }
       }
     }
 
-    toggleMode() {
-      this.currentMode = this.currentMode === 'chat' ? 'voice' : 'chat';
+    setMode(mode) {
+      if (this.hasStarted) return; // Don't allow mode switching during active session
       
-      if (this.currentMode === 'chat') {
-        this.chatMode.style.display = 'flex';
-        this.voiceMode.style.display = 'none';
-        this.muteToggle.style.display = 'none';
-      } else {
-        this.chatMode.style.display = 'none';
-        this.voiceMode.style.display = 'flex';
-        this.muteToggle.style.display = 'block';
+      this.currentMode = mode;
+      this.updateModeUI();
+    }
+
+    updateModeUI() {
+      // Update navigation buttons
+      this.chatNavButton.style.color = this.currentMode === 'chat' ? '#111827' : '#6b7280';
+      this.chatNavButton.style.borderBottom = this.currentMode === 'chat' ? '2px solid #000' : 'none';
+      this.chatNavButton.querySelector('span').style.fontWeight = this.currentMode === 'chat' ? '600' : '400';
+
+      this.voiceNavButton.style.color = this.currentMode === 'voice' ? '#111827' : '#6b7280';
+      this.voiceNavButton.style.borderBottom = this.currentMode === 'voice' ? '2px solid #000' : 'none';
+      this.voiceNavButton.querySelector('span').style.fontWeight = this.currentMode === 'voice' ? '600' : '400';
+
+      // Update start button
+      this.updateStartButton();
+
+      // Update privacy text
+      const privacyTextElements = this.header.querySelectorAll('p');
+      if (privacyTextElements.length > 1) {
+        const privacyElement = privacyTextElements[1];
+        privacyElement.childNodes[1].textContent = this.currentMode === 'chat' ? 'chat' : 'call';
       }
+    }
+
+    async handleStart() {
+      if (this.currentMode === 'chat') {
+        this.startChat();
+      } else {
+        if (this.isCallActive) {
+          await this.endCurrentCall();
+        } else {
+          await this.startCurrentCall();
+        }
+      }
+    }
+
+    startChat() {
+      this.hasStarted = true;
+      this.updateUI();
       
-      // Update mode icon in header
-      const headerAvatar = this.header.querySelector('div div');
-      headerAvatar.innerHTML = '';
-      headerAvatar.appendChild(createIcon(this.currentMode === 'chat' ? 'message-circle' : 'phone', 16));
-      
-      // Update toggle button icon
-      this.modeToggle.innerHTML = '';
-      this.modeToggle.appendChild(createIcon(this.currentMode === 'chat' ? 'phone' : 'message-circle', 16));
+      // Add initial greeting message
+      if (this.config.features.autoGreeting && !this.hasGreeted) {
+        this.addMessage('bot', 'Hi! I\'m your AI assistant. How can I help you today?');
+        this.hasGreeted = true;
+      }
+    }
+
+    async startCurrentCall() {
+      try {
+        this.isLoading = true;
+        this.callStatus.textContent = 'Connecting...';
+        
+        const callData = await this.api.startCall(this.conversationId);
+        
+        this.isCallActive = true;
+        this.hasStarted = true;
+        this.callStartTime = Date.now();
+        this.startCallTimer();
+        
+        this.callStatus.textContent = 'Connected';
+        this.updateStartButton();
+        this.updateUI();
+        
+        if (this.config.features.soundEffects) {
+          // Play call start sound if available
+        }
+        
+      } catch (error) {
+        console.error('Failed to start call:', error);
+        this.callStatus.textContent = 'Connection failed';
+        setTimeout(() => {
+          this.callStatus.textContent = 'Tap to try again';
+        }, 2000);
+      } finally {
+        this.isLoading = false;
+      }
+    }
+
+    async endCurrentCall() {
+      try {
+        if (this.callInterval) {
+          clearInterval(this.callInterval);
+        }
+        
+        const duration = this.isCallActive ? Math.floor((Date.now() - this.callStartTime) / 1000) : 0;
+        
+        await this.api.endCall(this.conversationId, duration);
+        
+        this.isCallActive = false;
+        this.hasStarted = false;
+        this.callDuration = 0;
+        this.callTimer.textContent = '00:00';
+        this.callStatus.textContent = 'Call ended';
+        
+        this.updateStartButton();
+        this.updateUI();
+        
+        if (this.config.features.soundEffects) {
+          // Play call end sound if available
+        }
+        
+      } catch (error) {
+        console.error('Failed to end call:', error);
+      }
+    }
+
+    startCallTimer() {
+      this.callInterval = setInterval(() => {
+        if (this.isCallActive) {
+          const elapsed = Math.floor((Date.now() - this.callStartTime) / 1000);
+          const minutes = Math.floor(elapsed / 60);
+          const seconds = elapsed % 60;
+          this.callTimer.textContent = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+        }
+      }, 1000);
+    }
+
+    updateUI() {
+      // Show/hide welcome screen vs active session
+      this.header.style.display = this.hasStarted ? 'none' : 'block';
+      this.body.style.display = this.hasStarted ? 'flex' : 'none';
+
+      if (this.hasStarted) {
+        if (this.currentMode === 'chat') {
+          this.chatMode.style.display = 'flex';
+          this.callMode.style.display = 'none';
+        } else {
+          this.chatMode.style.display = 'none';
+          this.callMode.style.display = 'flex';
+        }
+      }
     }
 
     toggleMute() {
       this.isMuted = !this.isMuted;
-      this.muteToggle.innerHTML = '';
-      this.muteToggle.appendChild(createIcon(this.isMuted ? 'volume-x' : 'volume-2', 16));
+      this.updateMuteButton();
     }
 
-    toggleRecording() {
-      if (!this.recognition) return;
 
-      if (this.isRecording) {
-        this.recognition.stop();
-      } else {
-        this.recognition.start();
-      }
-    }
-
-    updateVoiceUI() {
-      if (this.isRecording) {
-        this.voiceStatus.textContent = 'Listening...';
-        this.voiceButton.textContent = 'Stop Recording';
-        this.voiceButton.style.backgroundColor = '#dc2626';
-        this.micIcon.parentElement.classList.add('shivai-recording');
-      } else if (this.isLoading) {
-        this.voiceStatus.textContent = 'Processing...';
-        this.voiceButton.textContent = 'Processing...';
-        this.voiceButton.style.backgroundColor = '#6b7280';
-        this.micIcon.parentElement.classList.remove('shivai-recording');
-      } else {
-        this.voiceStatus.textContent = 'Tap to start speaking';
-        this.voiceButton.textContent = 'Start Recording';
-        this.voiceButton.style.backgroundColor = this.config.theme.accentColor;
-        this.micIcon.parentElement.classList.remove('shivai-recording');
-      }
-    }
 
     async sendMessage() {
       const message = this.messageInput.value.trim();
@@ -810,23 +1189,7 @@
       }
     }
 
-    async handleVoiceMessage(transcript) {
-      this.addMessage('user', transcript);
-      this.setLoading(true);
 
-      try {
-        const response = await this.api.processVoice(transcript, this.conversationId);
-        this.addMessage('bot', response);
-        
-        if (!this.isMuted && this.synthesis) {
-          this.speakText(response);
-        }
-      } catch (error) {
-        this.addMessage('bot', 'Sorry, I had trouble processing your voice message.');
-      } finally {
-        this.setLoading(false);
-      }
-    }
 
     speakText(text) {
       if (this.synthesis && !this.isMuted) {
@@ -879,7 +1242,7 @@
     setLoading(loading) {
       this.isLoading = loading;
       
-      if (loading && this.currentMode === 'chat') {
+      if (loading && this.currentMode === 'chat' && this.hasStarted) {
         const loadingMessage = createElement('div', {
           class: 'shivai-widget-message',
           id: 'shivai-loading-message',
@@ -913,16 +1276,10 @@
         }
       }
 
-      if (this.currentMode === 'voice') {
-        this.updateVoiceUI();
-      }
-
-      // Disable/enable inputs
-      this.messageInput.disabled = loading;
-      this.sendButton.disabled = loading;
-      if (this.voiceButton) {
-        this.voiceButton.disabled = loading;
-      }
+      // Disable/enable inputs during loading
+      if (this.messageInput) this.messageInput.disabled = loading;
+      if (this.sendButton) this.sendButton.disabled = loading;
+      if (this.startButton && !this.hasStarted) this.startButton.disabled = loading;
     }
   }
 
