@@ -37,7 +37,7 @@
       position: "bottom-right",
       buttonSize: "medium",
       animationSpeed: "normal",
-      chatHeight: "480px",
+      chatHeight: "60vh",
       chatWidth: "380px",
       animationType: "slide",
     },
@@ -306,14 +306,16 @@
           box-shadow: 0 8px 30px rgba(0,0,0,0.15);
           overflow: hidden;
           border: 1px solid #e5e7eb;
-          height: 480px; 
+          height: 60vh;
+          max-height: 600px;
+          min-height: 400px;
         }
         
         .shivai-widget-messages {
           flex: 1;
           overflow-y: auto;
           padding: 16px;
-          max-height: calc(${this.config.ui.chatHeight} - 180px);
+          max-height: 35vh;
           background-color: #f9fafb;
         }
         
@@ -405,7 +407,8 @@
             width: calc(100vw - 32px) !important;
             max-width: 400px !important;
             height: auto !important;
-            max-height: 70vh !important;
+            max-height: 75vh !important;
+            min-height: 300px !important;
             position: fixed !important;
             bottom: 90px !important;
             right: 16px !important;
@@ -441,7 +444,7 @@
           }
           
           .shivai-widget-messages {
-            max-height: 300px !important;
+            max-height: 25vh !important;
             padding: 12px !important;
           }
           
@@ -511,7 +514,8 @@
             width: calc(100vw - 40px) !important;
             max-width: 420px !important;
             height: auto !important;
-            max-height: 75vh !important;
+            max-height: 80vh !important;
+            min-height: 320px !important;
             bottom: 85px !important;
             right: 20px !important;
             left: 20px !important;
@@ -523,7 +527,7 @@
           }
           
           .shivai-widget-messages {
-            max-height: 320px !important;
+            max-height: 30vh !important;
           }
           
           /* Tablet start button - make it full width */
@@ -542,7 +546,8 @@
             width: calc(100vw - 24px) !important;
             max-width: 360px !important;
             height: auto !important;
-            max-height: 65vh !important;
+            max-height: 70vh !important;
+            min-height: 280px !important;
             left: 12px !important;
             right: 12px !important;
             bottom: 80px !important;
@@ -555,7 +560,7 @@
           }
           
           .shivai-widget-messages {
-            max-height: 250px !important;
+            max-height: 20vh !important;
             padding: 10px !important;
             -webkit-overflow-scrolling: touch !important;
           }
