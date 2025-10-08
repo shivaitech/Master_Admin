@@ -1,54 +1,65 @@
 import React, { useState } from "react";
 import {
-  BarChart3,
-  Users,
-  Home,
-  Settings,
-  X,
-  Menu,
-  Search,
-  User,
-  Eye,
-  Edit,
-  Plus,
-  LogOut,
-  Bell,
-  Sun,
-  Moon,
-  Bot,
-  Activity,
-  Clock,
-  TrendingUp,
-  CheckCircle,
-  AlertCircle,
-  Zap,
-  Target,
-  Award,
-  Calendar,
-  MessageSquare,
-  Briefcase,
-  UserCheck,
-  UserPlus,
-  Globe,
-  Shield,
-  DollarSign,
-  CreditCard,
-  HelpCircle,
-  AlertTriangle,
-  ExternalLink,
-  Crown,
-  Package,
-  Mail,
-  Download,
-} from "lucide-react";
+  RiHome4Line,
+  RiTeamLine,
+  RiSettingsLine,
+  RiCloseLine,
+  RiMenuLine,
+  RiSearchLine,
+  RiUserLine,
+  RiEyeLine,
+  RiEditLine,
+  RiAddLine,
+  RiLogoutBoxLine,
+  RiNotificationLine,
+  RiSunLine,
+  RiMoonLine,
+  RiRobotLine,
+  RiPulseLine,
+  RiFlashlightLine,
+  RiUserFollowLine ,
+  RiUserAddLine,
+  RiBankCardLine,
+  RiAlarmWarningLine,
+  RiErrorWarningLine,
+  RiQuestionLine,
+  RiExternalLinkLine,
+  RiVipCrownLine,
+  RiMailLine,
+  RiDownloadLine,
+  RiBarChartBoxLine,
+  RiFileList3Line,
+  RiArrowRightSLine,
+
+} from "react-icons/ri";
 import { useNavigate } from "react-router-dom";
 import { ThemeProvider, useTheme } from "./contexts/ThemeContext";
 import AIEmployeeStatsContainer from "./AIEmployeeStats";
 import AnalyticsOptimized from "./components/AnalyticsOptimized";
 import WidgetManagement from "./Widget/WidgetManagementPlaceholder";
-// Import your existing assets
-import Shivlogo from "/assets/navbar/ShivAi.svg";
+import Shivlogo from "/ShivaiLogo.svg";
 import bg from "/assets/Hero/bg.svg";
+import { 
+  Users, 
+  DollarSign, 
+  Bot, 
+  HelpCircle, 
+  Briefcase, 
+  Crown, 
+  UserPlus, 
+  Package, 
+  BarChart3, 
+  CreditCard, 
+  TrendingUp, 
+  CheckCircle, 
+  Clock, 
+  Award, 
+  Eye, 
+  ExternalLink, 
+  MessageSquare, 
+  UserCheck 
+} from "lucide-react";
+
 
 const AdminDashboardContent = () => {
   const [activeSection, setActiveSection] = useState("dashboard");
@@ -58,49 +69,49 @@ const AdminDashboardContent = () => {
   const navigate = useNavigate();
 
   const navItems = [
-    { id: "dashboard", icon: Home, label: "Dashboard", section: "dashboard" },
+    { id: "dashboard", icon: RiHome4Line, label: "Dashboard", section: "dashboard" },
     {
       id: "clients",
-      icon: Users,
+      icon: RiTeamLine,
       label: "Client Management",
       section: "clients",
       badge: 24,
     },
     {
       id: "ai-employees",
-      icon: Activity,
+      icon: RiPulseLine,
       label: "AI Employee Stats",
       section: "ai-employees",
       badge: "NEW",
     },
     {
       id: "widgets",
-      icon: Bot,
+      icon: RiRobotLine,
       label: "Widget Management",
       section: "widgets",
       badge: "NEW",
     },
     {
       id: "transactions",
-      icon: CreditCard,
+      icon: RiBankCardLine,
       label: "Transactions",
       section: "transactions",
       badge: 12,
     },
     {
       id: "support",
-      icon: HelpCircle,
+      icon: RiQuestionLine,
       label: "Support Tickets",
       section: "support",
       badge: 5,
     },
     {
       id: "analytics",
-      icon: BarChart3,
+      icon: RiBarChartBoxLine,
       label: "Analytics",
       section: "analytics",
     },
-    { id: "settings", icon: Settings, label: "Settings", section: "settings" },
+    { id: "settings", icon: RiSettingsLine, label: "Settings", section: "settings" },
   ];
 
   const handleNavClick = (section) => {
@@ -161,9 +172,9 @@ const AdminDashboardContent = () => {
             className={`p-2 rounded-lg ${currentTheme.cardBg} border ${currentTheme.border} ${currentTheme.hover} transition-all duration-200 shadow-sm`}
           >
             {isMobileMenuOpen ? (
-              <X className={`w-4 h-4 ${currentTheme.text}`} />
+              <RiCloseLine className={`w-4 h-4 ${currentTheme.text}`} />
             ) : (
-              <Menu className={`w-4 h-4 ${currentTheme.text}`} />
+              <RiMenuLine className={`w-4 h-4 ${currentTheme.text}`} />
             )}
           </button>
           <span className={`text-sm font-medium ${currentTheme.text}`}>
@@ -178,9 +189,9 @@ const AdminDashboardContent = () => {
             className={`p-2 rounded-lg ${currentTheme.hover} transition-all duration-200`}
           >
             {theme === "dark" ? (
-              <Sun className={`w-4 h-4 ${currentTheme.textSecondary}`} />
+              <RiSunLine className={`w-4 h-4 ${currentTheme.textSecondary}`} />
             ) : (
-              <Moon className={`w-4 h-4 ${currentTheme.textSecondary}`} />
+              <RiMoonLine className={`w-4 h-4 ${currentTheme.textSecondary}`} />
             )}
           </button>
 
@@ -188,7 +199,7 @@ const AdminDashboardContent = () => {
           <button
             className={`relative p-2 rounded-lg ${currentTheme.hover} transition-all duration-200`}
           >
-            <Bell className={`w-4 h-4 ${currentTheme.textSecondary}`} />
+            <RiNotificationLine className={`w-4 h-4 ${currentTheme.textSecondary}`} />
             <span className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full text-xs"></span>
           </button>
 
@@ -196,7 +207,7 @@ const AdminDashboardContent = () => {
           <button
             className={`p-2 rounded-lg ${currentTheme.hover} transition-all duration-200`}
           >
-            <User className={`w-4 h-4 ${currentTheme.textSecondary}`} />
+            <RiUserLine className={`w-4 h-4 ${currentTheme.textSecondary}`} />
           </button>
 
           {/* Logout */}
@@ -204,7 +215,7 @@ const AdminDashboardContent = () => {
             onClick={handleLogout}
             className={`p-2 rounded-lg ${currentTheme.hover} transition-all duration-200`}
           >
-            <LogOut className={`w-4 h-4 ${currentTheme.textSecondary}`} />
+            <RiLogoutBoxLine className={`w-4 h-4 ${currentTheme.textSecondary}`} />
           </button>
         </div>
       </div>
@@ -232,13 +243,9 @@ const AdminDashboardContent = () => {
                 >
                   <div className="flex items-center justify-between mb-3">
                     <div
-                      className="w-10 h-10 rounded-lg flex items-center justify-center text-white"
-                      style={{
-                        background: 'linear-gradient(0deg, #0a0a0a 0%, #000 100%)',
-                        boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.1)'
-                      }}
+                      className={`w-10 h-10 rounded-lg flex items-center justify-center ${currentTheme.activeBg}`}
                     >
-                      <Icon className="w-5 h-5" />
+                      <Icon className={`w-5 h-5 ${currentTheme.text}`} />
                     </div>
                     <div className="text-right">
                       <span
@@ -294,13 +301,9 @@ const AdminDashboardContent = () => {
                   >
                     <div className="flex items-center justify-between mb-2 md:mb-3">
                       <div
-                        className="w-8 h-8 md:w-10 md:h-10 rounded-lg flex items-center justify-center text-white"
-                        style={{
-                          background: 'linear-gradient(0deg, #0a0a0a 0%, #000 100%)',
-                          boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.1)'
-                        }}
+                        className={`w-8 h-8 md:w-10 md:h-10 rounded-lg flex items-center justify-center ${currentTheme.activeBg}`}
                       >
-                        <Icon className="w-4 h-4 md:w-5 md:h-5" />
+                        <Icon className={`w-4 h-4 md:w-5 md:h-5 ${currentTheme.text}`} />
                       </div>
                       <div className="text-right">
                         <span
@@ -343,7 +346,7 @@ const AdminDashboardContent = () => {
         <div className="lg:col-span-2 space-y-4 md:space-y-6">
           <div className="relative group">
             <div
-              className={`absolute inset-0 rounded-lg md:rounded-xl bg-gradient-to-r from-blue-600/10 to-cyan-600/10 blur-lg ${
+              className={`absolute inset-0 rounded-lg md:rounded-xl bg-blue-500/5 ${
                 theme === "light" ? "opacity-50" : ""
               }`}
             ></div>
@@ -360,17 +363,18 @@ const AdminDashboardContent = () => {
                 <h2
                   className={`text-lg md:text-xl font-bold ${currentTheme.text} flex items-center gap-2`}
                 >
-                  <Users className="w-5 h-5 md:w-6 md:h-6 text-blue-500" />
+                  <RiTeamLine className="w-5 h-5 md:w-6 md:h-6 text-blue-500" />
                   Recent Client Activity
                 </h2>
-                <button 
+                <button
                   className="hidden sm:flex items-center gap-2 px-3 py-2 text-white rounded-lg text-sm font-medium transition-all duration-200 hover:shadow-lg"
                   style={{
-                    background: 'linear-gradient(0deg, #0a0a0a 0%, #000 100%)',
-                    boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.1)'
+                    background: "linear-gradient(0deg, #0a0a0a 0%, #000 100%)",
+                    boxShadow:
+                      "0 4px 6px rgba(0, 0, 0, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.1)",
                   }}
                 >
-                  <Eye className="w-4 h-4" />
+                  <RiEyeLine className="w-4 h-4" />
                   <span className="hidden md:inline">View All Clients</span>
                   <span className="md:hidden">View All</span>
                 </button>
@@ -379,17 +383,17 @@ const AdminDashboardContent = () => {
               {/* Desktop Grid */}
               <div className="hidden sm:grid sm:grid-cols-3 gap-3 mb-4 md:mb-6">
                 <div
-                  className={`p-3 rounded-lg ${currentTheme.cardBg} border ${currentTheme.border}`}
+                  className={`p-3 rounded-lg ${currentTheme.cardBg} border ${currentTheme.border} shadow-lg hover:shadow-xl transition-all duration-300`}
                 >
                   <div className="flex items-center gap-2 mb-2">
                     <div
                       className={`w-6 h-6 ${currentTheme.activeBg} rounded-full flex items-center justify-center`}
                     >
-                      <UserCheck className={`w-3 h-3 ${currentTheme.text}`} />
+                      <RiUserFollowLine  className={`w-3 h-3 ${currentTheme.text}`} />
                     </div>
                     <span
                       className={`text-sm font-medium ${currentTheme.text}`}
-                    >
+                  >
                       New Clients
                     </span>
                   </div>
@@ -400,13 +404,13 @@ const AdminDashboardContent = () => {
                 </div>
 
                 <div
-                  className={`p-3 rounded-lg ${currentTheme.cardBg} border ${currentTheme.border}`}
+                  className={`p-3 rounded-lg ${currentTheme.cardBg} border ${currentTheme.border} shadow-lg hover:shadow-xl transition-all duration-300`}
                 >
                   <div className="flex items-center gap-2 mb-2">
                     <div
                       className={`w-6 h-6 ${currentTheme.activeBg} rounded-full flex items-center justify-center`}
                     >
-                      <CreditCard className={`w-3 h-3 ${currentTheme.text}`} />
+                      <RiBankCardLine className={`w-3 h-3 ${currentTheme.text}`} />
                     </div>
                     <span
                       className={`text-sm font-medium ${currentTheme.text}`}
@@ -423,13 +427,13 @@ const AdminDashboardContent = () => {
                 </div>
 
                 <div
-                  className={`p-3 rounded-lg ${currentTheme.cardBg} border ${currentTheme.border}`}
+                  className={`p-3 rounded-lg ${currentTheme.cardBg} border ${currentTheme.border} shadow-lg hover:shadow-xl transition-all duration-300`}
                 >
                   <div className="flex items-center gap-2 mb-2">
                     <div
                       className={`w-6 h-6 ${currentTheme.activeBg} rounded-full flex items-center justify-center`}
                     >
-                      <AlertTriangle
+                      <RiErrorWarningLine
                         className={`w-3 h-3 ${currentTheme.text}`}
                       />
                     </div>
@@ -453,13 +457,13 @@ const AdminDashboardContent = () => {
                   style={{ width: "max-content" }}
                 >
                   <div
-                    className={`flex-shrink-0 w-44 p-3 rounded-lg ${currentTheme.cardBg} border ${currentTheme.border}`}
+                    className={`flex-shrink-0 w-44 p-3 rounded-lg ${currentTheme.cardBg} border ${currentTheme.border} shadow-lg hover:shadow-xl transition-all duration-300`}
                   >
                     <div className="flex items-center gap-2 mb-2">
                       <div
                         className={`w-5 h-5 ${currentTheme.activeBg} rounded-full flex items-center justify-center`}
                       >
-                        <UserCheck className={`w-3 h-3 ${currentTheme.text}`} />
+                        <RiUserFollowLine  className={`w-3 h-3 ${currentTheme.text}`} />
                       </div>
                       <span
                         className={`text-xs font-medium ${currentTheme.text}`}
@@ -476,13 +480,13 @@ const AdminDashboardContent = () => {
                   </div>
 
                   <div
-                    className={`flex-shrink-0 w-44 p-3 rounded-lg ${currentTheme.cardBg} border ${currentTheme.border}`}
+                    className={`flex-shrink-0 w-44 p-3 rounded-lg ${currentTheme.cardBg} border ${currentTheme.border} shadow-lg hover:shadow-xl transition-all duration-300`}
                   >
                     <div className="flex items-center gap-2 mb-2">
                       <div
                         className={`w-5 h-5 ${currentTheme.activeBg} rounded-full flex items-center justify-center`}
                       >
-                        <CreditCard
+                        <RiBankCardLine
                           className={`w-3 h-3 ${currentTheme.text}`}
                         />
                       </div>
@@ -501,13 +505,13 @@ const AdminDashboardContent = () => {
                   </div>
 
                   <div
-                    className={`flex-shrink-0 w-44 p-3 rounded-lg ${currentTheme.cardBg} border ${currentTheme.border}`}
+                    className={`flex-shrink-0 w-44 p-3 rounded-lg ${currentTheme.cardBg} border ${currentTheme.border} shadow-lg hover:shadow-xl transition-all duration-300`}
                   >
                     <div className="flex items-center gap-2 mb-2">
                       <div
                         className={`w-5 h-5 ${currentTheme.activeBg} rounded-full flex items-center justify-center`}
                       >
-                        <AlertTriangle
+                        <RiErrorWarningLine
                           className={`w-3 h-3 ${currentTheme.text}`}
                         />
                       </div>
@@ -594,7 +598,7 @@ const AdminDashboardContent = () => {
                               {client.name}
                             </p>
                             {client.status === "premium" && (
-                              <Crown className="w-3 h-3 md:w-4 md:h-4 text-yellow-500 flex-shrink-0" />
+                              <RiVipCrownLine className="w-3 h-3 md:w-4 md:h-4 text-yellow-500 flex-shrink-0" />
                             )}
                           </div>
                           <p
@@ -624,10 +628,10 @@ const AdminDashboardContent = () => {
                         </div>
                         <div className="flex items-center gap-1">
                           <button className="p-1 hover:bg-blue-500/20 rounded transition-colors">
-                            <Eye className="w-3 h-3 md:w-4 md:h-4 text-blue-500" />
+                            <RiEyeLine className="w-3 h-3 md:w-4 md:h-4 text-blue-500" />
                           </button>
                           <button className="p-1 hover:bg-gray-500/20 rounded transition-colors hidden sm:block">
-                            <ExternalLink className="w-3 h-3 md:w-4 md:h-4 text-gray-500" />
+                            <RiExternalLinkLine className="w-3 h-3 md:w-4 md:h-4 text-gray-500" />
                           </button>
                         </div>
                       </div>
@@ -739,7 +743,7 @@ const AdminDashboardContent = () => {
                             {client.lastActive}
                           </p>
                           <button className="p-1 hover:bg-blue-500/20 rounded transition-colors">
-                            <Eye className="w-3 h-3 text-blue-500" />
+                            <RiEyeLine className="w-3 h-3 text-blue-500" />
                           </button>
                         </div>
                       </div>
@@ -767,7 +771,7 @@ const AdminDashboardContent = () => {
               <h3
                 className={`text-base md:text-lg font-bold ${currentTheme.text} mb-3 md:mb-4 flex items-center gap-2`}
               >
-                <Zap className="w-4 h-4 md:w-5 md:h-5 text-orange-500" />
+                <RiFlashlightLine className="w-4 h-4 md:w-5 md:h-5 text-orange-500" />
                 Quick Actions
               </h3>
               <div className="space-y-2 md:space-y-3">
@@ -830,7 +834,7 @@ const AdminDashboardContent = () => {
               <h3
                 className={`text-base md:text-lg font-bold ${currentTheme.text} mb-3 md:mb-4 flex items-center gap-2`}
               >
-                <Activity className="w-4 h-4 md:w-5 md:h-5 text-blue-500" />
+                <RiPulseLine className="w-4 h-4 md:w-5 md:h-5 text-blue-500" />
                 Recent Transactions
               </h3>
               {/* Desktop List View */}
@@ -1042,11 +1046,11 @@ const AdminDashboardContent = () => {
     ];
 
     return (
-      <div className="space-y-4 md:space-y-6 lg:space-y-8 pt-16 lg:pt-0">
+      <div className="space-y-4 md:space-y-6 lg:space-y-8 pt-16 lg:pt-0 px-2 sm:px-0">
         {/* Client Stats Grid - Matching Dashboard Layout */}
         <div className="relative">
           {/* Desktop Grid */}
-          <div className="hidden lg:grid lg:grid-cols-4 gap-4">
+          <div className="hidden lg:grid lg:grid-cols-4 gap-4 lg:gap-6">
             {clientStats.map((stat, index) => {
               const Icon = stat.icon;
               return (
@@ -1062,13 +1066,9 @@ const AdminDashboardContent = () => {
                   >
                     <div className="flex items-center justify-between mb-3">
                       <div
-                        className="w-10 h-10 rounded-lg flex items-center justify-center text-white"
-                        style={{
-                          background: 'linear-gradient(0deg, #0a0a0a 0%, #000 100%)',
-                          boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.1)'
-                        }}
+                        className={`w-10 h-10 rounded-lg flex items-center justify-center ${currentTheme.activeBg}`}
                       >
-                        <Icon className="w-5 h-5" />
+                        <Icon className={`w-5 h-5 ${currentTheme.text}`} />
                       </div>
                       <div className="text-right">
                         <span
@@ -1123,14 +1123,8 @@ const AdminDashboardContent = () => {
                       }`}
                     >
                       <div className="flex items-center justify-between mb-2 md:mb-3">
-                        <div
-                          className="w-8 h-8 md:w-10 md:h-10 rounded-lg flex items-center justify-center text-white"
-                          style={{
-                            background: 'linear-gradient(0deg, #0a0a0a 0%, #000 100%)',
-                            boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.1)'
-                          }}
-                        >
-                          <Icon className="w-4 h-4 md:w-5 md:h-5" />
+                        <div className={`w-8 h-8 md:w-10 md:h-10 rounded-lg ${currentTheme.activeBg} flex items-center justify-center shadow-lg`}>
+                          <Icon className={`w-4 h-4 md:w-5 md:h-5 ${currentTheme.text}`} />
                         </div>
                         <div className="text-right">
                           <span
@@ -1168,12 +1162,12 @@ const AdminDashboardContent = () => {
         </div>
 
         {/* Main Content Grid - Matching Dashboard Pattern */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-6 lg:gap-8">
           {/* Client Management Activity */}
           <div className="lg:col-span-2 space-y-4 md:space-y-6">
             <div className="relative group">
               <div
-                className={`absolute inset-0 rounded-lg md:rounded-xl bg-gradient-to-r from-blue-600/10 to-purple-600/10 blur-lg ${
+                className={`absolute inset-0 rounded-lg md:rounded-xl bg-gradient-to-r from-blue-600/10 to-cyan-400/10 blur-xl group-hover:blur-2xl transition-all duration-300 ${
                   theme === "light" ? "opacity-50" : ""
                 }`}
               ></div>
@@ -1182,20 +1176,22 @@ const AdminDashboardContent = () => {
                   currentTheme.cardBg
                 } backdrop-blur-lg rounded-lg md:rounded-xl border ${
                   currentTheme.border
-                } p-4 md:p-5 ${
-                  theme === "light" ? currentTheme.cardShadow || "shadow-lg" : ""
+                } p-4 md:p-5 shadow-xl hover:shadow-2xl transition-all duration-300 ${
+                  theme === "light"
+                    ? "shadow-gray-200/50"
+                    : "shadow-gray-900/50"
                 }`}
               >
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4 md:mb-6">
                   <h2
                     className={`text-lg md:text-xl font-bold ${currentTheme.text} flex items-center gap-2`}
                   >
-                    <Users className="w-5 h-5 md:w-6 md:h-6 text-blue-500" />
+                    <RiTeamLine className="w-5 h-5 md:w-6 md:h-6 text-blue-500" />
                     Client Management
                   </h2>
                   <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
                     <div className="relative flex-1 sm:flex-none">
-                      <Search
+                      <RiSearchLine
                         className={`absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 ${currentTheme.textSecondary}`}
                       />
                       <input
@@ -1204,14 +1200,8 @@ const AdminDashboardContent = () => {
                         className={`w-full sm:w-64 pl-10 pr-4 py-2 rounded-lg border ${currentTheme.border} ${currentTheme.searchBg} ${currentTheme.text} text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20`}
                       />
                     </div>
-                    <button 
-                      className="px-3 py-2 text-white rounded-lg transition-all duration-200 hover:shadow-lg flex items-center justify-center gap-2 text-sm"
-                      style={{
-                        background: 'linear-gradient(0deg, #0a0a0a 0%, #000 100%)',
-                        boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.1)'
-                      }}
-                    >
-                      <Plus className="w-4 h-4" />
+                    <button className="px-3 py-2 bg-gradient-to-r from-gray-900 to-black text-white rounded-lg transition-all duration-300 hover:bg-white hover:text-black hover:border-2 hover:border-dashed hover:border-black hover:shadow-xl flex items-center justify-center gap-2 text-sm font-medium">
+                      <RiAddLine className="w-4 h-4" />
                       Add Client
                     </button>
                   </div>
@@ -1220,13 +1210,13 @@ const AdminDashboardContent = () => {
                 {/* Desktop Grid - Quick Stats */}
                 <div className="hidden sm:grid sm:grid-cols-3 gap-3 mb-4 md:mb-6">
                   <div
-                    className={`p-3 rounded-lg ${currentTheme.cardBg} border ${currentTheme.border}`}
+                    className={`p-3 rounded-lg ${currentTheme.cardBg} border ${currentTheme.border} shadow-lg hover:shadow-xl transition-all duration-300`}
                   >
                     <div className="flex items-center gap-2 mb-2">
                       <div
                         className={`w-6 h-6 ${currentTheme.activeBg} rounded-full flex items-center justify-center`}
                       >
-                        <UserCheck className={`w-3 h-3 ${currentTheme.text}`} />
+                        <RiUserFollowLine  className={`w-3 h-3 ${currentTheme.text}`} />
                       </div>
                       <span
                         className={`text-sm font-medium ${currentTheme.text}`}
@@ -1234,20 +1224,24 @@ const AdminDashboardContent = () => {
                         New Clients
                       </span>
                     </div>
-                    <p className={`text-xl font-bold ${currentTheme.text}`}>12</p>
+                    <p className={`text-xl font-bold ${currentTheme.text}`}>
+                      12
+                    </p>
                     <p className={`text-xs ${currentTheme.textSecondary}`}>
                       This month
                     </p>
                   </div>
 
                   <div
-                    className={`p-3 rounded-lg ${currentTheme.cardBg} border ${currentTheme.border}`}
+                    className={`p-3 rounded-lg ${currentTheme.cardBg} border ${currentTheme.border} shadow-lg hover:shadow-xl transition-all duration-300`}
                   >
                     <div className="flex items-center gap-2 mb-2">
                       <div
                         className={`w-6 h-6 ${currentTheme.activeBg} rounded-full flex items-center justify-center`}
                       >
-                        <CreditCard className={`w-3 h-3 ${currentTheme.text}`} />
+                        <RiBankCardLine
+                          className={`w-3 h-3 ${currentTheme.text}`}
+                        />
                       </div>
                       <span
                         className={`text-sm font-medium ${currentTheme.text}`}
@@ -1264,13 +1258,13 @@ const AdminDashboardContent = () => {
                   </div>
 
                   <div
-                    className={`p-3 rounded-lg ${currentTheme.cardBg} border ${currentTheme.border}`}
+                    className={`p-3 rounded-lg ${currentTheme.cardBg} border ${currentTheme.border} shadow-lg hover:shadow-xl transition-all duration-300`}
                   >
                     <div className="flex items-center gap-2 mb-2">
                       <div
                         className={`w-6 h-6 ${currentTheme.activeBg} rounded-full flex items-center justify-center`}
                       >
-                        <AlertTriangle
+                        <RiAlarmWarningLine
                           className={`w-3 h-3 ${currentTheme.text}`}
                         />
                       </div>
@@ -1280,7 +1274,9 @@ const AdminDashboardContent = () => {
                         Expiring Soon
                       </span>
                     </div>
-                    <p className={`text-xl font-bold ${currentTheme.text}`}>8</p>
+                    <p className={`text-xl font-bold ${currentTheme.text}`}>
+                      8
+                    </p>
                     <p className={`text-xs ${currentTheme.textSecondary}`}>
                       Next 7 days
                     </p>
@@ -1294,13 +1290,15 @@ const AdminDashboardContent = () => {
                     style={{ width: "max-content" }}
                   >
                     <div
-                      className={`flex-shrink-0 w-44 p-3 rounded-lg ${currentTheme.cardBg} border ${currentTheme.border}`}
+                      className={`flex-shrink-0 w-44 p-3 rounded-lg ${currentTheme.cardBg} border ${currentTheme.border} shadow-lg hover:shadow-xl transition-all duration-300`}
                     >
                       <div className="flex items-center gap-2 mb-2">
                         <div
                           className={`w-5 h-5 ${currentTheme.activeBg} rounded-full flex items-center justify-center`}
                         >
-                          <UserCheck className={`w-3 h-3 ${currentTheme.text}`} />
+                          <UserCheck
+                            className={`w-3 h-3 ${currentTheme.text}`}
+                          />
                         </div>
                         <span
                           className={`text-xs font-medium ${currentTheme.text}`}
@@ -1317,7 +1315,7 @@ const AdminDashboardContent = () => {
                     </div>
 
                     <div
-                      className={`flex-shrink-0 w-44 p-3 rounded-lg ${currentTheme.cardBg} border ${currentTheme.border}`}
+                      className={`flex-shrink-0 w-44 p-3 rounded-lg ${currentTheme.cardBg} border ${currentTheme.border} shadow-lg hover:shadow-xl transition-all duration-300`}
                     >
                       <div className="flex items-center gap-2 mb-2">
                         <div
@@ -1342,13 +1340,13 @@ const AdminDashboardContent = () => {
                     </div>
 
                     <div
-                      className={`flex-shrink-0 w-44 p-3 rounded-lg ${currentTheme.cardBg} border ${currentTheme.border}`}
+                      className={`flex-shrink-0 w-44 p-3 rounded-lg ${currentTheme.cardBg} border ${currentTheme.border} shadow-lg hover:shadow-xl transition-all duration-300`}
                     >
                       <div className="flex items-center gap-2 mb-2">
                         <div
                           className={`w-5 h-5 ${currentTheme.activeBg} rounded-full flex items-center justify-center`}
                         >
-                          <AlertTriangle
+                          <RiErrorWarningLine
                             className={`w-3 h-3 ${currentTheme.text}`}
                           />
                         </div>
@@ -1410,16 +1408,18 @@ const AdminDashboardContent = () => {
                   ].map((user, index) => (
                     <div
                       key={index}
-                      className={`flex items-center justify-between p-4 rounded-xl border ${currentTheme.border} ${currentTheme.hover} transition-colors`}
+                      className={`flex items-center justify-between p-4 rounded-xl border ${currentTheme.border} ${currentTheme.hover} shadow-lg hover:shadow-xl transition-all duration-300`}
                     >
                       <div className="flex items-center gap-4">
                         <div className="relative">
-                          <div className="w-12 h-12 bg-gradient-to-r from-purple-400 to-pink-400 rounded-full flex items-center justify-center">
-                            <User className="w-6 h-6 text-white" />
+                          <div className="w-12 h-12 bg-purple-500 rounded-full flex items-center justify-center">
+                            <RiUserLine className="w-6 h-6 text-white" />
                           </div>
                           <div
                             className={`absolute -bottom-1 -right-1 w-4 h-4 rounded-full border-2 ${
-                              theme === "light" ? "border-white" : "border-gray-900"
+                              theme === "light"
+                                ? "border-white"
+                                : "border-gray-900"
                             } ${
                               user.status === "active"
                                 ? "bg-green-500"
@@ -1456,14 +1456,20 @@ const AdminDashboardContent = () => {
                               {user.role}
                             </span>
                           </div>
-                          <p className={`${currentTheme.textSecondary} text-sm`}>
+                          <p
+                            className={`${currentTheme.textSecondary} text-sm`}
+                          >
                             {user.email} • {user.company}
                           </p>
                           <div className="flex items-center gap-4 mt-1">
-                            <p className={`${currentTheme.textSecondary} text-xs`}>
+                            <p
+                              className={`${currentTheme.textSecondary} text-xs`}
+                            >
                               Last seen: {user.lastSeen}
                             </p>
-                            <p className={`${currentTheme.textSecondary} text-xs`}>
+                            <p
+                              className={`${currentTheme.textSecondary} text-xs`}
+                            >
                               Tasks: {user.tasksCompleted}
                             </p>
                           </div>
@@ -1487,24 +1493,12 @@ const AdminDashboardContent = () => {
                         >
                           {user.status}
                         </span>
-                        <div className="flex items-center gap-1">
-                          <button
-                            className="p-2 text-white rounded-lg transition-all duration-200 hover:shadow-lg"
-                            style={{
-                              background: 'linear-gradient(0deg, #0a0a0a 0%, #000 100%)',
-                              boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.1)'
-                            }}
-                          >
-                            <Eye className="w-4 h-4" />
+                        <div className="flex items-center gap-2">
+                          <button className="p-2 bg-gradient-to-r from-gray-900 to-black text-white rounded-lg transition-all duration-300 hover:bg-white hover:text-black hover:border-2 hover:border-dashed hover:border-black hover:shadow-xl">
+                            <RiEyeLine className="w-4 h-4" />
                           </button>
-                          <button
-                            className="p-2 text-white rounded-lg transition-all duration-200 hover:shadow-lg"
-                            style={{
-                              background: 'linear-gradient(0deg, #0a0a0a 0%, #000 100%)',
-                              boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.1)'
-                            }}
-                          >
-                            <Edit className="w-4 h-4" />
+                          <button className="p-2 bg-gradient-to-r from-gray-900 to-black text-white rounded-lg transition-all duration-300 hover:bg-white hover:text-black hover:border-2 hover:border-dashed hover:border-black hover:shadow-xl">
+                            <RiEditLine className="w-4 h-4" />
                           </button>
                         </div>
                       </div>
@@ -1520,7 +1514,7 @@ const AdminDashboardContent = () => {
             {/* Client Activity */}
             <div className="relative group">
               <div
-                className={`absolute inset-0 rounded-lg md:rounded-xl bg-gradient-to-r from-green-600/10 to-blue-600/10 blur-lg ${
+                className={`absolute inset-0 rounded-lg md:rounded-xl bg-gradient-to-r from-green-600/10 to-emerald-400/10 blur-xl group-hover:blur-2xl transition-all duration-300 ${
                   theme === "light" ? "opacity-50" : ""
                 }`}
               ></div>
@@ -1529,11 +1523,15 @@ const AdminDashboardContent = () => {
                   currentTheme.cardBg
                 } backdrop-blur-lg rounded-lg md:rounded-xl border ${
                   currentTheme.border
-                } p-4 md:p-5 ${
-                  theme === "light" ? currentTheme.cardShadow || "shadow-lg" : ""
+                } p-4 md:p-5 shadow-xl hover:shadow-2xl transition-all duration-300 ${
+                  theme === "light"
+                    ? "shadow-green-200/30"
+                    : "shadow-green-900/30"
                 }`}
               >
-                <h3 className={`font-semibold ${currentTheme.text} mb-3 md:mb-4 text-sm md:text-base`}>
+                <h3
+                  className={`font-semibold ${currentTheme.text} mb-3 md:mb-4 text-sm md:text-base`}
+                >
                   Recent Activity
                 </h3>
                 <div className="space-y-3">
@@ -1542,38 +1540,43 @@ const AdminDashboardContent = () => {
                       user: "John Smith",
                       action: "Updated profile",
                       time: "2 mins ago",
-                      type: "update"
+                      type: "update",
                     },
                     {
-                      user: "Sarah Johnson", 
+                      user: "Sarah Johnson",
                       action: "Created new task",
                       time: "15 mins ago",
-                      type: "create"
+                      type: "create",
                     },
                     {
                       user: "Mike Chen",
                       action: "Logged in",
-                      time: "1 hour ago", 
-                      type: "login"
+                      time: "1 hour ago",
+                      type: "login",
                     },
                     {
                       user: "Emily Davis",
                       action: "Account created",
                       time: "2 hours ago",
-                      type: "signup"
-                    }
+                      type: "signup",
+                    },
                   ].map((activity, index) => (
                     <div key={index} className="flex items-start gap-3">
-                      <div 
+                      <div
                         className={`w-2 h-2 rounded-full mt-2 ${
-                          activity.type === 'create' ? 'bg-green-500' :
-                          activity.type === 'update' ? 'bg-blue-500' :
-                          activity.type === 'login' ? 'bg-purple-500' :
-                          'bg-yellow-500'
+                          activity.type === "create"
+                            ? "bg-green-500"
+                            : activity.type === "update"
+                            ? "bg-blue-500"
+                            : activity.type === "login"
+                            ? "bg-purple-500"
+                            : "bg-yellow-500"
                         }`}
                       ></div>
                       <div className="flex-1 min-w-0">
-                        <p className={`${currentTheme.text} text-xs md:text-sm font-medium`}>
+                        <p
+                          className={`${currentTheme.text} text-xs md:text-sm font-medium`}
+                        >
                           {activity.user}
                         </p>
                         <p className={`${currentTheme.textSecondary} text-xs`}>
@@ -1592,7 +1595,7 @@ const AdminDashboardContent = () => {
             {/* Quick Actions */}
             <div className="relative group">
               <div
-                className={`absolute inset-0 rounded-lg md:rounded-xl bg-gradient-to-r from-purple-600/10 to-pink-600/10 blur-lg ${
+                className={`absolute inset-0 rounded-lg md:rounded-xl bg-gradient-to-r from-purple-600/10 to-pink-400/10 blur-xl group-hover:blur-2xl transition-all duration-300 ${
                   theme === "light" ? "opacity-50" : ""
                 }`}
               ></div>
@@ -1601,42 +1604,28 @@ const AdminDashboardContent = () => {
                   currentTheme.cardBg
                 } backdrop-blur-lg rounded-lg md:rounded-xl border ${
                   currentTheme.border
-                } p-4 md:p-5 ${
-                  theme === "light" ? currentTheme.cardShadow || "shadow-lg" : ""
+                } p-4 md:p-5 shadow-xl hover:shadow-2xl transition-all duration-300 ${
+                  theme === "light"
+                    ? "shadow-purple-200/30"
+                    : "shadow-purple-900/30"
                 }`}
               >
-                <h3 className={`font-semibold ${currentTheme.text} mb-3 md:mb-4 text-sm md:text-base`}>
+                <h3
+                  className={`font-semibold ${currentTheme.text} mb-3 md:mb-4 text-sm md:text-base`}
+                >
                   Quick Actions
                 </h3>
-                <div className="space-y-2">
-                  <button 
-                    className="w-full px-3 py-2 text-white rounded-lg transition-all duration-200 hover:shadow-lg flex items-center gap-2 text-sm"
-                    style={{
-                      background: 'linear-gradient(0deg, #0a0a0a 0%, #000 100%)',
-                      boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.1)'
-                    }}
-                  >
-                    <UserPlus className="w-4 h-4" />
+                <div className="space-y-3">
+                  <button className="w-full px-3 py-3 bg-gradient-to-r from-gray-900 to-black text-white rounded-lg transition-all duration-300 hover:bg-white hover:text-black hover:border-2 hover:border-dashed hover:border-black hover:shadow-xl flex items-center gap-2 text-sm font-medium">
+                    <RiUserAddLine className="w-4 h-4" />
                     Invite Client
                   </button>
-                  <button 
-                    className="w-full px-3 py-2 text-white rounded-lg transition-all duration-200 hover:shadow-lg flex items-center gap-2 text-sm"
-                    style={{
-                      background: 'linear-gradient(0deg, #0a0a0a 0%, #000 100%)',
-                      boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.1)'
-                    }}
-                  >
-                    <Mail className="w-4 h-4" />
+                  <button className="w-full px-3 py-3 bg-gradient-to-r from-gray-900 to-black text-white rounded-lg transition-all duration-300 hover:bg-white hover:text-black hover:border-2 hover:border-dashed hover:border-black hover:shadow-xl flex items-center gap-2 text-sm font-medium">
+                    <RiMailLine className="w-4 h-4" />
                     Send Notification
                   </button>
-                  <button 
-                    className="w-full px-3 py-2 text-white rounded-lg transition-all duration-200 hover:shadow-lg flex items-center gap-2 text-sm"
-                    style={{
-                      background: 'linear-gradient(0deg, #0a0a0a 0%, #000 100%)',
-                      boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.1)'
-                    }}
-                  >
-                    <Download className="w-4 h-4" />
+                  <button className="w-full px-3 py-3 bg-gradient-to-r from-gray-900 to-black text-white rounded-lg transition-all duration-300 hover:bg-white hover:text-black hover:border-2 hover:border-dashed hover:border-black hover:shadow-xl flex items-center gap-2 text-sm font-medium">
+                    <RiDownloadLine className="w-4 h-4" />
                     Export Data
                   </button>
                 </div>
@@ -1646,7 +1635,7 @@ const AdminDashboardContent = () => {
         </div>
       </div>
     );
-  }
+  };
 
   const renderTransactions = () => (
     <div className="space-y-6">
@@ -1694,15 +1683,17 @@ const AdminDashboardContent = () => {
             >
               <div className="flex items-center justify-between mb-3">
                 <div
-                  className="w-10 h-10 rounded-lg flex items-center justify-center text-white"
-                  style={{
-                    background: 'linear-gradient(0deg, #0a0a0a 0%, #000 100%)',
-                    boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.1)'
-                  }}
+                  className={`w-10 h-10 rounded-lg flex items-center justify-center ${currentTheme.activeBg}`}
                 >
-                  <Icon className="w-5 h-5" />
+                  <Icon className={`w-5 h-5 ${currentTheme.text}`} />
                 </div>
-                <span className={`text-xs font-medium ${stat.change.startsWith('+') ? 'text-green-500' : 'text-red-500'}`}>
+                <span
+                  className={`text-xs font-medium ${
+                    stat.change.startsWith("+")
+                      ? "text-green-500"
+                      : "text-red-500"
+                  }`}
+                >
                   {stat.change}
                 </span>
               </div>
@@ -1735,7 +1726,7 @@ const AdminDashboardContent = () => {
             <h2
               className={`text-xl font-bold ${currentTheme.text} flex items-center gap-3`}
             >
-              <CreditCard className="w-6 h-6 text-green-500" />
+              <RiBankCardLine className="w-6 h-6 text-green-500" />
               Transaction History
             </h2>
             <div className="flex items-center gap-3">
@@ -1748,14 +1739,15 @@ const AdminDashboardContent = () => {
                 <option>Failed</option>
                 <option>Refunded</option>
               </select>
-              <button 
+              <button
                 className="flex items-center gap-2 px-4 py-2 text-white rounded-lg font-medium transition-all duration-200 hover:shadow-lg"
                 style={{
-                  background: 'linear-gradient(0deg, #0a0a0a 0%, #000 100%)',
-                  boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.1)'
+                  background: "linear-gradient(0deg, #0a0a0a 0%, #000 100%)",
+                  boxShadow:
+                    "0 4px 6px rgba(0, 0, 0, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.1)",
                 }}
               >
-                <Plus className="w-4 h-4" />
+                <RiAddLine className="w-4 h-4" />
                 Export Report
               </button>
             </div>
@@ -1815,8 +1807,8 @@ const AdminDashboardContent = () => {
                 <div className="flex items-start justify-between mb-4">
                   <div className="flex items-center gap-4">
                     <div className="relative">
-                      <div className="w-14 h-14 bg-gradient-to-r from-green-500 to-emerald-500 rounded-full flex items-center justify-center">
-                        <CreditCard className="w-7 h-7 text-white" />
+                      <div className="w-14 h-14 bg-green-500 rounded-full flex items-center justify-center">
+                        <RiBankCardLine className="w-7 h-7 text-white" />
                       </div>
                       <div
                         className={`absolute -bottom-1 -right-1 w-5 h-5 rounded-full border-2 ${
@@ -2025,13 +2017,9 @@ const AdminDashboardContent = () => {
             >
               <div className="flex items-center justify-between mb-3">
                 <div
-                  className="w-10 h-10 rounded-lg flex items-center justify-center text-white"
-                  style={{
-                    background: 'linear-gradient(0deg, #0a0a0a 0%, #000 100%)',
-                    boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.1)'
-                  }}
+                  className={`w-10 h-10 rounded-lg flex items-center justify-center ${currentTheme.activeBg}`}
                 >
-                  <Icon className="w-5 h-5" />
+                  <Icon className={`w-5 h-5 ${currentTheme.text}`} />
                 </div>
                 <span
                   className={`${
@@ -2072,7 +2060,7 @@ const AdminDashboardContent = () => {
             <h2
               className={`text-xl font-bold ${currentTheme.text} flex items-center gap-3`}
             >
-              <HelpCircle className="w-6 h-6 text-orange-500" />
+              <RiQuestionLine className="w-6 h-6 text-orange-500" />
               Support Tickets
             </h2>
             <div className="flex items-center gap-3">
@@ -2085,14 +2073,15 @@ const AdminDashboardContent = () => {
                 <option>Resolved</option>
                 <option>Closed</option>
               </select>
-              <button 
+              <button
                 className="flex items-center gap-2 px-4 py-2 text-white rounded-lg font-medium transition-all duration-200 hover:shadow-lg"
                 style={{
-                  background: 'linear-gradient(0deg, #0a0a0a 0%, #000 100%)',
-                  boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.1)'
+                  background: "linear-gradient(0deg, #0a0a0a 0%, #000 100%)",
+                  boxShadow:
+                    "0 4px 6px rgba(0, 0, 0, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.1)",
                 }}
               >
-                <Plus className="w-4 h-4" />
+                <RiAddLine className="w-4 h-4" />
                 New Ticket
               </button>
             </div>
@@ -2161,7 +2150,7 @@ const AdminDashboardContent = () => {
                             : "bg-gradient-to-r from-blue-500 to-cyan-500"
                         }`}
                       >
-                        <HelpCircle className="w-7 h-7 text-white" />
+                        <RiQuestionLine className="w-7 h-7 text-white" />
                       </div>
                       <div
                         className={`absolute -bottom-1 -right-1 w-5 h-5 rounded-full border-2 ${
@@ -2382,11 +2371,11 @@ const AdminDashboardContent = () => {
             <h2
               className={`text-xl font-bold ${currentTheme.text} mb-4 flex items-center gap-2`}
             >
-              <Settings className="w-6 h-6 text-gray-500" />
+              <RiSettingsLine className="w-6 h-6 text-gray-500" />
               System Settings
             </h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className={`p-4 rounded-xl border ${currentTheme.border}`}>
+              <div className={`p-4 rounded-xl border ${currentTheme.border} shadow-lg hover:shadow-xl transition-all duration-300`}>
                 <h3 className={`${currentTheme.text} font-semibold mb-2`}>
                   General Settings
                 </h3>
@@ -2394,7 +2383,7 @@ const AdminDashboardContent = () => {
                   Configure system-wide preferences and defaults
                 </p>
               </div>
-              <div className={`p-4 rounded-xl border ${currentTheme.border}`}>
+              <div className={`p-4 rounded-xl border ${currentTheme.border} shadow-lg hover:shadow-xl transition-all duration-300`}>
                 <h3 className={`${currentTheme.text} font-semibold mb-2`}>
                   Security Settings
                 </h3>
@@ -2402,7 +2391,7 @@ const AdminDashboardContent = () => {
                   Manage authentication and access controls
                 </p>
               </div>
-              <div className={`p-4 rounded-xl border ${currentTheme.border}`}>
+              <div className={`p-4 rounded-xl border ${currentTheme.border} shadow-lg hover:shadow-xl transition-all duration-300`}>
                 <h3 className={`${currentTheme.text} font-semibold mb-2`}>
                   AI Configuration
                 </h3>
@@ -2410,7 +2399,7 @@ const AdminDashboardContent = () => {
                   Configure AI employee deployment settings
                 </p>
               </div>
-              <div className={`p-4 rounded-xl border ${currentTheme.border}`}>
+              <div className={`p-4 rounded-xl border ${currentTheme.border} shadow-lg hover:shadow-xl transition-all duration-300`}>
                 <h3 className={`${currentTheme.text} font-semibold mb-2`}>
                   Integration Settings
                 </h3>
@@ -2471,50 +2460,43 @@ const AdminDashboardContent = () => {
 
       {/* Sidebar */}
       <div
-        className={`fixed left-0 top-0 h-full w-72 md:w-80 no-scrollbar ${
-          currentTheme.sidebarBg
-        } backdrop-blur-md border-r ${
-          currentTheme.border
-        } z-50 transform transition-transform duration-300 ease-in-out ${
+        className={`fixed left-0 top-0 h-full w-64 no-scrollbar bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-800 z-50 transform transition-transform duration-300 ease-in-out ${
           isMobileMenuOpen ? "translate-x-0" : "-translate-x-full"
         } lg:translate-x-0`}
       >
         <div className="flex flex-col h-full">
           {/* Header */}
-          <div className={`p-4 md:p-6 border-b ${currentTheme.border}`}>
-            <div className="flex items-center justify-between mb-4 md:mb-6">
-              <div className="flex items-center gap-2">
+          <div className="p-6 border-b border-gray-200 dark:border-gray-800">
+            <div className="flex items-center justify-between mb-6">
+              <div className="flex items-center gap-3">
                 <img
                   src={Shivlogo}
                   alt="ShivAi Logo"
-                  className="h-6 md:h-8 w-auto"
+                  className="h-8 w-auto"
                 />
+                <span className="text-lg font-semibold text-gray-900 dark:text-white">
+                  ShivAI
+                </span>
               </div>
-              <div className="flex items-center gap-1 md:gap-2">
+              <div className="flex items-center gap-2">
                 <button
                   onClick={toggleTheme}
-                  className={`p-1.5 md:p-2 rounded-lg ${currentTheme.hover} transition-colors`}
+                  className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
                   title={`Switch to ${
                     theme === "dark" ? "light" : "dark"
                   } mode`}
                 >
                   {theme === "dark" ? (
-                    <Sun
-                      className={`w-4 h-4 md:w-5 md:h-5 ${currentTheme.textSecondary}`}
-                    />
+                    <RiSunLine className="w-5 h-5 text-gray-600 dark:text-gray-400" />
                   ) : (
-                    <Moon
-                      className={`w-4 h-4 md:w-5 md:h-5 ${currentTheme.textSecondary}`}
-                    />
+                    <RiMoonLine className="w-5 h-5 text-gray-600 dark:text-gray-400" />
                   )}
                 </button>
                 <button
                   onClick={() => setIsMobileMenuOpen(false)}
-                  className={`p-1.5 md:p-2 rounded-lg ${currentTheme.hover} lg:hidden transition-colors`}
+                  className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 lg:hidden transition-colors"
                 >
-                  <X
-                    className={`w-4 h-4 md:w-5 md:h-5 ${currentTheme.textSecondary}`}
-                  />
+                  <RiCloseLine className="w-5 h-5 text-gray-600 dark:text-gray-400" />
                 </button>
               </div>
             </div>
@@ -2524,7 +2506,7 @@ const AdminDashboardContent = () => {
               <div
                 className={`relative ${currentTheme.searchBg} rounded-lg border ${currentTheme.border} focus-within:border-opacity-60 transition-all`}
               >
-                <Search
+                <RiSearchLine
                   className={`absolute left-3 top-1/2 hidden lg:block transform -translate-y-1/2 w-4 h-4 ${currentTheme.textSecondary}`}
                 />
                 <input
@@ -2539,7 +2521,7 @@ const AdminDashboardContent = () => {
           </div>
 
           {/* Navigation */}
-          <nav className="flex-1 p-3 md:p-4 space-y-1 md:space-y-2 overflow-y-auto no-scrollbar">
+          <nav className="flex-1 p-4 space-y-1 overflow-y-auto no-scrollbar">
             {navItems.map((item) => {
               const Icon = item.icon;
               const isActive = activeSection === item.section;
@@ -2548,45 +2530,43 @@ const AdminDashboardContent = () => {
                 <button
                   key={item.id}
                   onClick={() => handleNavClick(item.section)}
-                  className={`w-full flex items-center gap-2 md:gap-3 px-3 md:px-4 py-2.5 md:py-3 rounded-lg transition-all duration-200 group relative ${
+                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 group relative ${
                     isActive
-                      ? `${currentTheme.activeBg} ${currentTheme.text} font-medium`
-                      : `${currentTheme.textSecondary} ${currentTheme.hover} hover:${currentTheme.text}`
+                      ? "bg-gray-900 dark:bg-white text-white dark:text-gray-900 font-medium"
+                      : "text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-gray-100"
                   }`}
                 >
-                  <Icon className="w-4 h-4 md:w-5 md:h-5 flex-shrink-0" />
-                  <span className="text-xs md:text-sm flex-1 text-left truncate">
+                  <Icon className={`w-5 h-5 flex-shrink-0 transition-colors ${
+                    isActive ? "text-white dark:text-gray-900" : ""
+                  }`} />
+                  <span className="text-sm flex-1 text-left truncate">
                     {item.label}
                   </span>
-                  {item.badge && (
-                    <span className="bg-red-500 text-white text-xs font-medium px-1.5 py-0.5 md:px-2 md:py-1 rounded-full min-w-[18px] text-center flex-shrink-0">
+                  {/* {item.badge && (
+                    <span className={`px-2 py-1 text-xs rounded-full ${
+                      isActive 
+                        ? "bg-white/20 dark:bg-black/20 text-white dark:text-gray-900" 
+                        : "bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-400"
+                    }`}>
                       {item.badge}
                     </span>
-                  )}
+                  )} */}
                 </button>
               );
             })}
           </nav>
 
           {/* User Info */}
-          <div className={`p-3 md:p-4 border-t ${currentTheme.border}`}>
-            <div
-              className={`flex items-center gap-2 md:gap-3 p-2 md:p-3 rounded-lg ${currentTheme.hover} border ${currentTheme.border} mb-2 md:mb-3`}
-            >
-              <div
-                className={`w-8 h-8 md:w-10 md:h-10 ${currentTheme.activeBg} rounded-full flex items-center justify-center flex-shrink-0`}
-              >
-                <User
-                  className={`w-4 h-4 md:w-5 md:h-5 ${currentTheme.text}`}
-                />
+          <div className="p-4 border-t border-gray-200 dark:border-gray-800">
+            <div className="flex items-center gap-3 p-3 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors cursor-pointer mb-3">
+              <div className="w-10 h-10 bg-gray-100 dark:bg-gray-800 rounded-full flex items-center justify-center flex-shrink-0">
+                <RiUserLine className="w-5 h-5 text-gray-600 dark:text-gray-400" />
               </div>
               <div className="flex-1 min-w-0">
-                <p
-                  className={`text-xs md:text-sm font-medium ${currentTheme.text} truncate`}
-                >
+                <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
                   Admin User
                 </p>
-                <p className={`text-xs ${currentTheme.textSecondary} truncate`}>
+                <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
                   admin@shivai.com
                 </p>
               </div>
@@ -2594,9 +2574,9 @@ const AdminDashboardContent = () => {
 
             <button
               onClick={handleLogout}
-              className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg ${currentTheme.textSecondary} ${currentTheme.hover} hover:${currentTheme.text} transition-all duration-200 group`}
+              className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-gray-100 transition-all duration-200 group"
             >
-              <LogOut className="w-5 h-5 group-hover:scale-110 transition-transform" />
+              <RiLogoutBoxLine className="w-5 h-5 group-hover:scale-110 transition-transform" />
               <span className="font-medium text-sm">Sign Out</span>
             </button>
           </div>
@@ -2607,20 +2587,20 @@ const AdminDashboardContent = () => {
       <MobileTabNavigation />
 
       {/* Main Content Area */}
-      <div className={`transition-all duration-300 ease-in-out ml-0 lg:ml-80`}>
-        <div className="min-h-screen relative z-10">
+      <div className="transition-all duration-300 ease-in-out ml-0 lg:ml-64">
+        <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
           {/* Top Bar - Hidden on mobile, visible on desktop */}
-          <div className="hidden lg:block bg-white/95 backdrop-blur-md border-b border-gray-200 px-6 py-4">
+          <div className="hidden lg:block bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 px-6 py-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-4">
-                <h1 className="text-2xl font-semibold text-gray-900 capitalize">
+                <h1 className="text-2xl font-semibold text-gray-900 dark:text-white capitalize">
                   {activeSection}
                 </h1>
               </div>
 
               <div className="flex items-center gap-4">
-                <button className="p-2 hover:bg-gray-100 rounded-lg transition-colors relative">
-                  <Bell className="w-5 h-5 text-gray-600" />
+                <button className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors relative">
+                  <RiNotificationLine className="w-5 h-5 text-gray-600 dark:text-gray-400" />
                   <span className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full"></span>
                 </button>
               </div>
@@ -2628,7 +2608,7 @@ const AdminDashboardContent = () => {
           </div>
 
           {/* Content */}
-          <div className="p-3 md:p-4 lg:p-6">{renderContent()}</div>
+          <div className="p-2 sm:p-3 md:p-4 lg:p-6">{renderContent()}</div>
         </div>
       </div>
     </div>

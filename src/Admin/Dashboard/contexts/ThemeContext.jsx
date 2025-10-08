@@ -32,7 +32,7 @@ export const ThemeProvider = ({ children }) => {
       activeBg: 'bg-[#404040]',
       activeBorder: 'border-[#5a5a59]',
       shadow: 'shadow-lg shadow-black/20',
-      cardShadow: 'shadow-md shadow-black/10'
+      cardShadow: 'shadow-lg shadow-black/10'
     },
     light: {
       bg: 'bg-[#F0F0F0]',
@@ -47,8 +47,8 @@ export const ThemeProvider = ({ children }) => {
       searchBg: 'bg-[#f8f8f8]',
       activeBg: 'bg-[#f0f0f0]',
       activeBorder: 'border-[#333333]',
-      shadow: 'shadow-sm shadow-gray-200/50',
-      cardShadow: 'shadow-sm shadow-gray-200/30'
+      shadow: 'shadow-md shadow-gray-200/50',
+      cardShadow: 'shadow-md shadow-gray-200/30'
     }
   };
 

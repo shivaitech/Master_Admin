@@ -402,41 +402,11 @@ const AIEmployeeStatsMain = ({ onViewEmployee }) => {
 
   return (
     <div className="space-y-3 md:space-y-4 lg:space-y-6 pt-16 lg:pt-0 px-2 sm:px-0">
-      {/* Header Card - Compact Design */}
-      <div
-        className={`${currentTheme.cardBg} border ${
-          currentTheme.border
-        } rounded-lg p-3 md:p-4 ${currentTheme.cardShadow || "shadow-lg"}`}
-      >
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-center gap-2 md:gap-3">
-            <div
-              className="w-7 h-7 md:w-8 md:h-8 rounded-full flex items-center justify-center flex-shrink-0 text-white"
-              style={{
-                background: "linear-gradient(0deg, #0a0a0a 0%, #000 100%)",
-                boxShadow:
-                  "0 4px 6px rgba(0, 0, 0, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.1)",
-              }}
-            >
-              <User className="w-3 h-3 md:w-4 md:h-4" />
-            </div>
-            <div className="min-w-0 flex-1">
-              <h2 className="text-sm md:text-base lg:text-lg font-bold text-gray-900 truncate">
-                AI Employee Statistics
-              </h2>
-              <p className="text-xs text-gray-600 mt-0.5 truncate">
-                Monitor performance and analytics
-              </p>
-            </div>
-          </div>
-        </div>
-      </div>
+     
 
       {/* Employee Stats - Sliding Cards for Mobile */}
       <div className="relative">
-        <h3 className={`text-lg font-semibold ${currentTheme.text} mb-4`}>
-          Employee Statistics
-        </h3>
+        
 
         {/* Desktop Grid */}
         <div className="hidden lg:grid lg:grid-cols-4 gap-4">
@@ -764,40 +734,7 @@ const AIEmployeeStatsMain = ({ onViewEmployee }) => {
         </div>
       </div>
 
-      {/* Search and Filters - Mobile Optimized */}
-      <div
-        className={`${currentTheme.cardBg} border ${
-          currentTheme.border
-        } rounded-lg p-2 sm:p-3 md:p-4 ${
-          currentTheme.cardShadow || "shadow-sm"
-        }`}
-      >
-        <div className="flex flex-col gap-2 sm:flex-row sm:gap-2 sm:items-center">
-          <div className="flex-1 relative">
-            <Search className="absolute left-2 top-1/2 hidden lg:block transform -translate-y-1/2 text-gray-400 w-3 h-3 sm:w-4 sm:h-4" />
-            <input
-              type="text"
-              placeholder="Search..."
-              value={searchTerm}
-              onChange={(e) => handleFilterChange("search", e.target.value)}
-              className={`w-full pl-7 sm:pl-9 pr-2 sm:pr-3 py-1.5 sm:py-2 border ${currentTheme.border} rounded-lg text-xs sm:text-sm ${currentTheme.searchBg} ${currentTheme.text} placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500/20`}
-            />
-
-            <button
-                type="button"
-                onClick={() => setIsMobileMenuOpen((open) => !open)}
-                className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-lg text-gray-500 hover:bg-gray-100 transition-all duration-150"
-                title="Filter"
-            >
-                <Filter className="w-4 h-4" />
-            </button>
-          </div>
-
-          
-        </div>
-      </div>
-
-      {/* Sessions List Card */}
+      {/* Sessions List */}
       <div
         className={`${currentTheme.cardBg} border ${
           currentTheme.border
@@ -818,9 +755,29 @@ const AIEmployeeStatsMain = ({ onViewEmployee }) => {
           </div>
         ) : (
           <>
-            <h3 className={`text-lg font-semibold ${currentTheme.text} mb-4`}>
-              Session History
-            </h3>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className={`text-lg font-semibold ${currentTheme.text}`}>
+                Session History
+              </h3>
+              <div className="flex items-center gap-2">
+                <div className="relative">
+                  <Search className={`absolute left-2 top-1/2 transform -translate-y-1/2 w-4 h-4 ${currentTheme.textSecondary}`} />
+                  <input
+                    type="text"
+                    placeholder="Search sessions..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className={`pl-8 pr-3 py-2 text-sm rounded-md border ${currentTheme.border} ${currentTheme.bg} ${currentTheme.text} focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent w-48`}
+                  />
+                </div>
+                <button
+                  className={`p-2 rounded-md ${currentTheme.hover} transition-colors`}
+                  title="Filter sessions"
+                >
+                  <Filter className={`w-4 h-4 ${currentTheme.textSecondary}`} />
+                </button>
+              </div>
+            </div>
             {/* Sessions List - Mobile Optimized */}
             <div className="space-y-2 sm:space-y-3">
               {currentSessions?.map((session) => (
