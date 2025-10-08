@@ -45,9 +45,9 @@
       welcomeMessage:
         "ShivAI offers 24/7 voice support to handle your business calls efficiently and professionally.",
       placeholderText: "Type your message...",
-      voiceGreeting: "Hello! I'm your AI assistant. How can I help?",
+      voiceGreeting: "Hello! I'm your AI Employee. How can I help?",
       privacyPolicyUrl: "https://shivai.com/privacy",
-      companyName: "ShivAI",
+      companyName: "ShivAI Employee",
       subtitle: "AI-Powered Support",
     },
   };
@@ -179,53 +179,75 @@
       }
     }
 
-    async startCall(conversationId = null) {
+    async startCall() {
       try {
-        const response = await fetch(`${this.baseURL}/call/start`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "X-Client-ID": this.clientId,
-          },
-          body: JSON.stringify({
-            conversationId,
-            timestamp: new Date().toISOString(),
-          }),
-        });
+        const response = await fetch(
+          `https://shivai-com-backend.onrender.com/api/v1/calls/start-call`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              timestamp: new Date().toISOString(),
+            }),
+          }
+        );
 
         if (!response.ok) {
           throw new Error(`Start call API request failed: ${response.status}`);
         }
 
         const data = await response.json();
-        return data;
+        if (data.success && data.data) {
+          return {
+            callId: data.data.callId,
+            status: data.data.status,
+            startTime: data.data.startTime,
+            pythonServiceUrl: data.data.pythonServiceUrl,
+          };
+        }
+        throw new Error(data.message || "Failed to start call");
       } catch (error) {
         console.error("ShivAI Start Call API Error:", error);
         throw error;
       }
     }
 
-    async endCall(conversationId = null, callDuration = 0) {
+    async endCall(callId) {
       try {
-        const response = await fetch(`${this.baseURL}/call/end`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "X-Client-ID": this.clientId,
-          },
-          body: JSON.stringify({
-            conversationId,
-            callDuration,
-            timestamp: new Date().toISOString(),
-          }),
-        });
+        if (!callId) {
+          throw new Error("Call ID is required to end call");
+        }
+
+        const response = await fetch(
+          `https://shivai-com-backend.onrender.com/api/v1/calls/end-call`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              callId: callId,
+            }),
+          }
+        );
 
         if (!response.ok) {
           throw new Error(`End call API request failed: ${response.status}`);
         }
 
         const data = await response.json();
-        return data;
+        if (data.success && data.data) {
+          return {
+            callId: data.data.callId,
+            status: data.data.status,
+            startTime: data.data.startTime,
+            endTime: data.data.endTime,
+            duration: data.data.duration,
+          };
+        }
+        throw new Error(data.message || "Failed to end call");
       } catch (error) {
         console.error("ShivAI End Call API Error:", error);
         throw error;
@@ -239,7 +261,7 @@
       this.config = mergeDeep({}, DEFAULT_CONFIG, config);
       this.api = new ShivAIAPI(this.config);
       this.isOpen = false;
-      this.currentMode = "chat";
+      this.currentMode = "voice";
       this.messages = [];
       this.isRecording = false;
       this.isLoading = false;
@@ -251,6 +273,20 @@
       this.callDuration = 0;
       this.callInterval = null;
       this.hasStarted = false;
+      this.currentCallId = null;
+      this.pythonServiceUrl = null;
+      this.webSocket = null;
+      this.isWebSocketConnected = false;
+      // Audio capture/streaming state (AudioContext + PCM16 pipeline)
+      this.mediaStream = null; // getUserMedia stream
+      this.audioContext = null; // Web Audio context
+      this.audioProcessor = null; // ScriptProcessorNode
+      this.audioSource = null; // MediaStreamAudioSourceNode
+      this.hasStartedCapture = false; // guard to avoid duplicate start
+      this.isPlayingAudio = false; // AI audio playback state
+      this.audioChunksQueue = []; // queued AI audio chunks (base64)
+      this.currentAudio = null; // currently playing Audio element
+      this.currentAiTranscript = ""; // build up streamed AI text
 
       this.recognition = null;
       this.synthesis = window.speechSynthesis;
@@ -263,6 +299,256 @@
         Math.random().toString(36).substring(2, 15) +
         Math.random().toString(36).substring(2, 15)
       );
+    }
+
+    async connectToWebSocket(pythonServiceUrl) {
+      try {
+        console.log("Connecting to Python service:", pythonServiceUrl);
+
+        // Close existing connection if any
+        if (this.webSocket) {
+          this.webSocket.close();
+        }
+
+        // Create new WebSocket connection
+        this.webSocket = new WebSocket(pythonServiceUrl);
+        // Prefer binary as Blob; we also handle strings
+        try {
+          this.webSocket.binaryType = "blob";
+        } catch (_) {}
+
+        // WebSocket event handlers
+        this.webSocket.onopen = () => {
+          console.log("✅ WebSocket connected to Python service");
+          this.isWebSocketConnected = true;
+
+          // Update UI to show connected state
+          if (this.callStatus) {
+            this.callStatus.textContent = "Connected to voice service";
+            this.callStatus.style.color = "#10b981";
+          }
+
+          // Send initial handshake with call ID
+          this.sendWebSocketMessage({
+            type: "handshake",
+            callId: this.currentCallId,
+            timestamp: new Date().toISOString(),
+          });
+          // Wait for handshake_response before starting mic streaming
+          // Fallback: if no handshake_response arrives, start capture after a short delay
+          setTimeout(() => {
+            if (this.isWebSocketConnected && !this.hasStartedCapture) {
+              console.warn(
+                "⏳ No handshake_response received, starting capture fallback"
+              );
+              this.startAudioCapture().catch((err) => {
+                console.error(
+                  "❌ Failed to start audio capture (fallback):",
+                  err
+                );
+                if (this.callStatus) {
+                  this.callStatus.textContent = "Mic streaming error";
+                  this.callStatus.style.color = "#ef4444";
+                }
+              });
+            }
+          }, 1500);
+        };
+
+        this.webSocket.onmessage = (event) => {
+          const payload = event.data;
+          try {
+            if (typeof payload === "string") {
+              // Try to parse JSON; log raw preview
+              const preview =
+                payload.length > 200 ? payload.slice(0, 200) + "…" : payload;
+              console.log("📩 Received (text) from Python service:", preview);
+              try {
+                const data = JSON.parse(payload);
+                this.handleWebSocketMessage(data);
+              } catch (e) {
+                console.warn("⚠️ Non-JSON text message from server, ignoring.");
+              }
+            } else if (payload instanceof Blob) {
+              console.log(
+                "📩 Received (blob) from Python service:",
+                payload.type || "unknown",
+                payload.size,
+                "bytes"
+              );
+              // If it's audio, queue it; else try to parse as text JSON
+              if ((payload.type || "").startsWith("audio")) {
+                payload
+                  .arrayBuffer()
+                  .then((buf) => {
+                    const b64 = this.arrayBufferToBase64(buf);
+                    this.audioChunksQueue.push(b64);
+                    if (!this.isPlayingAudio) this.playQueuedAudio();
+                  })
+                  .catch((err) =>
+                    console.error("❌ Error reading audio blob:", err)
+                  );
+              } else {
+                payload.text().then((text) => {
+                  try {
+                    const data = JSON.parse(text);
+                    this.handleWebSocketMessage(data);
+                  } catch (_) {
+                    console.warn("⚠️ Blob text not JSON, ignoring.");
+                  }
+                });
+              }
+            } else if (payload instanceof ArrayBuffer) {
+              console.log(
+                "📩 Received (arraybuffer) from Python service:",
+                payload.byteLength,
+                "bytes"
+              );
+              // Treat as audio binary
+              const b64 = this.arrayBufferToBase64(payload);
+              this.audioChunksQueue.push(b64);
+              if (!this.isPlayingAudio) this.playQueuedAudio();
+            } else {
+              console.warn("⚠️ Unknown WS payload type:", typeof payload);
+            }
+          } catch (error) {
+            console.error("❌ Error handling WebSocket message:", error);
+          }
+        };
+
+        this.webSocket.onclose = (event) => {
+          console.log(
+            "🔌 WebSocket connection closed:",
+            event.code,
+            event.reason
+          );
+          this.isWebSocketConnected = false;
+
+          // Update UI
+          if (this.callStatus && this.isCallActive) {
+            this.callStatus.textContent = "Voice service disconnected";
+            this.callStatus.style.color = "#f59e0b";
+          }
+        };
+
+        this.webSocket.onerror = (error) => {
+          console.error("❌ WebSocket error:", error);
+          this.isWebSocketConnected = false;
+
+          // Update UI
+          if (this.callStatus) {
+            this.callStatus.textContent = "Voice service error";
+            this.callStatus.style.color = "#ef4444";
+          }
+        };
+      } catch (error) {
+        console.error("❌ Failed to connect to WebSocket:", error);
+        throw error;
+      }
+    }
+
+    sendWebSocketMessage(data) {
+      if (this.webSocket && this.isWebSocketConnected) {
+        this.webSocket.send(JSON.stringify(data));
+        console.log("📤 Sent to Python service:", data);
+      } else {
+        console.warn("⚠️ WebSocket not connected, message not sent:", data);
+      }
+    }
+
+    handleWebSocketMessage(data) {
+      switch (data.type) {
+        case "handshake_response":
+          console.log("🤝 Handshake confirmed with Python service");
+          // Start audio capture now that backend is ready
+          this.startAudioCapture().catch((err) => {
+            console.error("❌ Failed to start audio capture:", err);
+            if (this.callStatus) {
+              this.callStatus.textContent = "Mic streaming error";
+              this.callStatus.style.color = "#ef4444";
+            }
+          });
+          break;
+
+        // Legacy/alt type: WAV audio
+        case "audio_data":
+          console.log("🔊 Received audio data from AI (wav)");
+          this.playAudioResponse(data.audio);
+          break;
+
+        // Streaming audio chunks (e.g., MPEG) per testCall.js
+        case "audio_chunk":
+          if (data.audio) {
+            this.audioChunksQueue.push(data.audio);
+            if (!this.isPlayingAudio) {
+              this.playQueuedAudio();
+            }
+          }
+          break;
+        case "audio_complete":
+          console.log("🎶 AI audio streaming completed");
+          break;
+
+        case "transcription":
+          // Handle speech-to-text result
+          console.log("📝 Transcription received:", data.text);
+          this.handleTranscription(data.text);
+          break;
+
+        case "user_transcript":
+          console.log("🗣️ User transcript:", data.text);
+          this.handleTranscription(data.text);
+          break;
+        case "ai_transcript":
+          console.log("🤖 AI transcript complete:", data.text);
+          // Optionally display the final AI text somewhere
+          break;
+        case "ai_text_delta":
+          this.currentAiTranscript += data.text || "";
+          break;
+
+        case "speech_started":
+          if (this.callStatus) {
+            this.callStatus.textContent = "Listening...";
+            this.callStatus.style.color = "#10b981";
+          }
+          this.stopAudioPlayback();
+          break;
+        case "speech_stopped":
+          if (this.callStatus) {
+            this.callStatus.textContent = "Processing...";
+            this.callStatus.style.color = "#f59e0b";
+          }
+          break;
+        case "response_done":
+          if (this.callStatus) {
+            this.callStatus.textContent = "Connected - Speak now!";
+            this.callStatus.style.color = "#10b981";
+          }
+          break;
+
+        case "error":
+          console.error("❌ Python service error:", data.message || data.error);
+          if (this.callStatus) {
+            this.callStatus.textContent = `Voice service error: ${
+              data.message || data.error || ""
+            }`.trim();
+            this.callStatus.style.color = "#ef4444";
+          }
+          break;
+
+        default:
+          console.log("📩 Unknown message type:", data.type, data);
+      }
+    }
+
+    disconnectWebSocket() {
+      if (this.webSocket) {
+        console.log("🔌 Disconnecting from Python service");
+        this.webSocket.close();
+        this.webSocket = null;
+        this.isWebSocketConnected = false;
+      }
     }
 
     init() {
@@ -315,7 +601,6 @@
           flex: 1;
           overflow-y: auto;
           padding: 16px;
-          max-height: 35vh;
           background-color: #f9fafb;
         }
         
@@ -332,11 +617,12 @@
           border-radius: 2px;
         }
         
-        .shivai-widget-message {
-          margin-bottom: 12px;
-          animation: slideIn 0.3s ease-out;
-        }
-        
+          .shivai-widget-messages {
+            /* Fill available space equally with call interface */
+            max-height: none !important;
+            padding: 12px !important;
+            -webkit-overflow-scrolling: touch !important;
+          }
         @keyframes slideIn {
           from { opacity: 0; transform: translateY(10px); }
           to { opacity: 1; transform: translateY(0); }
@@ -404,7 +690,7 @@
         
         @media (max-width: 768px) {
           .shivai-widget-chat {
-            width: calc(100vw - 32px) !important;
+            width: calc(100vw - 16px) !important;
             max-width: 400px !important;
             height: auto !important;
             max-height: 75vh !important;
@@ -512,8 +798,8 @@
         
         @media (max-width: 640px) and (min-width: 481px) {
           .shivai-widget-chat {
-            width: calc(100vw - 40px) !important;
-            max-width: 420px !important;
+            width: calc(100vw - 16px) !important;
+            max-width: 480px !important;
             height: auto !important;
             max-height: 80vh !important;
             min-height: 320px !important;
@@ -529,7 +815,7 @@
           }
           
           .shivai-widget-messages {
-            max-height: 30vh !important;
+            max-height: none !important;
           }
           
           /* Tablet start button - make it full width */
@@ -570,8 +856,9 @@
 
         @media (max-width: 480px) {
           .shivai-widget-chat {
-            width: calc(100vw - 24px) !important;
-            max-width: 360px !important;
+            width: calc(100vw - 16px) !important;
+            max-width: 400px !important;
+            
             height: auto !important;
             max-height: 70vh !important;
             min-height: 280px !important;
@@ -589,7 +876,7 @@
           }
           
           .shivai-widget-messages {
-            max-height: 20vh !important;
+            max-height: none !important;
             padding: 10px !important;
             -webkit-overflow-scrolling: touch !important;
           }
@@ -709,29 +996,51 @@
             alignItems: "center",
             justifyContent: "center",
             transition: "all 0.3s ease",
-            // border: "3px solid rgba(255,255,255,0.2)",
+            background:
+              "linear-gradient(135deg, #4b5563 0%, #6b7280 30%, #374151 70%, #1f2937 100%)",
+            // border: "2px solid rgba(255, 255, 255, 0.15)",
+            boxShadow:
+              "0 8px 32px rgba(0, 0, 0, 0.25), 0 2px 8px rgba(0, 0, 0, 0.15)",
           },
         },
-        [createIcon("message-circle", window.innerWidth <= 768 ? 26 : 24)]
+        [createIcon("phone", window.innerWidth <= 768 ? 26 : 24)]
       );
 
       // Add hover and touch effects
       this.triggerButton.addEventListener("mouseover", () => {
         this.triggerButton.style.transform = "scale(1.1)";
-        this.triggerButton.style.boxShadow = "0 8px 25px rgba(0,0,0,0.3)";
+        this.triggerButton.style.background =
+          "linear-gradient(135deg, #6b7280 0%, #9ca3af 30%, #4b5563 70%, #374151 100%)";
+        this.triggerButton.style.boxShadow =
+          "0 12px 40px rgba(0, 0, 0, 0.35), 0 4px 12px rgba(0, 0, 0, 0.25)";
+        this.triggerButton.style.borderColor = "rgba(255, 255, 255, 0.25)";
       });
 
       this.triggerButton.addEventListener("mouseout", () => {
         this.triggerButton.style.transform = "scale(1)";
-        this.triggerButton.style.boxShadow = "";
+        this.triggerButton.style.background =
+          "linear-gradient(135deg, #4b5563 0%, #6b7280 30%, #374151 70%, #1f2937 100%)";
+        this.triggerButton.style.boxShadow =
+          "0 8px 32px rgba(0, 0, 0, 0.25), 0 2px 8px rgba(0, 0, 0, 0.15)";
+        this.triggerButton.style.borderColor = "rgba(255, 255, 255, 0.15)";
       });
 
       this.triggerButton.addEventListener("touchstart", () => {
         this.triggerButton.style.transform = "scale(0.95)";
+        this.triggerButton.style.background =
+          "linear-gradient(135deg, #374151 0%, #4b5563 30%, #1f2937 70%, #111827 100%)";
+        this.triggerButton.style.boxShadow =
+          "0 4px 16px rgba(0, 0, 0, 0.4), inset 0 2px 4px rgba(0, 0, 0, 0.25)";
       });
 
       this.triggerButton.addEventListener("touchend", () => {
-        this.triggerButton.style.transform = "scale(1)";
+        setTimeout(() => {
+          this.triggerButton.style.transform = "scale(1)";
+          this.triggerButton.style.background =
+            "linear-gradient(135deg, #4b5563 0%, #6b7280 30%, #374151 70%, #1f2937 100%)";
+          this.triggerButton.style.boxShadow =
+            "0 8px 32px rgba(0, 0, 0, 0.25), 0 2px 8px rgba(0, 0, 0, 0.15)";
+        }, 100);
       });
 
       this.container.appendChild(this.triggerButton);
@@ -760,9 +1069,8 @@
         style: {
           position: "relative",
           textAlign: "center",
-          borderBottom: "1px solid #e5e7eb",
-          padding: "20px 16px",
-          background: "linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)",
+          padding: "16px 16px 20px",
+          background: "#fff",
           borderRadius: "16px 16px 0 0",
         },
       });
@@ -773,22 +1081,21 @@
         {
           style: {
             position: "absolute",
-            top: "12px",
-            right: "12px",
-            width: "40px",
-            height: "40px",
+            top: "8px",
+            right: "8px",
+            width: "32px",
+            height: "32px",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
-            color: "#6b7280",
-            background: "rgba(255, 255, 255, 0.9)",
-            border: "1px solid #e5e7eb",
-            borderRadius: "12px",
+            color: "#9ca3af",
+            background: "transparent",
+            border: "none",
+            borderRadius: "50%",
             cursor: "pointer",
-            fontSize: "20px",
-            fontWeight: "500",
+            fontSize: "18px",
+            fontWeight: "400",
             transition: "all 0.2s",
-            boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
             webkitTapHighlightColor: "transparent",
             touchAction: "manipulation",
           },
@@ -797,15 +1104,13 @@
       );
 
       this.closeButton.addEventListener("mouseover", () => {
-        this.closeButton.style.background = "rgba(239, 68, 68, 0.1)";
-        this.closeButton.style.color = "#dc2626";
-        this.closeButton.style.borderColor = "#fecaca";
+        this.closeButton.style.background = "#f3f4f6";
+        this.closeButton.style.color = "#374151";
       });
 
       this.closeButton.addEventListener("mouseout", () => {
-        this.closeButton.style.background = "rgba(255, 255, 255, 0.9)";
-        this.closeButton.style.color = "#6b7280";
-        this.closeButton.style.borderColor = "#e5e7eb";
+        this.closeButton.style.background = "transparent";
+        this.closeButton.style.color = "#9ca3af";
       });
 
       // Add touch events for better mobile responsiveness
@@ -823,77 +1128,41 @@
         }, 100);
       });
 
-      // Avatar/Logo
+      // Avatar/Logo (no background)
       const avatar = createElement("div", {
         style: {
-          width: "70px",
-          height: "70px",
-          margin: "0 auto 20px",
-          borderRadius: "20px",
-          background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
-          boxShadow:
-            "0 8px 32px rgba(102, 126, 234, 0.3), 0 2px 8px rgba(0,0,0,0.1)",
+          width: "68px",
+          height: "68px",
+          margin: "0 auto 16px",
+          borderRadius: "0",
+          background: "transparent",
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
           position: "relative",
+          color: "#111827",
         },
       });
 
-      // Add a subtle pulse animation for the avatar
-      avatar.style.animation = "avatarPulse 3s ease-in-out infinite";
-
-      // Add pulse keyframes to styles if not already added
-      if (!document.querySelector("#shivai-avatar-animation")) {
-        const avatarStyle = createElement(
-          "style",
-          {
-            id: "shivai-avatar-animation",
-          },
-          [
-            `
-          @keyframes avatarPulse {
-            0%, 100% { transform: scale(1); box-shadow: 0 8px 32px rgba(102, 126, 234, 0.3), 0 2px 8px rgba(0,0,0,0.1); }
-            50% { transform: scale(1.05); box-shadow: 0 12px 40px rgba(102, 126, 234, 0.4), 0 4px 12px rgba(0,0,0,0.15); }
-          }
-        `,
-          ]
-        );
-        document.head.appendChild(avatarStyle);
-      }
-
-      const botIconContainer = createElement(
-        "div",
-        {
-          style: {
-            width: "75%",
-            height: "75%",
-            borderRadius: "4px",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            
-          },
-        },
-        [createIcon("bot", 36)]
-      );
-      botIconContainer.style.color = "white";
-
-      avatar.appendChild(botIconContainer);
+      // Insert provided sparkle SVG without background
+      avatar.innerHTML = `
+        <svg xmlns="http://www.w3.org/2000/svg" width="54" height="54" viewBox="0 0 24 24" aria-label="Logo">
+          <path fill="none" stroke="currentColor" stroke-linejoin="round" stroke-width="2" d="M15 19c1.2-3.678 2.526-5.005 6-6c-3.474-.995-4.8-2.322-6-6c-1.2 3.678-2.526 5.005-6 6c3.474.995 4.8 2.322 6 6Zm-8-9c.6-1.84 1.263-2.503 3-3c-1.737-.497-2.4-1.16-3-3c-.6 1.84-1.263 2.503-3 3c1.737.497 2.4 1.16 3 3Zm1.5 10c.3-.92.631-1.251 1.5-1.5c-.869-.249-1.2-.58-1.5-1.5c-.3.92-.631 1.251-1.5 1.5c.869.249 1.2.58 1.5 1.5Z"/>
+        </svg>`;
 
       // Title
       const title = createElement(
         "h3",
         {
           style: {
-            fontSize: "24px",
-            fontWeight: "700",
-            color: "#1f2937",
-            margin: "0 0 8px 0",
-            letterSpacing: "-0.025em",
+            fontSize: "18px",
+            fontWeight: "600",
+            color: "#111827",
+            margin: "0 0 4px 0",
+            letterSpacing: "-0.01em",
           },
         },
-        ["ShivAI Assistant"]
+        ["ShivAI Employee"]
       );
 
       // Description
@@ -901,16 +1170,15 @@
         "p",
         {
           style: {
-            fontSize: "15px",
+            fontSize: "14px",
             color: "#6b7280",
-            margin: "0 0 28px 0",
-            lineHeight: "1.6",
-            padding: "0 20px",
-            maxWidth: "280px",
-            margin: "0 auto 28px auto",
+            margin: "0 0 20px 0",
+            lineHeight: "1.4",
           },
         },
-        [this.config.content.welcomeMessage]
+        [
+          "ShivAI offers 24/7 voice support to handle your business calls efficiently and professionally.",
+        ]
       );
 
       this.header.appendChild(this.closeButton);
@@ -925,24 +1193,29 @@
     createModeButtons() {
       // Start button (Chat or Call)
       this.startButton = createElement("button", {
-        class: "shivai-widget-button",
+        // class: "shivai-widget-button",
         style: {
           width: "100%",
           color: "white",
-          fontWeight: "600",
-          borderRadius: "9999px",
-          padding: "16px",
+          fontWeight: "500",
+          borderRadius: "50px",
+          padding: "12px",
           marginBottom: "12px",
-          fontSize: "16px",
+          fontSize: "15px",
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          gap: "8px",
-          transition: "all 0.3s",
+          gap: "6px",
+          transition: "all 0.2s",
           webkitTapHighlightColor: "transparent",
           touchAction: "manipulation",
           webkitUserSelect: "none",
           userSelect: "none",
+          background:
+            "linear-gradient(135deg, #4b5563 0%, #6b7280 30%, #374151 70%, #1f2937 100%)",
+          border: "2px solid rgba(255, 255, 255, 0.15)",
+          cursor: "pointer",
+          borderColor: "rgba(255, 255, 255, 0.15)",
         },
       });
 
@@ -952,22 +1225,25 @@
       const privacyText = createElement("p", {
         style: {
           fontSize: "12px",
-          color: "#6b7280",
-          margin: "0 0 24px 0",
-          lineHeight: "1.5",
+          color: "#9ca3af",
+          margin: "0 0 16px 0",
+          lineHeight: "1.4",
+          textAlign: "center",
         },
       });
 
-      const privacyContent = document.createTextNode("By starting ");
-      const modeText = document.createTextNode(
-        this.currentMode === "chat" ? "chat" : "call"
+      const privacyContent = document.createTextNode(
+        "By starting call you agree to "
       );
-      const privacyText2 = document.createTextNode(" you agree to ");
 
       const privacyLink = createElement(
         "span",
         {
-          style: { color: "#3b82f6", cursor: "pointer" },
+          style: {
+            color: "#2563eb",
+            cursor: "pointer",
+            textDecoration: "underline",
+          },
         },
         ["Privacy policy"]
       );
@@ -977,14 +1253,16 @@
       const tcLink = createElement(
         "span",
         {
-          style: { color: "#3b82f6", cursor: "pointer" },
+          style: {
+            color: "#2563eb",
+            cursor: "pointer",
+            textDecoration: "underline",
+          },
         },
         ["T&C"]
       );
 
       privacyText.appendChild(privacyContent);
-      privacyText.appendChild(modeText);
-      privacyText.appendChild(privacyText2);
       privacyText.appendChild(privacyLink);
       privacyText.appendChild(andText);
       privacyText.appendChild(tcLink);
@@ -993,10 +1271,11 @@
       const bottomNav = createElement("div", {
         style: {
           display: "flex",
-          borderTop: "1px solid #f3f4f6",
-          background: "#f9fafb",
+          gap: "4px",
+          padding: "8px 12px",
+          background: "#fff",
           borderRadius: "0 0 16px 16px",
-          overflow: "hidden",
+          margin: "0 -2px",
         },
       });
 
@@ -1010,30 +1289,36 @@
           border: "none",
           cursor: "pointer",
           color: this.currentMode === "chat" ? "#111827" : "#6b7280",
-          borderBottom:
-            this.currentMode === "chat"
-              ? "3px solid #111827"
-              : "3px solid transparent",
-          transition: "all 0.2s ease",
-          fontWeight: this.currentMode === "chat" ? "600" : "500",
+          background: "transparent",
+          borderBottom: this.currentMode === "chat" ? "2px solid #000" : "none",
+          borderRadius: "8px",
+          margin: "6px 4px",
+          transition: "all 0.3s ease",
+          fontWeight: this.currentMode === "chat" ? "600" : "400",
           fontSize: "14px",
+          fontFamily:
+            "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
         },
       });
 
       const chatIcon = createIcon("message-circle", 20);
+      chatIcon.style.marginRight = "6px";
+      chatIcon.style.strokeWidth = "2";
+
       const chatLabel = createElement(
         "span",
         {
           style: {
             fontSize: "14px",
-            fontWeight: this.currentMode === "chat" ? "600" : "400",
+            fontWeight: "inherit",
+            lineHeight: "1.2",
           },
         },
         ["Chat"]
       );
 
       this.chatNavButton.appendChild(chatIcon);
-      // this.chatNavButton.appendChild(chatLabel);
+      this.chatNavButton.appendChild(chatLabel);
 
       this.voiceNavButton = createElement("button", {
         style: {
@@ -1045,33 +1330,42 @@
           border: "none",
           cursor: "pointer",
           color: this.currentMode === "voice" ? "#111827" : "#6b7280",
-          borderBottom:
-            this.currentMode === "voice"
-              ? "3px solid #111827"
-              : "3px solid transparent",
-          transition: "all 0.2s ease",
-          fontWeight: this.currentMode === "voice" ? "600" : "500",
+          background: "transparent",
+          borderBottom: this.currentMode === "voice" ? "2px solid #000" : "none",
+          borderRadius: "8px",
+          margin: "6px 4px",
+          transition: "all 0.3s ease",
+          fontWeight: this.currentMode === "voice" ? "600" : "400",
           fontSize: "14px",
+          fontFamily:
+            "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
         },
       });
 
       const voiceIcon = createIcon("phone", 20);
+      voiceIcon.style.marginRight = "6px";
+      voiceIcon.style.strokeWidth = "2";
+
       const voiceLabel = createElement(
         "span",
         {
           style: {
             fontSize: "14px",
-            fontWeight: this.currentMode === "voice" ? "600" : "400",
+            fontWeight: "inherit",
+            lineHeight: "1.2",
           },
         },
         ["Voice Call"]
       );
       this.voiceNavButton.appendChild(voiceIcon);
-      // this.voiceNavButton.appendChild(voiceLabel);
+      this.voiceNavButton.appendChild(voiceLabel);
 
       // Add event listeners for mode switching
       this.chatNavButton.addEventListener("click", () => {
-        console.log("💬 Chat nav button clicked! Current mode:", this.currentMode);
+        console.log(
+          "💬 Chat nav button clicked! Current mode:",
+          this.currentMode
+        );
         if (this.currentMode !== "chat") {
           this.currentMode = "chat";
           console.log("💬 Switched to chat mode");
@@ -1081,7 +1375,10 @@
       });
 
       this.voiceNavButton.addEventListener("click", () => {
-        console.log("🔊 Voice nav button clicked! Current mode:", this.currentMode);
+        console.log(
+          "🔊 Voice nav button clicked! Current mode:",
+          this.currentMode
+        );
         if (this.currentMode !== "voice") {
           this.currentMode = "voice";
           console.log("🔊 Switched to voice mode");
@@ -1098,7 +1395,12 @@
     }
 
     updateStartButton() {
-      console.log("🔄 updateStartButton() - currentMode:", this.currentMode, "isCallActive:", this.isCallActive);
+      console.log(
+        "🔄 updateStartButton() - currentMode:",
+        this.currentMode,
+        "isCallActive:",
+        this.isCallActive
+      );
       this.startButton.innerHTML = "";
 
       if (this.currentMode === "chat") {
@@ -1166,18 +1468,21 @@
 
       const aiAvatar = createElement("div", {
         style: {
-          width: "32px",
-          height: "32px",
-          borderRadius: "50%",
-          background: "linear-gradient(0deg, #0a0a0a 0%, #000 100%)",
+          width: "24px",
+          height: "24px",
+          borderRadius: "0",
+          background: "transparent",
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
+          color: "#111827",
         },
       });
-
-      const botIcon = createIcon("bot", 16);
-      aiAvatar.appendChild(botIcon);
+      // Inline sparkle SVG without background for chat header avatar
+      aiAvatar.innerHTML = `
+        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" aria-label="Avatar">
+          <path fill="none" stroke="currentColor" stroke-linejoin="round" stroke-width="2" d="M15 19c1.2-3.678 2.526-5.005 6-6c-3.474-.995-4.8-2.322-6-6c-1.2 3.678-2.526 5.005-6 6c3.474.995 4.8 2.322 6 6Zm-8-9c.6-1.84 1.263-2.503 3-3c-1.737-.497-2.4-1.16-3-3c-.6 1.84-1.263 2.503-3 3c1.737.497 2.4 1.16 3 3Zm1.5 10c.3-.92.631-1.251 1.5-1.5c-.869-.249-1.2-.58-1.5-1.5c-.3.92-.631 1.251-1.5 1.5c.869.249 1.2.58 1.5 1.5Z"/>
+        </svg>`;
 
       const aiDetails = createElement("div");
       const aiName = createElement(
@@ -1189,7 +1494,7 @@
             color: "#111827",
           },
         },
-        ["ShivAI"]
+        ["ShivAI Employee"]
       );
 
       this.aiStatus = createElement("div", {
@@ -1273,13 +1578,12 @@
       this.sendButton = createElement(
         "button",
         {
-          class: "shivai-widget-button shivai-widget-send-button",
+          class: "",
           style: {
-            padding: "12px",
-            width: "52px",
-            height: "52px",
-            backgroundColor: this.config.theme.accentColor,
-            color: "white",
+            padding: "2px",
+            width: "32px",
+            height: "32px",
+            color: "black",
             borderRadius: "14px",
             display: "flex",
             alignItems: "center",
@@ -1426,22 +1730,29 @@
         },
       });
 
-      // Call user avatar with enhanced design
-      const callUserAvatar = createElement("div", {
+      // Calling interface icon (no background)
+      const callIconWrapper = createElement("div", {
         style: {
-          width: "60px",
-          height: "60px",
-          borderRadius: "50%",
-          visibilty: "hidden",
-          background:
-            "linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #334155 100%)",
-          boxShadow: "0 4px 12px rgba(0, 0, 0, 0.15)",
+          width: "auto",
+          height: "auto",
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          marginBottom: "24px",
+          marginBottom: "8px",
+          color: "#111827",
         },
       });
+      callIconWrapper.innerHTML = `
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" aria-label="Calling">
+          <path fill="currentColor" d="m20.713 7.128l-.246.566a.506.506 0 0 1-.934 0l-.246-.566a4.36 4.36 0 0 0-2.22-2.25l-.759-.339a.53.53 0 0 1 0-.963l.717-.319A4.37 4.37 0 0 0 19.276.931L19.53.32a.506.506 0 0 1 .942 0l.253.61a4.37 4.37 0 0 0 2.25 2.327l.718.32a.53.53 0 0 1 0 .962l-.76.338a4.36 4.36 0 0 0-2.219 2.251M8.5 6h-2v12h2zM4 10H2v4h2zm9-8h-2v20h2zm4.5 6h-2v10h2zm4.5 2h-2v4h2z"/>
+        </svg>`;
+      const callIconSvg = callIconWrapper.querySelector('svg');
+      if (callIconSvg) {
+        callIconSvg.style.width = '56px';
+        callIconSvg.style.height = '56px';
+        callIconSvg.setAttribute('focusable', 'false');
+        callIconSvg.setAttribute('role', 'img');
+      }
 
       // Call info with enhanced styling
       const callTitle = createElement(
@@ -1457,7 +1768,7 @@
             textShadow: "0 1px 2px rgba(0, 0, 0, 0.1)",
           },
         },
-        ["ShivAI"]
+        ["ShivAI Employee"]
       );
 
       this.callStatus = createElement(
@@ -1467,9 +1778,15 @@
             margin: "0 0 8px 0",
             fontSize: "14px",
             color: "#6b7280",
+            fontWeight: "500",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: "8px",
+            transition: "all 0.3s ease",
           },
         },
-        ["Connecting..."]
+        ["Ready to call"]
       );
 
       this.callTimer = createElement(
@@ -1555,7 +1872,7 @@
       controlsContainer.appendChild(this.muteButton);
       controlsContainer.appendChild(this.endCallButton);
 
-      callContent.appendChild(callUserAvatar);
+  callContent.appendChild(callIconWrapper);
       callContent.appendChild(callTitle);
       callContent.appendChild(this.callStatus);
       callContent.appendChild(this.callTimer);
@@ -1579,8 +1896,8 @@
     createFooter() {
       this.footer = createElement("div", {
         style: {
-          borderTop: "1px solid #e5e7eb",
-          background: "linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)",
+          // borderTop: "1px solid #e5e7eb",
+          background: "#fff",
         },
       });
 
@@ -1588,7 +1905,7 @@
         const brandingContainer = createElement("div", {
           style: {
             textAlign: "center",
-            padding: "12px 16px",
+            padding: "2px 16px",
           },
         });
 
@@ -1612,17 +1929,40 @@
           [
             "Powered by ",
             (() => {
-              const span = document.createElement("span");
-              span.textContent = "ShivAI";
-              span.style.background =
-                "linear-gradient(135deg, #000000 0%, #374151 100%)";
-              span.style.color = "#fff";
-              span.style.padding = "3px 8px";
-              span.style.borderRadius = "6px";
-              span.style.fontWeight = "600";
-              span.style.marginLeft = "2px";
-              span.style.boxShadow = "0 1px 3px rgba(0, 0, 0, 0.1)";
-              return span;
+              const wrapper = document.createElement("span");
+              wrapper.style.display = "inline-flex";
+              wrapper.style.alignItems = "center";
+              wrapper.style.marginLeft = "0px";
+              wrapper.style.lineHeight = "0";
+              // Inline SVG logo provided by user
+              wrapper.innerHTML = `
+                <svg viewBox="0 0 94 29" xmlns="http://www.w3.org/2000/svg" aria-label="ShivAI">
+                  <g clip-path="url(#clip0_302_587)">
+                    <path d="M19.9124 3.47757C19.1031 2.88384 15.8286 0.624395 11.3008 1.09206C9.13407 1.31573 7.41793 2.08839 6.23291 2.80494C5.06252 3.51254 4.04016 4.46008 3.35452 5.64348C2.36795 7.34578 2.05807 9.32381 2.57372 11.1579C2.90068 12.3193 3.50011 13.2148 4.08896 13.8663C4.65097 14.4885 5.32767 14.996 6.06129 15.4027C8.15725 16.5674 10.2532 17.7312 12.3492 18.8959C13.3235 19.5108 13.8693 20.599 13.7457 21.6889C13.7367 21.7711 13.7237 21.85 13.7074 21.9272C13.4756 23.0521 12.4549 23.8353 11.3081 23.902C10.607 23.9427 9.79856 23.9248 8.91609 23.7841C6.10277 23.3359 4.17111 21.9069 3.27237 21.1375C2.18657 22.8536 1.09996 24.5697 0.0141602 26.2859C1.14957 27.0789 2.68271 27.976 4.61112 28.6714C8.02956 29.9052 11.0674 29.9223 12.9315 29.7767C13.57 29.7019 16.6029 29.2781 18.8079 26.5762C18.912 26.4485 19.0104 26.32 19.1047 26.1915C21.3715 23.074 20.9868 18.7089 18.3003 15.946C18.2759 15.9208 18.2515 15.8955 18.2263 15.8703C16.8363 14.4657 15.3235 13.6247 14.0767 13.1172C12.4956 12.4747 10.982 11.6768 9.59767 10.678C9.53423 10.6325 9.47079 10.5869 9.40816 10.5414C8.62248 9.97447 8.40858 8.89762 8.91772 8.07372C9.51145 7.12374 10.7323 6.63737 12.0019 6.85209C12.6704 6.80898 13.7367 6.82281 14.9689 7.20101C16.2166 7.58409 17.1145 8.1827 17.6456 8.5975C18.402 6.89113 19.1584 5.18394 19.9148 3.47757H19.9124Z" fill="#333333"/>
+                    <path d="M38.2895 14.2557C37.9755 13.893 37.6055 13.5327 37.1703 13.1943C35.7722 12.1093 34.2781 11.7067 33.1224 11.5742C31.8658 11.431 30.5856 11.636 29.4518 12.1947C29.4453 12.198 29.4388 12.2012 29.4315 12.2045C28.3628 12.7348 27.6088 13.4074 27.1273 13.9206V0.160645H21.251V29.3113H27.1273V18.7022C27.8992 16.9617 29.6389 15.9889 31.2355 16.2785C31.5242 16.3305 31.7869 16.4208 32.0252 16.5347C33.1736 17.0845 33.8536 18.2988 33.8536 19.5725V29.3121H39.8462V18.5721C39.8462 16.9958 39.3208 15.4481 38.2895 14.2565V14.2557Z" fill="#333333"/>
+                    <path d="M46.9394 11.9143H40.8882V29.3115H46.9394V11.9143Z" fill="#333333"/>
+                    <path d="M64.5132 21.1113C63.3941 23.8449 62.2749 26.5777 61.1558 29.3114H68.0219L70.1163 23.7839C69.3891 23.2512 68.4562 22.6591 67.3159 22.1264C66.283 21.6441 65.3249 21.326 64.5124 21.1113H64.5132Z" fill="#333333"/>
+                    <path d="M90.3039 8.36483C92.3284 8.36483 93.9696 6.72364 93.9696 4.69914C93.9696 2.67463 92.3284 1.03345 90.3039 1.03345C88.2794 1.03345 86.6382 2.67463 86.6382 4.69914C86.6382 6.72364 88.2794 8.36483 90.3039 8.36483Z" fill="#333333"/>
+                    <path d="M43.9137 8.36483C45.9382 8.36483 47.5794 6.72364 47.5794 4.69914C47.5794 2.67463 45.9382 1.03345 43.9137 1.03345C41.8892 1.03345 40.248 2.67463 40.248 4.69914C40.248 6.72364 41.8892 8.36483 43.9137 8.36483Z" fill="#333333"/>
+                    <path d="M64.5994 20.9152L72.3748 1.80029H78.1601L85.8428 20.9152C84.7123 20.8713 81.4272 20.5907 78.8384 18.0767C76.7237 16.0231 76.1324 13.5074 75.9006 12.5208C75.8616 12.3533 75.8396 12.2337 75.7941 11.9971C75.4012 9.94339 75.3785 8.43953 75.3565 5.76692C75.3386 3.55221 75.3329 2.0817 75.3199 2.0817C75.3045 2.0817 75.2931 4.19718 75.2182 6.2541C75.1825 7.2358 75.1377 8.10932 75.1377 8.10932C75.1125 8.58105 75.0938 8.8405 75.0743 9.27401C74.9954 11.0259 75.0027 11.0471 74.9572 11.3252C74.7555 12.5688 73.8771 16.7738 70.2024 19.1959C67.956 20.6769 65.6933 20.8892 64.5969 20.9161L64.5994 20.9152Z" fill="#333333"/>
+                    <path d="M85.8793 21.1699C85.3612 21.2048 84.7682 21.291 84.1298 21.4692C82.264 21.9905 80.9797 23.0283 80.2656 23.7213C80.8716 25.5472 81.4775 27.374 82.0834 29.1999H93.2375V20.9153L87.3132 21.169L87.3595 25.0568L85.8784 21.169L85.8793 21.1699Z" fill="#333333"/>
+                    <path d="M87.3604 12.2607H93.2383V21.1114L87.3604 20.8731V12.2607Z" fill="#333333"/>
+                    <path d="M57.9853 20.7748C59.795 20.8146 61.6038 20.8545 63.4135 20.8943C64.8945 17.9907 66.3748 15.0871 67.8559 12.1835L61.3395 11.9143L57.3826 21.3986H56.9174L52.7279 11.9143H46.8516V14.1835L54.8808 29.3115H59.128C60.5204 26.5779 61.9137 23.8451 63.3061 21.1115C61.5322 20.9992 59.7583 20.887 57.9845 20.7748H57.9853Z" fill="#333333"/>
+                  </g>
+                  <defs>
+                    <clipPath id="clip0_302_587">
+                      <rect width="94" height="29" fill="white"/>
+                    </clipPath>
+                  </defs>
+                </svg>`;
+              const svg = wrapper.querySelector('svg');
+              if (svg) {
+                svg.style.height = '11px';
+                svg.style.width = 'auto';
+                svg.setAttribute('focusable', 'false');
+                svg.setAttribute('role', 'img');
+              }
+              return wrapper;
             })(),
           ]
         );
@@ -1847,7 +2187,6 @@
         this.currentMode === "chat" ? "2px solid #000" : "none";
       this.chatNavButton.style.fontWeight =
         this.currentMode === "chat" ? "600" : "400";
-
       this.voiceNavButton.style.color =
         this.currentMode === "voice" ? "#111827" : "#6b7280";
       this.voiceNavButton.style.borderBottom =
@@ -1868,8 +2207,13 @@
     }
 
     async handleStart() {
-      console.log("🔥 handleStart() called - currentMode:", this.currentMode, "isCallActive:", this.isCallActive);
-      
+      console.log(
+        "🔥 handleStart() called - currentMode:",
+        this.currentMode,
+        "isCallActive:",
+        this.isCallActive
+      );
+
       if (this.currentMode === "chat") {
         console.log("📱 Starting chat mode");
         this.startChat();
@@ -1893,75 +2237,161 @@
       if (this.config.features.autoGreeting && !this.hasGreeted) {
         this.addMessage(
           "bot",
-          "Hi! I'm your AI assistant. How can I help you today?"
+          "Hi! I'm your AI Employee. How can I help you today?"
         );
         this.hasGreeted = true;
       }
     }
 
-    startCurrentCall() {
-      console.log("Starting call - currentMode:", this.currentMode);
-      console.log("Device info:", navigator.userAgent);
-      
-      // Switch to voice mode when starting a call
-      this.currentMode = "voice";
-      
-      // Set hasStarted to true to show the call interface
-      this.hasStarted = true;
+    async startCurrentCall() {
+      try {
+        console.log("🚀 Starting call...");
 
-      console.log("Call started - mode:", this.currentMode, "hasStarted:", this.hasStarted);
-      console.log("Elements check - header:", !!this.header, "body:", !!this.body, "callMode:", !!this.callMode);
+        // Update UI to show connecting state
+        if (this.callStatus) {
+          this.callStatus.textContent = "Connecting...";
+          this.callStatus.style.color = "#f59e0b";
+        }
 
-      this.updateModeUI();
-      this.updateUI();
+        // Call the new start-call API
+        const callData = await this.api.startCall();
+        console.log("✅ Call started successfully:", callData);
 
-      // Update call status
-      if (this.callStatus) {
-        this.callStatus.textContent = "Connecting...";
+        // Store call information
+        this.currentCallId = callData.callId;
+        this.pythonServiceUrl = callData.pythonServiceUrl;
+        this.isCallActive = true;
+        this.callStartTime = new Date(callData.startTime);
+        this.hasStarted = true;
 
-        // Simulate connection after 1 second
-        setTimeout(() => {
+        // Update UI
+        this.updateModeUI();
+        this.updateUI();
+        this.startCallTimer();
+        this.updateStartButton();
+
+        // Request microphone early (still within user gesture Promise chain)
+        try {
+          await this.ensureMicrophoneAccess();
+        } catch (micErr) {
+          console.warn("🔇 Microphone not granted/available:", micErr);
           if (this.callStatus) {
-            this.callStatus.textContent = "Connected";
+            this.callStatus.textContent = "Microphone unavailable";
+            this.callStatus.style.color = "#f59e0b";
           }
-        }, 1000);
+        }
+
+        // Connect to Python WebSocket service
+        if (this.pythonServiceUrl) {
+          await this.connectToWebSocket(this.pythonServiceUrl);
+        } else {
+          console.warn("⚠️ No Python service URL provided");
+          if (this.callStatus) {
+            this.callStatus.textContent = "Connected (no voice service)";
+            this.callStatus.style.color = "#f59e0b";
+          }
+        }
+
+        console.log(
+          "📞 Call interface activated with Call ID:",
+          this.currentCallId
+        );
+      } catch (error) {
+        console.error("❌ Failed to start call:", error);
+
+        // Show error state
+        if (this.callStatus) {
+          this.callStatus.textContent = "Connection failed";
+          this.callStatus.style.color = "#ef4444";
+        }
+
+        // Reset call state
+        this.isCallActive = false;
+        this.currentCallId = null;
+        this.pythonServiceUrl = null;
+        // Cleanup any partial mic resources
+        try {
+          this.stopAudioCapture();
+        } catch (_) {}
+        this.updateStartButton();
+
+        // Optionally show error message to user
+        this.showErrorMessage("Failed to start call. Please try again.");
       }
-
-      // Set call as active
-      this.isCallActive = true;
-      this.callStartTime = Date.now();
-      this.startCallTimer();
-      this.updateStartButton();
-
-      console.log("Call started - switched to call interface");
     }
 
-    endCurrentCall() {
-      // Clear call timer if running
-      if (this.callInterval) {
-        clearInterval(this.callInterval);
-        this.callInterval = null;
+    async endCurrentCall() {
+      try {
+        console.log("🛑 Ending call...");
+
+        if (this.currentCallId) {
+          // Update UI to show ending state
+          if (this.callStatus) {
+            this.callStatus.textContent = "Ending call...";
+            this.callStatus.style.color = "#f59e0b";
+          }
+
+          // Call the new end-call API
+          const endData = await this.api.endCall(this.currentCallId);
+          console.log("✅ Call ended successfully:", endData);
+
+          // Log call duration from API response
+          if (endData.duration) {
+            console.log(`📊 Total call duration: ${endData.duration} seconds`);
+          }
+        }
+
+        // Stop audio streaming and release mic
+        this.stopAudioCapture();
+
+        // Disconnect WebSocket
+        this.disconnectWebSocket();
+
+        // Clear call timer
+        if (this.callInterval) {
+          clearInterval(this.callInterval);
+          this.callInterval = null;
+        }
+
+        // Reset call state
+        this.isCallActive = false;
+        this.hasStarted = false;
+        this.callDuration = 0;
+        this.callStartTime = null;
+        this.currentCallId = null;
+        this.pythonServiceUrl = null;
+
+        // Reset UI elements
+        if (this.callTimer) {
+          this.callTimer.textContent = "00:00";
+        }
+        if (this.callStatus) {
+          this.callStatus.textContent = "Call ended";
+          this.callStatus.style.color = "#6b7280";
+        }
+
+        // Update UI
+        this.updateStartButton();
+        this.updateUI();
+
+        console.log("📞 Call ended - returned to main interface");
+      } catch (error) {
+        console.error("❌ Failed to end call properly:", error);
+
+        // Still reset the UI even if API call fails
+        this.isCallActive = false;
+        this.hasStarted = false;
+        this.currentCallId = null;
+        this.stopAudioCapture();
+
+        if (this.callStatus) {
+          this.callStatus.textContent = "Call ended";
+          this.callStatus.style.color = "#6b7280";
+        }
+
+        this.updateStartButton();
+        this.updateUI();
       }
-
-      // Reset call state
-      this.isCallActive = false;
-      this.hasStarted = false;
-      this.callDuration = 0;
-      this.callStartTime = null;
-
-      // Reset UI elements
-      if (this.callTimer) {
-        this.callTimer.textContent = "00:00";
-      }
-      if (this.callStatus) {
-        this.callStatus.textContent = "Ready to call";
-      }
-
-      // Reset to the main interface (welcome screen)
-      this.updateStartButton();
-      this.updateUI();
-
-      console.log("Call ended - returned to main interface");
     }
 
     startCallTimer() {
@@ -1978,8 +2408,13 @@
     }
 
     updateUI() {
-      console.log("updateUI - hasStarted:", this.hasStarted, "currentMode:", this.currentMode);
-      
+      console.log(
+        "updateUI - hasStarted:",
+        this.hasStarted,
+        "currentMode:",
+        this.currentMode
+      );
+
       // iOS specific handling
       const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
       if (isIOS) {
@@ -1987,7 +2422,7 @@
         // Force repaint on iOS
         this.chatInterface.style.transform = "translateZ(0)";
       }
-      
+
       // Show/hide welcome screen vs active session
       this.header.style.display = this.hasStarted ? "none" : "block";
       this.body.style.display = this.hasStarted ? "flex" : "none";
@@ -2013,25 +2448,38 @@
       if (this.chatNavButton && this.voiceNavButton) {
         // Update chat button
         this.chatNavButton.style.color =
-          this.currentMode === "chat" ? "#111827" : "#6b7280";
-        this.chatNavButton.style.borderBottom =
-          this.currentMode === "chat"
-            ? "2px solid #000"
-            : "2px solid transparent";
+          this.currentMode === "chat" ? "#2563eb" : "#64748b";
+        this.chatNavButton.style.background =
+          this.currentMode === "chat" ? "#f0f9ff" : "transparent";
+        this.chatNavButton.style.fontWeight =
+          this.currentMode === "chat" ? "600" : "500";
 
         // Update voice button
         this.voiceNavButton.style.color =
-          this.currentMode === "voice" ? "#111827" : "#6b7280";
-        this.voiceNavButton.style.borderBottom =
-          this.currentMode === "voice"
-            ? "2px solid #000"
-            : "2px solid transparent";
+          this.currentMode === "voice" ? "#2563eb" : "#64748b";
+        this.voiceNavButton.style.background =
+          this.currentMode === "voice" ? "#f0f9ff" : "transparent";
+        this.voiceNavButton.style.fontWeight =
+          this.currentMode === "voice" ? "600" : "500";
       }
     }
 
     toggleMute() {
       this.isMuted = !this.isMuted;
       this.updateMuteButton();
+      if (this.callStatus) {
+        if (this.isMuted) {
+          this.callStatus.textContent = "Muted";
+          this.callStatus.style.color = "#f59e0b";
+        } else {
+          this.callStatus.textContent = this.isWebSocketConnected
+            ? "Streaming audio"
+            : "Connecting...";
+          this.callStatus.style.color = this.isWebSocketConnected
+            ? "#10b981"
+            : "#f59e0b";
+        }
+      }
     }
 
     switchToCall() {
@@ -2145,60 +2593,11 @@
         },
       });
 
-      if (message.type === "bot") {
-        const aiAvatar = createElement("div", {
-          style: {
-            width: "16px",
-            height: "16px",
-            borderRadius: "50%",
-            background: "linear-gradient(0deg, #0a0a0a 0%, #000 100%)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-          },
-        });
-
-        const botIcon = createIcon("bot", 10);
-        aiAvatar.appendChild(botIcon);
-        senderInfo.appendChild(aiAvatar);
-        senderInfo.appendChild(document.createTextNode("ShivAI"));
-      } else {
-        const userAvatar = createElement("div", {
-          style: {
-            width: "16px",
-            height: "16px",
-            borderRadius: "50%",
-            backgroundColor: "#3b82f6",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-          },
-        });
-
-        const userIcon = createIcon("user", 10);
-        userAvatar.appendChild(userIcon);
-        senderInfo.appendChild(userIcon);
-        senderInfo.appendChild(document.createTextNode("You"));
-      }
+      // Hide repetitive sender name row; we will show time inside bubble instead
+      senderInfo.style.display = "none";
 
       // Time stamp
-      const timeStamp = createElement(
-        "span",
-        {
-          style: {
-            fontSize: "11px",
-            color: "#9ca3af",
-            marginLeft: "auto",
-          },
-        },
-        [this.formatTime(message.timestamp)]
-      );
-
-      if (message.type === "user") {
-        senderInfo.appendChild(timeStamp);
-      } else {
-        senderInfo.insertBefore(timeStamp, senderInfo.firstChild);
-      }
+      // We will render timestamp inside the message bubble; no timestamp in senderInfo
 
       // Message bubble
       const messageWrapper = createElement("div", {
@@ -2246,10 +2645,26 @@
             border: message.type === "bot" ? "1px solid #e5e7eb" : "none",
             maxWidth: "100%",
             wordWrap: "break-word",
+            display: "flex",
+            flexDirection: "column",
+          },
+        }
+      );
+      const contentSpan = createElement("span", {}, [message.content]);
+      const timeInside = createElement(
+        "span",
+        {
+          style: {
+            fontSize: "11px",
+            color: message.type === "user" ? "#e0e7ff" : "#9ca3af",
+            alignSelf: "flex-end",
+            marginTop: "6px",
           },
         },
-        [message.content]
+        [this.formatTime(message.timestamp)]
       );
+      bubble.appendChild(contentSpan);
+      bubble.appendChild(timeInside);
 
       messageWrapper.appendChild(bubble);
 
@@ -2328,7 +2743,7 @@
         const botIcon = createIcon("bot", 10);
         aiAvatar.appendChild(botIcon);
         senderInfo.appendChild(aiAvatar);
-        senderInfo.appendChild(document.createTextNode("ShivAI"));
+        senderInfo.appendChild(document.createTextNode("ShivAI Employee"));
 
         // Message wrapper
         const messageWrapper = createElement("div", {
@@ -2399,6 +2814,329 @@
       if (this.sendButton) this.sendButton.disabled = loading;
       if (this.startButton && !this.hasStarted)
         this.startButton.disabled = loading;
+    }
+
+    playAudioResponse(audioData) {
+      // Handle audio playback from AI response
+      try {
+        console.log("🔊 Playing AI audio response");
+
+        // Convert base64 audio data to blob and play
+        if (audioData) {
+          const audioBlob = new Blob(
+            [Uint8Array.from(atob(audioData), (c) => c.charCodeAt(0))],
+            {
+              type: "audio/wav",
+            }
+          );
+          const audioUrl = URL.createObjectURL(audioBlob);
+          const audio = new Audio(audioUrl);
+
+          audio
+            .play()
+            .then(() => {
+              console.log("✅ Audio playback started");
+            })
+            .catch((error) => {
+              console.error("❌ Audio playback failed:", error);
+            });
+
+          // Clean up URL after playing
+          audio.addEventListener("ended", () => {
+            URL.revokeObjectURL(audioUrl);
+          });
+        }
+      } catch (error) {
+        console.error("❌ Error playing audio response:", error);
+      }
+    }
+
+    handleTranscription(text) {
+      // Handle speech-to-text transcription from user
+      try {
+        console.log("📝 Processing transcription:", text);
+
+        if (text && text.trim()) {
+          // You can display the transcription in the UI or process it
+          console.log("🗣️ User said:", text);
+
+          // Optionally show the transcription in the call interface
+          // This could be expanded to show live transcription
+        }
+      } catch (error) {
+        console.error("❌ Error handling transcription:", error);
+      }
+    }
+
+    showErrorMessage(message) {
+      // Simple error notification - can be enhanced later
+      console.error("Widget Error:", message);
+
+      // Optionally show a temporary message in the UI
+      if (this.callStatus) {
+        const originalText = this.callStatus.textContent;
+        this.callStatus.textContent = message;
+        this.callStatus.style.color = "#ef4444";
+
+        // Restore original text after 3 seconds
+        setTimeout(() => {
+          if (this.callStatus) {
+            this.callStatus.textContent = originalText;
+            this.callStatus.style.color = "#6b7280";
+          }
+        }, 3000);
+      }
+    }
+
+    // ===== Microphone & Streaming Helpers (PCM16 over WS) =====
+    async ensureMicrophoneAccess() {
+      if (this.mediaStream) return this.mediaStream;
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        throw new Error("getUserMedia not supported in this browser");
+      }
+      try {
+        if (this.callStatus) {
+          this.callStatus.textContent = "Requesting microphone...";
+          this.callStatus.style.color = "#f59e0b";
+        }
+        const stream = await navigator.mediaDevices.getUserMedia({
+          audio: {
+            channelCount: 1,
+            sampleRate: 24000,
+            echoCancellation: true,
+            noiseSuppression: true,
+            autoGainControl: true,
+          },
+        });
+        this.mediaStream = stream;
+        if (this.callStatus) {
+          this.callStatus.textContent = "Microphone ready";
+          this.callStatus.style.color = "#10b981";
+        }
+        return stream;
+      } catch (err) {
+        console.error("❌ Microphone access error:", err);
+        throw err;
+      }
+    }
+
+    async startAudioCapture() {
+      // Ensure mic and WS
+      await this.ensureMicrophoneAccess();
+      if (!this.webSocket || !this.isWebSocketConnected) {
+        console.warn("🔌 WebSocket not connected; cannot stream audio yet");
+        return;
+      }
+
+      try {
+        // Create/resume audio context
+        if (!this.audioContext) {
+          this.audioContext = new (window.AudioContext ||
+            window.webkitAudioContext)({ sampleRate: 24000 });
+        }
+        if (this.audioContext.state === "suspended") {
+          await this.audioContext.resume();
+        }
+
+        // Create nodes if not already present
+        if (!this.audioSource) {
+          this.audioSource = this.audioContext.createMediaStreamSource(
+            this.mediaStream
+          );
+        }
+        if (!this.audioProcessor) {
+          this.audioProcessor = this.audioContext.createScriptProcessor(
+            4096,
+            1,
+            1
+          );
+          this.audioProcessor.onaudioprocess = (e) => {
+            if (
+              !this.isWebSocketConnected ||
+              !this.webSocket ||
+              this.webSocket.readyState !== WebSocket.OPEN
+            )
+              return;
+            if (this.isMuted) return; // skip sending when muted
+
+            const inputData = e.inputBuffer.getChannelData(0);
+            // Float32 [-1,1] -> Int16 PCM
+            const pcm16 = new Int16Array(inputData.length);
+            for (let i = 0; i < inputData.length; i++) {
+              const s = Math.max(-1, Math.min(1, inputData[i]));
+              pcm16[i] = s < 0 ? s * 0x8000 : s * 0x7fff;
+            }
+
+            // Base64 encode
+            const base64 = this.arrayBufferToBase64(pcm16.buffer);
+
+            // Send to server
+            this.sendWebSocketMessage({
+              type: "audio",
+              callId: this.currentCallId,
+              audio: base64,
+            });
+          };
+        }
+
+        // Connect nodes
+        this.audioSource.connect(this.audioProcessor);
+        this.audioProcessor.connect(this.audioContext.destination);
+
+        if (this.callStatus) {
+          this.callStatus.textContent = "Streaming audio";
+          this.callStatus.style.color = "#10b981";
+        }
+        console.log("🎙️ Audio capture started (PCM16)");
+      } catch (err) {
+        console.error("❌ Error starting audio capture:", err);
+        if (this.callStatus) {
+          this.callStatus.textContent = "Recorder error";
+          this.callStatus.style.color = "#ef4444";
+        }
+      }
+    }
+
+    stopAudioCapture() {
+      // Disconnect processor
+      try {
+        if (this.audioProcessor) {
+          this.audioProcessor.disconnect();
+          this.audioProcessor.onaudioprocess = null;
+          this.audioProcessor = null;
+        }
+      } catch (err) {
+        console.warn("⚠️ Error disconnecting processor:", err);
+      }
+
+      try {
+        if (this.audioSource) {
+          this.audioSource.disconnect();
+          this.audioSource = null;
+        }
+      } catch (err) {
+        console.warn("⚠️ Error disconnecting source:", err);
+      }
+
+      // Stop mic tracks
+      try {
+        if (this.mediaStream) {
+          this.mediaStream.getTracks().forEach((t) => t.stop());
+          this.mediaStream = null;
+        }
+      } catch (err) {
+        console.warn("⚠️ Error stopping media tracks:", err);
+      }
+
+      // Close audio context
+      try {
+        if (this.audioContext && this.audioContext.state !== "closed") {
+          this.audioContext.close();
+        }
+      } catch (err) {
+        console.warn("⚠️ Error closing audio context:", err);
+      }
+      this.audioContext = null;
+
+      // Stop any AI audio playback
+      this.stopAudioPlayback();
+    }
+
+    // ===== AI Audio Playback & Transcript Handling =====
+    async playQueuedAudio() {
+      if (this.audioChunksQueue.length === 0) {
+        this.isPlayingAudio = false;
+        return;
+      }
+
+      this.isPlayingAudio = true;
+      try {
+        // Gather available chunks to reduce gaps
+        const chunksToPlay = [];
+        while (this.audioChunksQueue.length > 0) {
+          chunksToPlay.push(this.audioChunksQueue.shift());
+        }
+
+        // Combine into single blob
+        const audioBuffers = chunksToPlay.map((b64) =>
+          this.base64ToArrayBuffer(b64)
+        );
+        const totalLength = audioBuffers.reduce(
+          (acc, buf) => acc + buf.byteLength,
+          0
+        );
+        const combined = new Uint8Array(totalLength);
+        let offset = 0;
+        for (const buffer of audioBuffers) {
+          combined.set(new Uint8Array(buffer), offset);
+          offset += buffer.byteLength;
+        }
+
+        const blob = new Blob([combined], { type: "audio/mpeg" });
+        const audioUrl = URL.createObjectURL(blob);
+        const audio = new Audio(audioUrl);
+        this.currentAudio = audio;
+
+        audio.onended = () => {
+          URL.revokeObjectURL(audioUrl);
+          this.currentAudio = null;
+          if (this.audioChunksQueue.length > 0) {
+            this.playQueuedAudio();
+          } else {
+            this.isPlayingAudio = false;
+          }
+        };
+
+        audio.onerror = (error) => {
+          console.error("Audio playback error:", error);
+          URL.revokeObjectURL(audioUrl);
+          this.currentAudio = null;
+          this.isPlayingAudio = false;
+        };
+
+        await audio.play();
+      } catch (error) {
+        console.error("Error playing audio:", error);
+        this.isPlayingAudio = false;
+        if (this.audioChunksQueue.length > 0) {
+          setTimeout(() => this.playQueuedAudio(), 100);
+        }
+      }
+    }
+
+    stopAudioPlayback() {
+      if (this.currentAudio) {
+        try {
+          this.currentAudio.pause();
+          this.currentAudio.currentTime = 0;
+        } catch (_) {}
+        this.currentAudio = null;
+      }
+      this.audioChunksQueue = [];
+      this.isPlayingAudio = false;
+      this.currentAiTranscript = "";
+      // Tell backend to interrupt current TTS if needed
+      if (this.webSocket && this.webSocket.readyState === WebSocket.OPEN) {
+        this.sendWebSocketMessage({ type: "interrupt" });
+      }
+    }
+
+    arrayBufferToBase64(buffer) {
+      const bytes = new Uint8Array(buffer);
+      let binary = "";
+      for (let i = 0; i < bytes.byteLength; i++) {
+        binary += String.fromCharCode(bytes[i]);
+      }
+      return btoa(binary);
+    }
+
+    base64ToArrayBuffer(base64) {
+      const binaryString = atob(base64);
+      const bytes = new Uint8Array(binaryString.length);
+      for (let i = 0; i < binaryString.length; i++) {
+        bytes[i] = binaryString.charCodeAt(i);
+      }
+      return bytes.buffer;
     }
   }
 

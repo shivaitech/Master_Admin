@@ -2474,9 +2474,7 @@ const AdminDashboardContent = () => {
                   alt="ShivAi Logo"
                   className="h-8 w-auto"
                 />
-                <span className="text-lg font-semibold text-gray-900 dark:text-white">
-                  ShivAI
-                </span>
+              
               </div>
               <div className="flex items-center gap-2">
                 <button
