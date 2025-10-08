@@ -1071,16 +1071,20 @@
 
       // Add event listeners for mode switching
       this.chatNavButton.addEventListener("click", () => {
+        console.log("💬 Chat nav button clicked! Current mode:", this.currentMode);
         if (this.currentMode !== "chat") {
           this.currentMode = "chat";
+          console.log("💬 Switched to chat mode");
           this.updateNavigationButtons();
           this.updateStartButton();
         }
       });
 
       this.voiceNavButton.addEventListener("click", () => {
+        console.log("🔊 Voice nav button clicked! Current mode:", this.currentMode);
         if (this.currentMode !== "voice") {
           this.currentMode = "voice";
+          console.log("🔊 Switched to voice mode");
           this.updateNavigationButtons();
           this.updateStartButton();
         }
@@ -1094,6 +1098,7 @@
     }
 
     updateStartButton() {
+      console.log("🔄 updateStartButton() - currentMode:", this.currentMode, "isCallActive:", this.isCallActive);
       this.startButton.innerHTML = "";
 
       if (this.currentMode === "chat") {
@@ -1101,13 +1106,14 @@
         icon.style.marginRight = "8px";
         this.startButton.appendChild(icon);
         this.startButton.appendChild(document.createTextNode("Start Chat"));
+        console.log("🔄 Button text set to: Start Chat");
       } else {
         const icon = createIcon("phone", 20);
         icon.style.marginRight = "8px";
         this.startButton.appendChild(icon);
-        this.startButton.appendChild(
-          document.createTextNode(this.isCallActive ? "End Call" : "Start Call")
-        );
+        const buttonText = this.isCallActive ? "End Call" : "Start Call";
+        this.startButton.appendChild(document.createTextNode(buttonText));
+        console.log("🔄 Button text set to:", buttonText);
       }
     }
 
@@ -1685,7 +1691,20 @@
       this.closeButton.addEventListener("click", () => this.toggleWidget());
 
       // Start button (Chat/Call)
-      this.startButton.addEventListener("click", () => this.handleStart());
+      this.startButton.addEventListener("click", (e) => {
+        console.log("🎯 Start button clicked!", e);
+        console.log("🎯 Current mode:", this.currentMode);
+        console.log("🎯 Button element:", this.startButton);
+        e.preventDefault();
+        this.handleStart();
+      });
+
+      // Add touch event for mobile debugging
+      this.startButton.addEventListener("touchend", (e) => {
+        console.log("📱 Start button touch end!", e);
+        e.preventDefault();
+        this.handleStart();
+      });
 
       // Navigation buttons
       this.chatNavButton.addEventListener("click", () => this.setMode("chat"));
@@ -1826,14 +1845,14 @@
         this.currentMode === "chat" ? "#111827" : "#6b7280";
       this.chatNavButton.style.borderBottom =
         this.currentMode === "chat" ? "2px solid #000" : "none";
-      this.chatNavButton.querySelector("span").style.fontWeight =
+      this.chatNavButton.style.fontWeight =
         this.currentMode === "chat" ? "600" : "400";
 
       this.voiceNavButton.style.color =
         this.currentMode === "voice" ? "#111827" : "#6b7280";
       this.voiceNavButton.style.borderBottom =
         this.currentMode === "voice" ? "2px solid #000" : "none";
-      this.voiceNavButton.querySelector("span").style.fontWeight =
+      this.voiceNavButton.style.fontWeight =
         this.currentMode === "voice" ? "600" : "400";
 
       // Update start button
@@ -1849,12 +1868,18 @@
     }
 
     async handleStart() {
+      console.log("🔥 handleStart() called - currentMode:", this.currentMode, "isCallActive:", this.isCallActive);
+      
       if (this.currentMode === "chat") {
+        console.log("📱 Starting chat mode");
         this.startChat();
       } else {
+        console.log("📞 Voice mode - checking if call is active");
         if (this.isCallActive) {
+          console.log("☎️ Ending current call");
           await this.endCurrentCall();
         } else {
+          console.log("🚀 Starting new call");
           await this.startCurrentCall();
         }
       }
