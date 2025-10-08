@@ -454,6 +454,7 @@
           
           .shivai-widget-header {
             padding: 20px 16px 16px !important;
+            border-radius: 16px 16px 0 0 !important;
           }
           
           .shivai-widget-input-container {
@@ -519,6 +520,7 @@
             bottom: 85px !important;
             right: 20px !important;
             left: 20px !important;
+            border-radius: 16px !important;
           }
           
           .shivai-widget-button {
@@ -541,6 +543,31 @@
           }
         }
         
+        /* iPhone and iOS specific optimizations */
+        @supports (-webkit-touch-callout: none) {
+          .shivai-widget-chat {
+            -webkit-backdrop-filter: blur(10px) !important;
+            backdrop-filter: blur(10px) !important;
+            -webkit-transform: translateZ(0) !important;
+            transform: translateZ(0) !important;
+          }
+          
+          .shivai-widget-input {
+            -webkit-appearance: none !important;
+            -webkit-border-radius: 12px !important;
+          }
+          
+          .shivai-widget-button {
+            -webkit-tap-highlight-color: transparent !important;
+            -webkit-appearance: none !important;
+          }
+          
+          .shivai-widget-chat * {
+            -webkit-font-smoothing: antialiased !important;
+            -moz-osx-font-smoothing: grayscale !important;
+          }
+        }
+
         @media (max-width: 480px) {
           .shivai-widget-chat {
             width: calc(100vw - 24px) !important;
@@ -551,6 +578,8 @@
             left: 12px !important;
             right: 12px !important;
             bottom: 80px !important;
+            border-radius: 16px !important;
+            -webkit-overflow-scrolling: touch !important;
           }
           
           .shivai-widget-button {
@@ -567,6 +596,7 @@
           
           .shivai-widget-header {
             padding: 16px 12px 12px !important;
+            border-radius: 16px 16px 0 0 !important;
           }
           
           .shivai-widget-input {
@@ -733,6 +763,7 @@
           borderBottom: "1px solid #e5e7eb",
           padding: "20px 16px",
           background: "linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)",
+          borderRadius: "16px 16px 0 0",
         },
       });
 
@@ -758,6 +789,8 @@
             fontWeight: "500",
             transition: "all 0.2s",
             boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
+            webkitTapHighlightColor: "transparent",
+            touchAction: "manipulation",
           },
         },
         ["×"]
@@ -773,6 +806,21 @@
         this.closeButton.style.background = "rgba(255, 255, 255, 0.9)";
         this.closeButton.style.color = "#6b7280";
         this.closeButton.style.borderColor = "#e5e7eb";
+      });
+
+      // Add touch events for better mobile responsiveness
+      this.closeButton.addEventListener("touchstart", () => {
+        this.closeButton.style.background = "rgba(239, 68, 68, 0.1)";
+        this.closeButton.style.color = "#dc2626";
+        this.closeButton.style.borderColor = "#fecaca";
+      });
+
+      this.closeButton.addEventListener("touchend", () => {
+        setTimeout(() => {
+          this.closeButton.style.background = "rgba(255, 255, 255, 0.9)";
+          this.closeButton.style.color = "#6b7280";
+          this.closeButton.style.borderColor = "#e5e7eb";
+        }, 100);
       });
 
       // Avatar/Logo
@@ -891,6 +939,10 @@
           justifyContent: "center",
           gap: "8px",
           transition: "all 0.3s",
+          webkitTapHighlightColor: "transparent",
+          touchAction: "manipulation",
+          webkitUserSelect: "none",
+          userSelect: "none",
         },
       });
 
@@ -942,8 +994,8 @@
         style: {
           display: "flex",
           borderTop: "1px solid #f3f4f6",
-          // background: "#f9fafb",
-          borderRadius: "0 0 12px 12px",
+          background: "#f9fafb",
+          borderRadius: "0 0 16px 16px",
           overflow: "hidden",
         },
       });
@@ -1823,11 +1875,17 @@
     }
 
     startCurrentCall() {
+      console.log("Starting call - currentMode:", this.currentMode);
+      console.log("Device info:", navigator.userAgent);
+      
       // Switch to voice mode when starting a call
       this.currentMode = "voice";
-
+      
       // Set hasStarted to true to show the call interface
       this.hasStarted = true;
+
+      console.log("Call started - mode:", this.currentMode, "hasStarted:", this.hasStarted);
+      console.log("Elements check - header:", !!this.header, "body:", !!this.body, "callMode:", !!this.callMode);
 
       this.updateModeUI();
       this.updateUI();
@@ -1895,6 +1953,16 @@
     }
 
     updateUI() {
+      console.log("updateUI - hasStarted:", this.hasStarted, "currentMode:", this.currentMode);
+      
+      // iOS specific handling
+      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+      if (isIOS) {
+        console.log("iOS device detected, applying iOS specific styles");
+        // Force repaint on iOS
+        this.chatInterface.style.transform = "translateZ(0)";
+      }
+      
       // Show/hide welcome screen vs active session
       this.header.style.display = this.hasStarted ? "none" : "block";
       this.body.style.display = this.hasStarted ? "flex" : "none";
@@ -1905,9 +1973,11 @@
 
       if (this.hasStarted) {
         if (this.currentMode === "chat") {
+          console.log("Showing chat mode");
           this.chatMode.style.display = "flex";
           this.callMode.style.display = "none";
         } else {
+          console.log("Showing call mode");
           this.chatMode.style.display = "none";
           this.callMode.style.display = "flex";
         }
