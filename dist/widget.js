@@ -103,7 +103,7 @@
       "volume-2": `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11,5 6,9 2,9 2,15 6,15 11,19 11,5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></svg>`,
       "volume-x": `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11,5 6,9 2,9 2,15 6,15 11,19 11,5"/><line x1="22" y1="9" x2="16" y2="15"/><line x1="16" y1="9" x2="22" y2="15"/></svg>`,
       user: `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>`,
-      bot: `<img src="/assets/newImages/chatb.png" alt="img" style="width:${size}px;height:${size}px;border-radius:4px;filter:invert(1);" />`,
+      bot: `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="10" rx="2" ry="2"/><circle cx="12" cy="5" r="2"/><path d="M12 7v4"/><line x1="8" y1="21" x2="8" y2="17"/><line x1="16" y1="21" x2="16" y2="17"/></svg>`,
     };
 
     const iconSvg = icons[name] || icons["message-circle"];
@@ -402,39 +402,55 @@
         
         @media (max-width: 768px) {
           .shivai-widget-chat {
-            width: calc(100vw - 16px) !important;
-            max-width: none !important;
-            height: calc(100vh - 80px) !important;
-            max-height: none !important;
+            width: calc(100vw - 32px) !important;
+            max-width: 400px !important;
+            height: auto !important;
+            max-height: 70vh !important;
             position: fixed !important;
-            top: 50% !important;
-            left: 50% !important;
-            transform: translate(-50%, -50%) !important;
+            bottom: 90px !important;
+            right: 16px !important;
+            left: 16px !important;
+            transform: none !important;
             z-index: 10000 !important;
+            margin: 0 auto !important;
+            border-radius: 16px !important;
+            box-shadow: 0 12px 48px rgba(0, 0, 0, 0.15), 0 4px 16px rgba(0, 0, 0, 0.1) !important;
+            animation: slideUpMobile 0.3s ease-out !important;
+          }
+          
+          @keyframes slideUpMobile {
+            from {
+              transform: translateY(20px);
+              opacity: 0;
+            }
+            to {
+              transform: translateY(0);
+              opacity: 1;
+            }
           }
           
           .shivai-widget-container {
             position: fixed !important;
+            bottom: 16px !important;
+            right: 16px !important;
           }
           
           .shivai-widget-button {
-            width: 60px !important;
-            height: 60px !important;
-            bottom: 20px !important;
-            right: 20px !important;
+            width: 56px !important;
+            height: 56px !important;
           }
           
           .shivai-widget-messages {
-            max-height: calc(100vh - 280px) !important;
+            max-height: 300px !important;
             padding: 12px !important;
           }
           
           .shivai-widget-message {
-            margin-bottom: 16px !important;
+            margin-bottom: 12px !important;
           }
           
           .shivai-widget-header {
-            padding: 16px 12px !important;
+            padding: 20px 16px 16px !important;
           }
           
           .shivai-widget-input-container {
@@ -456,48 +472,128 @@
           
           .shivai-call-controls {
             flex-direction: row !important;
-            gap: 20px !important;
+            gap: 16px !important;
             justify-content: center !important;
+            padding: 20px !important;
           }
           
           .shivai-call-button {
-            width: 64px !important;
-            height: 64px !important;
+            width: 56px !important;
+            height: 56px !important;
           }
           
-          .shivai-widget-overlay {
+          /* Mobile start button - make it full width */
+          .shivai-widget-header .shivai-widget-button {
+            width: 100% !important;
+            max-width: none !important;
+            margin: 0 0 16px 0 !important;
+            padding: 16px 20px !important;
+            font-size: 16px !important;
+            font-weight: 600 !important;
+          }
+          
+          /* Mobile backdrop for better focus */
+          .shivai-widget-chat::before {
+            content: '' !important;
             position: fixed !important;
             top: 0 !important;
             left: 0 !important;
             right: 0 !important;
             bottom: 0 !important;
-            background: rgba(0, 0, 0, 0.5) !important;
-            z-index: 9999 !important;
-            backdrop-filter: blur(4px) !important;
+            background: rgba(0, 0, 0, 0.3) !important;
+            z-index: -1 !important;
+            backdrop-filter: blur(2px) !important;
+          }
+        }
+        
+        @media (max-width: 640px) and (min-width: 481px) {
+          .shivai-widget-chat {
+            width: calc(100vw - 40px) !important;
+            max-width: 420px !important;
+            height: auto !important;
+            max-height: 75vh !important;
+            bottom: 85px !important;
+            right: 20px !important;
+            left: 20px !important;
+          }
+          
+          .shivai-widget-button {
+            width: 54px !important;
+            height: 54px !important;
+          }
+          
+          .shivai-widget-messages {
+            max-height: 320px !important;
+          }
+          
+          /* Tablet start button - make it full width */
+          .shivai-widget-header .shivai-widget-button {
+            width: 100% !important;
+            max-width: none !important;
+            margin: 0 0 16px 0 !important;
+            padding: 16px 20px !important;
+            font-size: 16px !important;
+            font-weight: 600 !important;
           }
         }
         
         @media (max-width: 480px) {
           .shivai-widget-chat {
-            width: calc(100vw - 8px) !important;
-            height: calc(100vh - 60px) !important;
+            width: calc(100vw - 24px) !important;
+            max-width: 360px !important;
+            height: auto !important;
+            max-height: 65vh !important;
+            left: 12px !important;
+            right: 12px !important;
+            bottom: 80px !important;
           }
           
           .shivai-widget-button {
-            width: 56px !important;
-            height: 56px !important;
+            width: 52px !important;
+            height: 52px !important;
             touch-action: manipulation !important;
           }
           
           .shivai-widget-messages {
-            max-height: calc(100vh - 320px) !important;
-            padding: 8px !important;
+            max-height: 250px !important;
+            padding: 10px !important;
             -webkit-overflow-scrolling: touch !important;
+          }
+          
+          .shivai-widget-header {
+            padding: 16px 12px 12px !important;
           }
           
           .shivai-widget-input {
             -webkit-appearance: none !important;
             -webkit-user-select: text !important;
+            font-size: 16px !important;
+            padding: 10px 14px !important;
+          }
+          
+          .shivai-widget-input-container {
+            padding: 10px !important;
+          }
+          
+          .shivai-widget-send-button {
+            width: 44px !important;
+            height: 44px !important;
+          }
+          
+          /* Mobile navigation buttons */
+          .shivai-widget-header button {
+            padding: 12px 8px !important;
+            font-size: 13px !important;
+          }
+          
+          /* Mobile start button - make it full width */
+          .shivai-widget-header .shivai-widget-button {
+            width: 100% !important;
+            max-width: none !important;
+            margin: 0 0 16px 0 !important;
+            padding: 16px 20px !important;
+            font-size: 16px !important;
+            font-weight: 600 !important;
           }
           
           /* Enhanced touch targets for buttons */
@@ -578,7 +674,7 @@
             alignItems: "center",
             justifyContent: "center",
             transition: "all 0.3s ease",
-            border: "3px solid rgba(255,255,255,0.2)",
+            // border: "3px solid rgba(255,255,255,0.2)",
           },
         },
         [createIcon("message-circle", window.innerWidth <= 768 ? 26 : 24)]
