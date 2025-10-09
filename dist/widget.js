@@ -1133,18 +1133,14 @@
     createLiveMessageBubble() {
       // Array of live messages
       this.liveMessages = [
-        "👋 Welcome! Need instant support?",
-        "💡 Ask me anything about your business.",
-        "📞 Try our 24/7 AI-powered voice call!",
-        "🤖 I'm your AI Employee. Ready to help!",
+        "👋 Need help?",
+        "📞 Try AI voice call!",
+        "💬 Chat with me!",
+        "🤖 I'm your AI Employee.",
         "🚀 Fast answers, friendly service.",
-        "🔔 Click to start a voice call now!",
-        "💬 Prefer chat? I'm here for you.",
-        "🌟 Trusted by businesses worldwide.",
-        "🕒 Available anytime, anywhere.",
-        "🙋 How can I assist you today?"
+        "🕒 24/7 support.",
+        "🎤 Voice enabled."
       ];
-      
       this.currentMessageIndex = 0;
       
       // Create the bubble container
@@ -1168,7 +1164,9 @@
           transition: "all 0.3s ease",
           zIndex: "10000",
           border: "1px solid #e5e7eb",
-          maxWidth: "160px",
+          minWidth: "60px",
+          maxWidth: "250px",
+          width: "auto",
         },
       });
 
