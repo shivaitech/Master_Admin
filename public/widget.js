@@ -735,7 +735,11 @@
         @keyframes bubbleSlideIn {
           0% {
             opacity: 0;
-            transform: translateY(-50%) translateX(10px) scale(0.8);
+            transform: translateY(-50%) translateX(15px) scale(0.7);
+          }
+          60% {
+            opacity: 0.8;
+            transform: translateY(-50%) translateX(-2px) scale(1.05);
           }
           100% {
             opacity: 1;
@@ -756,6 +760,11 @@
         
         .shivai-message-bubble {
           cursor: pointer;
+        }
+        
+        @keyframes typingCursor {
+          0%, 50% { opacity: 1; }
+          51%, 100% { opacity: 0; }
         }
         
         @media (max-width: 768px) {
@@ -933,7 +942,7 @@
             min-height: 280px !important;
             left: 12px !important;
             right: 12px !important;
-            bottom: 80px !important;
+            bottom: 70px !important;
             border-radius: 16px !important;
             -webkit-overflow-scrolling: touch !important;
           }
@@ -1067,7 +1076,7 @@
             transition: "all 0.3s ease",
             background:
               "linear-gradient(135deg, #4b5563 0%, #6b7280 30%, #374151 70%, #1f2937 100%)",
-            border: "2px solid rgba(107, 114, 128, 0.3)",
+            // border: "2px solid rgba(107, 114, 128, 0.3)",
             boxShadow:
               "0 8px 32px rgba(0, 0, 0, 0.25), 0 2px 8px rgba(0, 0, 0, 0.15)",
           },
@@ -1124,14 +1133,16 @@
     createLiveMessageBubble() {
       // Array of live messages
       this.liveMessages = [
-        "Hi! 👋",
-        "How's your day?",
-        "Let's meet!",
-        "Can we call?",
-        "Need help?",
-        "I'm here for you!",
-        "Ready to assist!",
-        "Let's chat!"
+        "👋 Welcome! Need instant support?",
+        "💡 Ask me anything about your business.",
+        "📞 Try our 24/7 AI-powered voice call!",
+        "🤖 I'm your AI Employee. Ready to help!",
+        "🚀 Fast answers, friendly service.",
+        "🔔 Click to start a voice call now!",
+        "💬 Prefer chat? I'm here for you.",
+        "🌟 Trusted by businesses worldwide.",
+        "🕒 Available anytime, anywhere.",
+        "🙋 How can I assist you today?"
       ];
       
       this.currentMessageIndex = 0;
@@ -1218,7 +1229,7 @@
         // Clear the bubble first
         this.messageBubble.innerHTML = '';
         
-        // Create the bubble tail again
+        // Create the bubble tail
         const bubbleTail = createElement("div", {
           style: {
             position: "absolute",
@@ -1233,38 +1244,68 @@
           },
         });
         
+        // Create empty message container
+        const messageEl = createElement("span", {
+          style: {
+            opacity: "0",
+          }
+        });
+        
+        this.messageBubble.appendChild(messageEl);
         this.messageBubble.appendChild(bubbleTail);
         
-        // Show bubble with slide-in animation
+        // Show bubble first with slide-in animation
         this.messageBubble.style.visibility = "visible";
         this.messageBubble.style.animation = "bubbleSlideIn 0.4s ease-out forwards";
         
-        // Type out the message
-        this.typeMessage(message);
+        // Wait for bubble animation to complete, then start typing
+        setTimeout(() => {
+          messageEl.style.opacity = "1";
+          this.typeMessage(message, messageEl);
+        }, 400); // Start typing after bubble slide-in completes
         
-        // Hide bubble after 4 seconds
+        // Hide bubble after 5 seconds (increased to account for typing time)
         setTimeout(() => {
           this.hideBubble();
-        }, 4000);
+        }, 5000);
         
         // Move to next message
         this.currentMessageIndex = (this.currentMessageIndex + 1) % this.liveMessages.length;
       }
     }
 
-    typeMessage(message) {
+    typeMessage(message, messageEl) {
       let i = 0;
-      const messageEl = createElement("span");
-      this.messageBubble.insertBefore(messageEl, this.messageBubble.firstChild);
+      messageEl.textContent = ''; // Start with empty text
+      
+      // Add typing cursor effect
+      const cursor = createElement("span", {
+        style: {
+          opacity: "1",
+          animation: "typingCursor 1s infinite",
+          marginLeft: "2px",
+        }
+      }, ['|']);
+      
+      messageEl.appendChild(cursor);
       
       const typeInterval = setInterval(() => {
         if (i < message.length) {
+          // Remove cursor, add character, then re-add cursor
+          messageEl.removeChild(cursor);
           messageEl.textContent = message.substring(0, i + 1);
+          messageEl.appendChild(cursor);
           i++;
         } else {
+          // Remove cursor when typing is done
           clearInterval(typeInterval);
+          setTimeout(() => {
+            if (messageEl.contains(cursor)) {
+              messageEl.removeChild(cursor);
+            }
+          }, 500); // Keep cursor for a bit then remove
         }
-      }, 50); // Type each character every 50ms
+      }, 60); // Slightly slower typing for better effect
     }
 
     hideBubble() {
@@ -1497,7 +1538,6 @@
       );
 
       privacyText.appendChild(privacyContent);
-      privacyText.appendChild(andText);
       privacyText.appendChild(tcLink);
 
       // Bottom navigation (Chat/Voice Call selection)
