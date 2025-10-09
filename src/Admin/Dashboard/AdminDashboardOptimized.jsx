@@ -17,7 +17,7 @@ import {
   RiRobotLine,
   RiPulseLine,
   RiFlashlightLine,
-  RiUserFollowLine ,
+  RiUserFollowLine,
   RiUserAddLine,
   RiBankCardLine,
   RiAlarmWarningLine,
@@ -30,7 +30,6 @@ import {
   RiBarChartBoxLine,
   RiFileList3Line,
   RiArrowRightSLine,
-
 } from "react-icons/ri";
 import { useNavigate } from "react-router-dom";
 import { ThemeProvider, useTheme } from "./contexts/ThemeContext";
@@ -39,37 +38,43 @@ import AnalyticsOptimized from "./components/AnalyticsOptimized";
 import WidgetManagement from "./Widget/WidgetManagementPlaceholder";
 import Shivlogo from "/ShivaiLogo.svg";
 import bg from "/assets/Hero/bg.svg";
-import { 
-  Users, 
-  DollarSign, 
-  Bot, 
-  HelpCircle, 
-  Briefcase, 
-  Crown, 
-  UserPlus, 
-  Package, 
-  BarChart3, 
-  CreditCard, 
-  TrendingUp, 
-  CheckCircle, 
-  Clock, 
-  Award, 
-  Eye, 
-  ExternalLink, 
-  MessageSquare, 
-  UserCheck 
+import "./AdminDashboard.css";
+import {
+  Users,
+  DollarSign,
+  Bot,
+  HelpCircle,
+  Briefcase,
+  Crown,
+  UserPlus,
+  Package,
+  BarChart3,
+  CreditCard,
+  TrendingUp,
+  CheckCircle,
+  Clock,
+  Award,
+  Eye,
+  ExternalLink,
+  MessageSquare,
+  UserCheck,
 } from "lucide-react";
-
 
 const AdminDashboardContent = () => {
   const [activeSection, setActiveSection] = useState("dashboard");
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const { theme, toggleTheme, currentTheme } = useTheme();
   const navigate = useNavigate();
 
   const navItems = [
-    { id: "dashboard", icon: RiHome4Line, label: "Dashboard", section: "dashboard" },
+    {
+      id: "dashboard",
+      icon: RiHome4Line,
+      label: "Dashboard",
+      section: "dashboard",
+    },
     {
       id: "clients",
       icon: RiTeamLine,
@@ -111,7 +116,12 @@ const AdminDashboardContent = () => {
       label: "Analytics",
       section: "analytics",
     },
-    { id: "settings", icon: RiSettingsLine, label: "Settings", section: "settings" },
+    {
+      id: "settings",
+      icon: RiSettingsLine,
+      label: "Settings",
+      section: "settings",
+    },
   ];
 
   const handleNavClick = (section) => {
@@ -162,68 +172,73 @@ const AdminDashboardContent = () => {
   // Mobile tab navigation component with theme toggle and menu tools
   const MobileTabNavigation = () => (
     <div
-      className={`lg:hidden fixed top-0 left-0 right-0 z-30 ${currentTheme.cardBg} backdrop-blur-md border-b ${currentTheme.border}`}
+      className={`lg:hidden fixed top-0 left-0 right-0 z-30 flex flex-col ${currentTheme.cardBg} backdrop-blur-md border-b ${currentTheme.border}`}
+      style={{ minHeight: "52px" }}
     >
       {/* Top row with theme toggle and menu tools */}
       <div className="flex items-center justify-between px-4 py-2 border-b border-opacity-50 border-current">
-        <div className="flex items-center gap-3">
-          <button
+        <div className="flex items-center ">
+          <div
             onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-            className={`p-2 rounded-lg ${currentTheme.cardBg} border ${currentTheme.border} ${currentTheme.hover} transition-all duration-200 shadow-sm`}
+            className={`mr-2`}
           >
             {isMobileMenuOpen ? (
               <RiCloseLine className={`w-4 h-4 ${currentTheme.text}`} />
             ) : (
               <RiMenuLine className={`w-4 h-4 ${currentTheme.text}`} />
             )}
-          </button>
+          </div>
           <span className={`text-sm font-medium ${currentTheme.text}`}>
             Dashboard
           </span>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-4 justify-end">
           {/* Theme Toggle */}
-          <button
+          <div
             onClick={toggleTheme}
-            className={`p-2 rounded-lg ${currentTheme.hover} transition-all duration-200`}
+            className={` rounded-lg ${currentTheme.hover} transition-all duration-200`}
           >
             {theme === "dark" ? (
               <RiSunLine className={`w-4 h-4 ${currentTheme.textSecondary}`} />
             ) : (
               <RiMoonLine className={`w-4 h-4 ${currentTheme.textSecondary}`} />
             )}
-          </button>
+          </div>
 
           {/* Notifications */}
-          <button
-            className={`relative p-2 rounded-lg ${currentTheme.hover} transition-all duration-200`}
+          <div
+            className={`relative  rounded-lg ${currentTheme.hover} transition-all duration-200`}
           >
-            <RiNotificationLine className={`w-4 h-4 ${currentTheme.textSecondary}`} />
+            <RiNotificationLine
+              className={`w-4 h-4 ${currentTheme.textSecondary}`}
+            />
             <span className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full text-xs"></span>
-          </button>
+          </div>
 
           {/* User Profile */}
-          <button
+          <div
             className={`p-2 rounded-lg ${currentTheme.hover} transition-all duration-200`}
           >
             <RiUserLine className={`w-4 h-4 ${currentTheme.textSecondary}`} />
-          </button>
+          </div>
 
           {/* Logout */}
-          <button
+          <div
             onClick={handleLogout}
-            className={`p-2 rounded-lg ${currentTheme.hover} transition-all duration-200`}
+            className={` rounded-lg ${currentTheme.hover} transition-all duration-200`}
           >
-            <RiLogoutBoxLine className={`w-4 h-4 ${currentTheme.textSecondary}`} />
-          </button>
+            <RiLogoutBoxLine
+              className={`w-4 h-4 ${currentTheme.textSecondary}`}
+            />
+          </div>
         </div>
       </div>
     </div>
   );
 
   const renderDashboard = () => (
-    <div className="space-y-4 md:space-y-6 lg:space-y-8 pt-16 lg:pt-0">
+    <div className="space-y-4 md:space-y-6 lg:space-y-8 pt-12 lg:pt-0">
       {/* Stats Grid - Sliding Cards for Mobile */}
       <div className="relative">
         {/* Desktop Grid */}
@@ -303,7 +318,9 @@ const AdminDashboardContent = () => {
                       <div
                         className={`w-8 h-8 md:w-10 md:h-10 rounded-lg flex items-center justify-center ${currentTheme.activeBg}`}
                       >
-                        <Icon className={`w-4 h-4 md:w-5 md:h-5 ${currentTheme.text}`} />
+                        <Icon
+                          className={`w-4 h-4 md:w-5 md:h-5 ${currentTheme.text}`}
+                        />
                       </div>
                       <div className="text-right">
                         <span
@@ -342,7 +359,6 @@ const AdminDashboardContent = () => {
 
       {/* Main Content Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-6">
-        {/* Recent Clients Activity */}
         <div className="lg:col-span-2 space-y-4 md:space-y-6">
           <div className="relative group">
             <div
@@ -363,16 +379,12 @@ const AdminDashboardContent = () => {
                 <h2
                   className={`text-lg md:text-xl font-bold ${currentTheme.text} flex items-center gap-2`}
                 >
-                  <RiTeamLine className="w-5 h-5 md:w-6 md:h-6 text-blue-500" />
+                  <RiTeamLine className="w-5 h-5 md:w-6 md:h-6 text-gray-500" />
                   Recent Client Activity
                 </h2>
                 <button
-                  className="hidden sm:flex items-center gap-2 px-3 py-2 text-white rounded-lg text-sm font-medium transition-all duration-200 hover:shadow-lg"
-                  style={{
-                    background: "linear-gradient(0deg, #0a0a0a 0%, #000 100%)",
-                    boxShadow:
-                      "0 4px 6px rgba(0, 0, 0, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.1)",
-                  }}
+                  className="hidden admin-btn-primary  py-2 px-4"
+                  type="button"
                 >
                   <RiEyeLine className="w-4 h-4" />
                   <span className="hidden md:inline">View All Clients</span>
@@ -389,11 +401,13 @@ const AdminDashboardContent = () => {
                     <div
                       className={`w-6 h-6 ${currentTheme.activeBg} rounded-full flex items-center justify-center`}
                     >
-                      <RiUserFollowLine  className={`w-3 h-3 ${currentTheme.text}`} />
+                      <RiUserFollowLine
+                        className={`w-3 h-3 ${currentTheme.text}`}
+                      />
                     </div>
                     <span
                       className={`text-sm font-medium ${currentTheme.text}`}
-                  >
+                    >
                       New Clients
                     </span>
                   </div>
@@ -410,7 +424,9 @@ const AdminDashboardContent = () => {
                     <div
                       className={`w-6 h-6 ${currentTheme.activeBg} rounded-full flex items-center justify-center`}
                     >
-                      <RiBankCardLine className={`w-3 h-3 ${currentTheme.text}`} />
+                      <RiBankCardLine
+                        className={`w-3 h-3 ${currentTheme.text}`}
+                      />
                     </div>
                     <span
                       className={`text-sm font-medium ${currentTheme.text}`}
@@ -463,7 +479,9 @@ const AdminDashboardContent = () => {
                       <div
                         className={`w-5 h-5 ${currentTheme.activeBg} rounded-full flex items-center justify-center`}
                       >
-                        <RiUserFollowLine  className={`w-3 h-3 ${currentTheme.text}`} />
+                        <RiUserFollowLine
+                          className={`w-3 h-3 ${currentTheme.text}`}
+                        />
                       </div>
                       <span
                         className={`text-xs font-medium ${currentTheme.text}`}
@@ -806,7 +824,7 @@ const AdminDashboardContent = () => {
                       <div
                         className={`w-8 h-8 md:w-10 md:h-10 rounded-lg bg-gradient-to-r ${action.color} flex items-center justify-center group-hover:scale-110 transition-transform flex-shrink-0`}
                       >
-                        <Icon className="w-4 h-4 md:w-5 md:h-5 text-white" />
+                        <Icon className="w-4 h-4 md:w-5 md:h-5 text-gray-600" />
                       </div>
                       <span
                         className={`${currentTheme.text} text-sm md:text-base font-medium truncate`}
@@ -886,7 +904,7 @@ const AdminDashboardContent = () => {
                       <div
                         className={`w-8 h-8 md:w-10 md:h-10 bg-gradient-to-r ${activity.color} rounded-full flex items-center justify-center flex-shrink-0`}
                       >
-                        <Icon className="w-4 h-4 md:w-5 md:h-5 text-white" />
+                        <Icon className="w-4 h-4 md:w-5 md:h-5 text-gray-600" />
                       </div>
                       <div className="flex-1 min-w-0">
                         <p
@@ -972,7 +990,7 @@ const AdminDashboardContent = () => {
                           <div
                             className={`w-8 h-8 bg-gradient-to-r ${activity.color} rounded-full flex items-center justify-center flex-shrink-0`}
                           >
-                            <Icon className="w-4 h-4 text-white" />
+                            <Icon className="w-4 h-4 text-gray-600" />
                           </div>
                           <div className="flex-1 min-w-0">
                             <p
@@ -1046,9 +1064,9 @@ const AdminDashboardContent = () => {
     ];
 
     return (
-      <div className="space-y-4 md:space-y-6 lg:space-y-8 pt-16 lg:pt-0 px-2 sm:px-0">
+      <div className="space-y-4 md:space-y-6 lg:space-y-8 pt-12 lg:pt-0 px-2 sm:px-0">
         {/* Client Stats Grid - Matching Dashboard Layout */}
-        <div className="relative">
+        <div className="relative hidden">
           {/* Desktop Grid */}
           <div className="hidden lg:grid lg:grid-cols-4 gap-4 lg:gap-6">
             {clientStats.map((stat, index) => {
@@ -1123,8 +1141,12 @@ const AdminDashboardContent = () => {
                       }`}
                     >
                       <div className="flex items-center justify-between mb-2 md:mb-3">
-                        <div className={`w-8 h-8 md:w-10 md:h-10 rounded-lg ${currentTheme.activeBg} flex items-center justify-center shadow-lg`}>
-                          <Icon className={`w-4 h-4 md:w-5 md:h-5 ${currentTheme.text}`} />
+                        <div
+                          className={`w-8 h-8 md:w-10 md:h-10 rounded-lg ${currentTheme.activeBg} flex items-center justify-center shadow-lg`}
+                        >
+                          <Icon
+                            className={`w-4 h-4 md:w-5 md:h-5 ${currentTheme.text}`}
+                          />
                         </div>
                         <div className="text-right">
                           <span
@@ -1192,7 +1214,7 @@ const AdminDashboardContent = () => {
                   <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
                     <div className="relative flex-1 sm:flex-none">
                       <RiSearchLine
-                        className={`absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 ${currentTheme.textSecondary}`}
+                        className={`absolute hidden lg:flex left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 ${currentTheme.textSecondary}`}
                       />
                       <input
                         type="text"
@@ -1200,10 +1222,6 @@ const AdminDashboardContent = () => {
                         className={`w-full sm:w-64 pl-10 pr-4 py-2 rounded-lg border ${currentTheme.border} ${currentTheme.searchBg} ${currentTheme.text} text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20`}
                       />
                     </div>
-                    <button className="px-3 py-2 bg-gradient-to-r from-gray-900 to-black text-white rounded-lg transition-all duration-300 hover:bg-white hover:text-black hover:border-2 hover:border-dashed hover:border-black hover:shadow-xl flex items-center justify-center gap-2 text-sm font-medium">
-                      <RiAddLine className="w-4 h-4" />
-                      Add Client
-                    </button>
                   </div>
                 </div>
 
@@ -1216,7 +1234,9 @@ const AdminDashboardContent = () => {
                       <div
                         className={`w-6 h-6 ${currentTheme.activeBg} rounded-full flex items-center justify-center`}
                       >
-                        <RiUserFollowLine  className={`w-3 h-3 ${currentTheme.text}`} />
+                        <RiUserFollowLine
+                          className={`w-3 h-3 ${currentTheme.text}`}
+                        />
                       </div>
                       <span
                         className={`text-sm font-medium ${currentTheme.text}`}
@@ -1413,7 +1433,7 @@ const AdminDashboardContent = () => {
                       <div className="flex items-center gap-4">
                         <div className="relative">
                           <div className="w-12 h-12 bg-purple-500 rounded-full flex items-center justify-center">
-                            <RiUserLine className="w-6 h-6 text-white" />
+                            <RiUserLine className="w-6 h-6 text-gray-600" />
                           </div>
                           <div
                             className={`absolute -bottom-1 -right-1 w-4 h-4 rounded-full border-2 ${
@@ -1494,10 +1514,10 @@ const AdminDashboardContent = () => {
                           {user.status}
                         </span>
                         <div className="flex items-center gap-2">
-                          <button className="p-2 bg-gradient-to-r from-gray-900 to-black text-white rounded-lg transition-all duration-300 hover:bg-white hover:text-black hover:border-2 hover:border-dashed hover:border-black hover:shadow-xl">
+                          <button className="p-2  rounded-lg transition-all duration-300 hover:bg-white cursor-pointer">
                             <RiEyeLine className="w-4 h-4" />
                           </button>
-                          <button className="p-2 bg-gradient-to-r from-gray-900 to-black text-white rounded-lg transition-all duration-300 hover:bg-white hover:text-black hover:border-2 hover:border-dashed hover:border-black hover:shadow-xl">
+                          <button className="p-2  rounded-lg transition-all duration-300 hover:bg-white cursor-pointer">
                             <RiEditLine className="w-4 h-4" />
                           </button>
                         </div>
@@ -1615,16 +1635,13 @@ const AdminDashboardContent = () => {
                 >
                   Quick Actions
                 </h3>
-                <div className="space-y-3">
-                  <button className="w-full px-3 py-3 bg-gradient-to-r from-gray-900 to-black text-white rounded-lg transition-all duration-300 hover:bg-white hover:text-black hover:border-2 hover:border-dashed hover:border-black hover:shadow-xl flex items-center gap-2 text-sm font-medium">
+                <div className="flex  gap-3 items-center flex-wrap">
+                  <button className="admin-btn-primary  py-2 px-4">
                     <RiUserAddLine className="w-4 h-4" />
                     Invite Client
                   </button>
-                  <button className="w-full px-3 py-3 bg-gradient-to-r from-gray-900 to-black text-white rounded-lg transition-all duration-300 hover:bg-white hover:text-black hover:border-2 hover:border-dashed hover:border-black hover:shadow-xl flex items-center gap-2 text-sm font-medium">
-                    <RiMailLine className="w-4 h-4" />
-                    Send Notification
-                  </button>
-                  <button className="w-full px-3 py-3 bg-gradient-to-r from-gray-900 to-black text-white rounded-lg transition-all duration-300 hover:bg-white hover:text-black hover:border-2 hover:border-dashed hover:border-black hover:shadow-xl flex items-center gap-2 text-sm font-medium">
+
+                  <button className="admin-btn-primary px-4 py-2">
                     <RiDownloadLine className="w-4 h-4" />
                     Export Data
                   </button>
@@ -1739,14 +1756,7 @@ const AdminDashboardContent = () => {
                 <option>Failed</option>
                 <option>Refunded</option>
               </select>
-              <button
-                className="flex items-center gap-2 px-4 py-2 text-white rounded-lg font-medium transition-all duration-200 hover:shadow-lg"
-                style={{
-                  background: "linear-gradient(0deg, #0a0a0a 0%, #000 100%)",
-                  boxShadow:
-                    "0 4px 6px rgba(0, 0, 0, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.1)",
-                }}
-              >
+              <button className="flex items-center gap-2 px-4 py-2  rounded-lg transition-all duration-300 hover:bg-white cursor-pointer text-sm font-medium">
                 <RiAddLine className="w-4 h-4" />
                 Export Report
               </button>
@@ -1808,7 +1818,7 @@ const AdminDashboardContent = () => {
                   <div className="flex items-center gap-4">
                     <div className="relative">
                       <div className="w-14 h-14 bg-green-500 rounded-full flex items-center justify-center">
-                        <RiBankCardLine className="w-7 h-7 text-white" />
+                        <RiBankCardLine className="w-7 h-7 text-gray-600" />
                       </div>
                       <div
                         className={`absolute -bottom-1 -right-1 w-5 h-5 rounded-full border-2 ${
@@ -2074,7 +2084,7 @@ const AdminDashboardContent = () => {
                 <option>Closed</option>
               </select>
               <button
-                className="flex items-center gap-2 px-4 py-2 text-white rounded-lg font-medium transition-all duration-200 hover:shadow-lg"
+                className="flex items-center gap-2 px-4 py-2 text-gray-600 rounded-lg font-medium transition-all duration-200 hover:shadow-lg"
                 style={{
                   background: "linear-gradient(0deg, #0a0a0a 0%, #000 100%)",
                   boxShadow:
@@ -2150,7 +2160,7 @@ const AdminDashboardContent = () => {
                             : "bg-gradient-to-r from-blue-500 to-cyan-500"
                         }`}
                       >
-                        <RiQuestionLine className="w-7 h-7 text-white" />
+                        <RiQuestionLine className="w-7 h-7 text-gray-600" />
                       </div>
                       <div
                         className={`absolute -bottom-1 -right-1 w-5 h-5 rounded-full border-2 ${
@@ -2375,7 +2385,9 @@ const AdminDashboardContent = () => {
               System Settings
             </h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className={`p-4 rounded-xl border ${currentTheme.border} shadow-lg hover:shadow-xl transition-all duration-300`}>
+              <div
+                className={`p-4 rounded-xl border ${currentTheme.border} shadow-lg hover:shadow-xl transition-all duration-300`}
+              >
                 <h3 className={`${currentTheme.text} font-semibold mb-2`}>
                   General Settings
                 </h3>
@@ -2383,7 +2395,9 @@ const AdminDashboardContent = () => {
                   Configure system-wide preferences and defaults
                 </p>
               </div>
-              <div className={`p-4 rounded-xl border ${currentTheme.border} shadow-lg hover:shadow-xl transition-all duration-300`}>
+              <div
+                className={`p-4 rounded-xl border ${currentTheme.border} shadow-lg hover:shadow-xl transition-all duration-300`}
+              >
                 <h3 className={`${currentTheme.text} font-semibold mb-2`}>
                   Security Settings
                 </h3>
@@ -2391,7 +2405,9 @@ const AdminDashboardContent = () => {
                   Manage authentication and access controls
                 </p>
               </div>
-              <div className={`p-4 rounded-xl border ${currentTheme.border} shadow-lg hover:shadow-xl transition-all duration-300`}>
+              <div
+                className={`p-4 rounded-xl border ${currentTheme.border} shadow-lg hover:shadow-xl transition-all duration-300`}
+              >
                 <h3 className={`${currentTheme.text} font-semibold mb-2`}>
                   AI Configuration
                 </h3>
@@ -2399,7 +2415,9 @@ const AdminDashboardContent = () => {
                   Configure AI employee deployment settings
                 </p>
               </div>
-              <div className={`p-4 rounded-xl border ${currentTheme.border} shadow-lg hover:shadow-xl transition-all duration-300`}>
+              <div
+                className={`p-4 rounded-xl border ${currentTheme.border} shadow-lg hover:shadow-xl transition-all duration-300`}
+              >
                 <h3 className={`${currentTheme.text} font-semibold mb-2`}>
                   Integration Settings
                 </h3>
@@ -2460,9 +2478,9 @@ const AdminDashboardContent = () => {
 
       {/* Sidebar */}
       <div
-        className={`fixed left-0 top-0 h-full w-64 no-scrollbar bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-800 z-50 transform transition-transform duration-300 ease-in-out ${
+        className={`fixed left-0 top-0 h-full no-scrollbar bg-white dark:bg-[#EEEDEB] border-r border-gray-200 dark:border-gray-800 z-50 transform transition-all duration-300 ease-in-out ${
           isMobileMenuOpen ? "translate-x-0" : "-translate-x-full"
-        } lg:translate-x-0`}
+        } lg:translate-x-0 ${isSidebarCollapsed ? "lg:w-16" : "lg:w-64"} w-64`}
       >
         <div className="flex flex-col h-full">
           {/* Header */}
@@ -2472,10 +2490,21 @@ const AdminDashboardContent = () => {
                 <img
                   src={Shivlogo}
                   alt="ShivAi Logo"
-                  className="h-8 w-auto"
+                  className={`h-8 w-auto transition-opacity duration-300 ${
+                    isSidebarCollapsed
+                      ? "lg:opacity-0 lg:w-0"
+                      : "lg:opacity-100"
+                  }`}
                 />
-              
               </div>
+              <button
+                onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+                className={`p-2 relative -left-2 rounded-lg bg-[#EEEDEB] hover:bg-gray-100 dark:hover:bg-gray-800  transition-colors ${
+                  isSidebarCollapsed ? "lg:block" : "lg:hidden"
+                }`}
+              >
+                <RiCloseLine className="w-5 h-5 text-gray-600 dark:text-gray-400" />
+              </button>
               <div className="flex items-center gap-2">
                 <button
                   onClick={toggleTheme}
@@ -2496,11 +2525,30 @@ const AdminDashboardContent = () => {
                 >
                   <RiCloseLine className="w-5 h-5 text-gray-600 dark:text-gray-400" />
                 </button>
+                <button
+                  onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+                  className="p-2 rounded-lg bg-[#EEEDEB] hover:bg-gray-100 dark:hover:bg-gray-800 hidden lg:flex transition-colors"
+                  title={
+                    isSidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"
+                  }
+                >
+                  <RiArrowRightSLine
+                    className={`w-5 h-5 text-gray-600 dark:text-gray-400 transition-transform duration-300 ${
+                      isSidebarCollapsed ? "rotate-0" : "rotate-180"
+                    }`}
+                  />
+                </button>
               </div>
             </div>
 
             {/* Search */}
-            <div className="relative">
+            <div
+              className={`relative transition-all duration-300 ${
+                isSidebarCollapsed
+                  ? "lg:opacity-0 lg:h-0 lg:overflow-hidden"
+                  : "lg:opacity-100"
+              }`}
+            >
               <div
                 className={`relative ${currentTheme.searchBg} rounded-lg border ${currentTheme.border} focus-within:border-opacity-60 transition-all`}
               >
@@ -2528,22 +2576,35 @@ const AdminDashboardContent = () => {
                 <button
                   key={item.id}
                   onClick={() => handleNavClick(item.section)}
-                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 group relative ${
+                  className={`w-full flex items-center transition-all duration-200 group relative ${
+                    isSidebarCollapsed
+                      ? "justify-center px-2 py-3"
+                      : "gap-3 px-4 py-3"
+                  } rounded-xl ${
                     isActive
-                      ? "bg-gray-900 dark:bg-white text-white dark:text-gray-900 font-medium"
+                      ? "bg-[#EEEDEB] dark:bg-white text-gray-600 dark:text-gray-900 font-medium"
                       : "text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-gray-100"
                   }`}
+                  title={isSidebarCollapsed ? item.label : undefined}
                 >
-                  <Icon className={`w-5 h-5 flex-shrink-0 transition-colors ${
-                    isActive ? "text-white dark:text-gray-900" : ""
-                  }`} />
-                  <span className="text-sm flex-1 text-left truncate">
+                  <Icon
+                    className={`w-5 h-5 flex-shrink-0 transition-colors ${
+                      isActive ? "text-gray-600 dark:text-gray-900" : ""
+                    }`}
+                  />
+                  <span
+                    className={`text-sm flex-1 text-left truncate transition-all duration-300 ${
+                      isSidebarCollapsed
+                        ? "lg:opacity-0 lg:w-0 lg:overflow-hidden"
+                        : "lg:opacity-100"
+                    }`}
+                  >
                     {item.label}
                   </span>
                   {/* {item.badge && (
                     <span className={`px-2 py-1 text-xs rounded-full ${
                       isActive 
-                        ? "bg-white/20 dark:bg-black/20 text-white dark:text-gray-900" 
+                        ? "bg-white/20 dark:bg-black/20 text-gray-600 dark:text-gray-900" 
                         : "bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-400"
                     }`}>
                       {item.badge}
@@ -2556,26 +2617,56 @@ const AdminDashboardContent = () => {
 
           {/* User Info */}
           <div className="p-4 border-t border-gray-200 dark:border-gray-800">
-            <div className="flex items-center gap-3 p-3 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors cursor-pointer mb-3">
+            {/* User Profile */}
+            <div
+              className={`${
+                isSidebarCollapsed
+                  ? "flex items-center justify-center p-3 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors cursor-pointer mb-3 group relative"
+                  : "flex items-center gap-3 p-3 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors cursor-pointer mb-3"
+              }`}
+            >
               <div className="w-10 h-10 bg-gray-100 dark:bg-gray-800 rounded-full flex items-center justify-center flex-shrink-0">
                 <RiUserLine className="w-5 h-5 text-gray-600 dark:text-gray-400" />
               </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
+              {!isSidebarCollapsed && (
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-gray-900 dark:text-gray-600 truncate">
+                    Admin User
+                  </p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
+                    admin@shivai.com
+                  </p>
+                </div>
+              )}
+
+              {/* Tooltip for collapsed state */}
+              {isSidebarCollapsed && (
+                <div className="absolute left-full ml-2 px-2 py-1 bg-gray-900 text-white text-xs rounded-md opacity-0 group-hover:opacity-100 transition-opacity duration-300 whitespace-nowrap z-50 pointer-events-none">
                   Admin User
-                </p>
-                <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
-                  admin@shivai.com
-                </p>
-              </div>
+                </div>
+              )}
             </div>
 
+            {/* Logout Button */}
             <button
               onClick={handleLogout}
-              className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-gray-100 transition-all duration-200 group"
+              className={`${
+                isSidebarCollapsed
+                  ? "w-full flex items-center justify-center px-4 py-3 rounded-xl text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-gray-100 transition-all duration-200 group relative"
+                  : "w-full flex items-center gap-3 px-4 py-3 rounded-xl text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-gray-100 transition-all duration-200 group"
+              }`}
             >
               <RiLogoutBoxLine className="w-5 h-5 group-hover:scale-110 transition-transform" />
-              <span className="font-medium text-sm">Sign Out</span>
+              {!isSidebarCollapsed && (
+                <span className="font-medium text-sm">Sign Out</span>
+              )}
+
+              {/* Tooltip for collapsed state */}
+              {isSidebarCollapsed && (
+                <div className="absolute left-full ml-2 px-2 py-1 bg-gray-900 text-white text-xs rounded-md opacity-0 group-hover:opacity-100 transition-opacity duration-300 whitespace-nowrap z-50 pointer-events-none">
+                  Sign Out
+                </div>
+              )}
             </button>
           </div>
         </div>
@@ -2583,15 +2674,18 @@ const AdminDashboardContent = () => {
 
       {/* Mobile Tab Navigation */}
       <MobileTabNavigation />
-
       {/* Main Content Area */}
-      <div className="transition-all duration-300 ease-in-out ml-0 lg:ml-64">
+      <div
+        className={`transition-all duration-300 ease-in-out ml-0 ${
+          isSidebarCollapsed ? "lg:ml-16" : "lg:ml-64"
+        }`}
+      >
         <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
           {/* Top Bar - Hidden on mobile, visible on desktop */}
-          <div className="hidden lg:block bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 px-6 py-4">
+          <div className="hidden lg:block bg-white dark:bg-[#EEEDEB] border-b border-gray-200 dark:border-gray-800 px-6 py-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-4">
-                <h1 className="text-2xl font-semibold text-gray-900 dark:text-white capitalize">
+                <h1 className="text-2xl font-semibold text-gray-900 dark:text-gray-600 capitalize">
                   {activeSection}
                 </h1>
               </div>
@@ -2606,7 +2700,12 @@ const AdminDashboardContent = () => {
           </div>
 
           {/* Content */}
-          <div className="p-2 sm:p-3 md:p-4 lg:p-6">{renderContent()}</div>
+          <div
+            className="p-2 sm:p-3 md:p-4 lg:p-6"
+            style={{ paddingTop: "8px" }}
+          >
+            {renderContent()}
+          </div>
         </div>
       </div>
     </div>

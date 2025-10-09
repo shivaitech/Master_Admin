@@ -32,6 +32,8 @@ import {
   Bot,
   ExternalLink,
   ChevronDown,
+  Grid3X3,
+  List,
 } from "lucide-react";
 
 const AIEmployeeStatsMain = ({ onViewEmployee }) => {
@@ -47,8 +49,11 @@ const AIEmployeeStatsMain = ({ onViewEmployee }) => {
 
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage] = useState(10);
+  const [itemsPerPage] = useState(9);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+
+  // View state
+  const [viewMode, setViewMode] = useState("list"); // "list" or "grid"
 
   // Employee selection state
   const [selectedEmployee, setSelectedEmployee] = useState("");
@@ -780,129 +785,298 @@ const AIEmployeeStatsMain = ({ onViewEmployee }) => {
           </div>
         ) : (
           <>
-            <div className="flex items-center justify-between mb-4">
+            {/* Header - Mobile Responsive */}
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4 mb-4">
               <h3 className={`text-lg font-semibold ${currentTheme.text}`}>
                 Session History
+                <span className={`ml-2 text-sm font-normal ${currentTheme.textSecondary}`}>
+                  ({filteredSessions.length} {filteredSessions.length === 1 ? 'session' : 'sessions'})
+                </span>
               </h3>
+              
               <div className="flex items-center gap-2">
-                <div className="relative">
-                  <Search className={`absolute left-2 top-1/2 transform -translate-y-1/2 w-4 h-4 ${currentTheme.textSecondary}`} />
+                {/* Search Bar */}
+                <div className="relative flex-1">
+                  <Search className={`hidden sm:block absolute left-2 top-1/2 transform -translate-y-1/2 w-4 h-4 ${currentTheme.textSecondary}`} />
                   <input
                     type="text"
                     placeholder="Search sessions..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
-                    className={`pl-8 pr-3 py-2 text-sm rounded-md border ${currentTheme.border} ${currentTheme.bg} ${currentTheme.text} focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent w-48`}
+                    className={`w-full pl-3 sm:pl-8 pr-3 py-2 text-sm rounded-md border ${currentTheme.border} ${currentTheme.bg} ${currentTheme.text} focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent`}
                   />
                 </div>
-                <button
-                  className={`p-2 rounded-md ${currentTheme.hover} transition-colors`}
-                  title="Filter sessions"
-                >
-                  <Filter className={`w-4 h-4 ${currentTheme.textSecondary}`} />
-                </button>
-              </div>
-            </div>
-            {/* Sessions List - Mobile Optimized */}
-            <div className="space-y-2 sm:space-y-3">
-              {currentSessions?.map((session) => (
-                <div
-                  key={session.id}
-                  className={`${currentTheme.cardBg} border ${currentTheme.border} rounded-lg p-2 sm:p-3 md:p-4 hover:shadow-md transition-shadow`}
-                >
-                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-3 mb-2 sm:mb-3">
-                    <div className="flex items-center gap-2 min-w-0 flex-1">
-                      <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
-                        {session.type === "chat" ? (
-                          <MessageSquare className="w-4 h-4 sm:w-5 sm:h-5 text-blue-500 flex-shrink-0" />
-                        ) : (
-                          <Phone className="w-4 h-4 sm:w-5 sm:h-5 text-green-500 flex-shrink-0" />
-                        )}
-                        <span
-                          className={`font-medium ${currentTheme.text} text-xs sm:text-sm truncate`}
-                        >
-                          {session.sessionId}
-                        </span>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-1 sm:gap-2 flex-wrap sm:flex-nowrap">
-                      <div className="flex flex-wrap gap-1">
-                        {getStatusBadge(session.status)}
-                        {getSentimentBadge(session.sentiment)}
-                      </div>
-                      <div className="flex items-center gap-1 sm:gap-2 ml-auto">
-                        <button
-                          onClick={() => handleViewSession(session)}
-                          className="p-1.5 sm:p-2 text-white rounded-lg transition-all duration-200 hover:shadow-lg"
-                          title="View"
-                          style={{
-                            background:
-                              "linear-gradient(0deg, #0a0a0a 0%, #000 100%)",
-                            boxShadow:
-                              "0 4px 6px rgba(0, 0, 0, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.1)",
-                          }}
-                        >
-                          {loadingTranscript ? (
-                            <div className="w-3 h-3 sm:w-4 sm:h-4 border border-white border-t-transparent rounded-full animate-spin"></div>
-                          ) : (
-                            <Eye className="w-3 h-3 sm:w-4 sm:h-4" />
-                          )}
-                        </button>
-                      </div>
-                    </div>
+
+                {/* Controls Row - Same line as search */}
+                <div className="flex items-center gap-2">
+                  {/* View Toggle - Hidden on mobile */}
+                  <div className={`hidden sm:flex items-center border ${currentTheme.border} rounded-lg p-1`}>
+                    <button
+                      onClick={() => setViewMode("list")}
+                      className={`p-1.5 rounded transition-all duration-200 ${
+                        viewMode === "list"
+                          ? `${currentTheme.activeBg} ${currentTheme.text} shadow-sm`
+                          : `${currentTheme.textSecondary} hover:${currentTheme.hover}`
+                      }`}
+                      title="List view"
+                    >
+                      <List className="w-4 h-4" />
+                    </button>
+                    <button
+                      onClick={() => setViewMode("grid")}
+                      className={`p-1.5 rounded transition-all duration-200 ${
+                        viewMode === "grid"
+                          ? `${currentTheme.activeBg} ${currentTheme.text} shadow-sm`
+                          : `${currentTheme.textSecondary} hover:${currentTheme.hover}`
+                      }`}
+                      title="Grid view"
+                    >
+                      <Grid3X3 className="w-4 h-4" />
+                    </button>
                   </div>
 
-                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 sm:gap-4 text-xs sm:text-sm">
-                    <div className="min-w-0">
-                      <p
-                        className={`${currentTheme.textSecondary} mb-0.5 sm:mb-1 text-xs`}
+                  {/* Filter Button */}
+                  <button
+                    className={`p-2 rounded-md ${currentTheme.hover} transition-colors`}
+                    title="Filter sessions"
+                  >
+                    <Filter className={`w-4 h-4 ${currentTheme.textSecondary}`} />
+                  </button>
+
+                  {/* Refresh Button */}
+                  <button
+                    onClick={handleRefresh}
+                    className={`p-2 rounded-md ${currentTheme.hover} transition-colors`}
+                    title="Refresh sessions"
+                  >
+                    <RefreshCw className={`w-4 h-4 ${currentTheme.textSecondary} ${loading ? 'animate-spin' : ''}`} />
+                  </button>
+                </div>
+              </div>
+            </div>
+            {/* Sessions List/Grid View */}
+            <div className={viewMode === "grid" ? "grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4" : "space-y-3"}>
+              {currentSessions?.map((session) => (
+                viewMode === "list" ? (
+                  // List View - Mobile Optimized
+                  <div
+                    key={session.id}
+                    className={`${currentTheme.cardBg} border ${currentTheme.border} rounded-lg p-3 sm:p-4 hover:shadow-md transition-all duration-200`}
+                  >
+                    {/* Header Row - Mobile Optimized */}
+                    <div className="flex items-start sm:items-center justify-between mb-3">
+                      <div className="flex items-center gap-2 flex-1 min-w-0">
+                        {session.type === "chat" ? (
+                          <MessageSquare className="w-4 h-4 text-blue-500 flex-shrink-0" />
+                        ) : (
+                          <Phone className="w-4 h-4 text-green-500 flex-shrink-0" />
+                        )}
+                        <div className="flex-1 min-w-0">
+                          <h4 className={`font-semibold ${currentTheme.text} text-sm truncate`}>
+                            {session.sessionId}
+                          </h4>
+                          <p className={`text-xs ${currentTheme.textSecondary} truncate`}>
+                            {[session.location?.city, session.location?.region, session.location?.country].filter(Boolean).join(', ') || 'Unknown Location'}
+                          </p>
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => handleViewSession(session)}
+                        className="p-2 text-gray-700 rounded-lg bg-gray-100 hover:bg-gray-200 transition-all duration-200 flex-shrink-0 ml-2"
+                        title="View Session"
                       >
-                        Client Location
+                        {loadingTranscript ? (
+                          <div className="w-4 h-4 border border-gray-600 border-t-transparent rounded-full animate-spin"></div>
+                        ) : (
+                          <Eye className="w-4 h-4" />
+                        )}
+                      </button>
+                    </div>
+
+                    {/* Status Badges - Mobile Optimized */}
+                    <div className="flex items-center gap-2 mb-3">
+                      {getStatusBadge(session.status)}
+                      {getSentimentBadge(session.sentiment)}
+                    </div>
+
+                    {/* Data Grid - Mobile Optimized */}
+                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 text-sm">
+                      <div className="space-y-1">
+                        <p className={`text-xs ${currentTheme.textSecondary}`}>
+                          Device & Browser
+                        </p>
+                        <p className={`${currentTheme.text} font-medium text-sm leading-tight`}>
+                          {session.device?.browser || 'Unknown'}
+                        </p>
+                        <p className={`text-xs ${currentTheme.textSecondary} leading-tight`}>
+                          {session.device?.deviceType || 'Unknown Device'}
+                        </p>
+                      </div>
+                      <div className="space-y-1">
+                        <p className={`text-xs ${currentTheme.textSecondary}`}>
+                          Duration
+                        </p>
+                        <p className={`${currentTheme.text} font-medium text-sm leading-tight`}>
+                          {session.duration}
+                        </p>
+                        <p className={`text-xs ${currentTheme.textSecondary} leading-tight`}>
+                          Session time
+                        </p>
+                      </div>
+                      <div className="space-y-1">
+                        <p className={`text-xs ${currentTheme.textSecondary}`}>
+                          Date & Time
+                        </p>
+                        <p className={`${currentTheme.text} font-medium text-sm leading-tight`}>
+                          {new Date(session.startTime).toLocaleDateString('en-US', { 
+                            month: 'short', 
+                            day: 'numeric',
+                            year: '2-digit'
+                          })}
+                        </p>
+                        <p className={`text-xs ${currentTheme.textSecondary} leading-tight`}>
+                          {new Date(session.startTime).toLocaleTimeString('en-US', {
+                            hour: '2-digit',
+                            minute: '2-digit',
+                            hour12: true
+                          })}
+                        </p>
+                      </div>
+                      <div className="space-y-1">
+                        <p className={`text-xs ${currentTheme.textSecondary}`}>
+                          Messages
+                        </p>
+                        <p className={`${currentTheme.text} font-medium text-sm leading-tight`}>
+                          {session.messageCount?.total || session.transcriptCount || session.transcripts.length || 0}
+                        </p>
+                        <p className={`text-xs ${currentTheme.textSecondary} leading-tight`}>
+                          AI: {session.messageCount?.ai || 0} • User: {session.messageCount?.user || 0}
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* ISP & Location Details - Mobile Optimized */}
+                    <div className={`mt-3 pt-3 border-t ${currentTheme.border}`}>
+                      <div className="flex justify-between items-center text-xs">
+                        <span className={`${currentTheme.textSecondary} truncate flex-1`} title={session.location?.isp}>
+                          ISP: {session.location?.isp || 'Unknown'}
+                        </span>
+                        {session.location?.zip && (
+                          <span className={`${currentTheme.textSecondary} ml-2 flex-shrink-0`}>
+                            ZIP: {session.location.zip}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Tags */}
+                    {session.tags && session.tags.length > 0 && (
+                      <div className="flex flex-wrap gap-2 mt-3">
+                        {session.tags.map((tag, index) => (
+                          <span
+                            key={index}
+                            className="px-2 py-1 bg-gray-100 text-gray-700 text-xs rounded-full"
+                          >
+                            {tag}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  // Grid View - Card Layout
+                  <div
+                    key={session.id}
+                    className={`${currentTheme.cardBg} border ${currentTheme.border} rounded-lg p-4 hover:shadow-lg transition-all duration-200 h-fit`}
+                  >
+                    {/* Card Header */}
+                    <div className="flex items-start justify-between mb-3">
+                      <div className="flex items-center gap-2">
+                        {session.type === "chat" ? (
+                          <MessageSquare className="w-5 h-5 text-blue-500 flex-shrink-0" />
+                        ) : (
+                          <Phone className="w-5 h-5 text-green-500 flex-shrink-0" />
+                        )}
+                        <div className="min-w-0">
+                          <h4 className={`font-semibold ${currentTheme.text} text-sm truncate`}>
+                            {session.sessionId}
+                          </h4>
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => handleViewSession(session)}
+                        className="p-1.5 text-gray-900 rounded-lg bg-[#EEEDEB] transition-all duration-200 hover:shadow-lg flex-shrink-0"
+                        title="View Session"
+                      >
+                        {loadingTranscript ? (
+                          <div className="w-3 h-3 border border-gray-600 border-t-transparent rounded-full animate-spin"></div>
+                        ) : (
+                          <Eye className="w-3 h-3" />
+                        )}
+                      </button>
+                    </div>
+
+                    {/* Status Badges */}
+                    <div className="flex flex-wrap gap-1 mb-3">
+                      {getStatusBadge(session.status)}
+                      {getSentimentBadge(session.sentiment)}
+                    </div>
+
+                    {/* Location */}
+                    <div className="mb-3">
+                      <p className={`text-xs font-medium ${currentTheme.textSecondary} mb-1`}>
+                        Location
                       </p>
-                      <p className={`${currentTheme.text} truncate`} title={`${[session.location?.city, session.location?.region, session.location?.country].filter(Boolean).join(', ')}${session.location?.zip ? ` - ${session.location.zip}` : ''}`}>
+                      <p className={`${currentTheme.text} text-sm font-medium truncate`} title={`${[session.location?.city, session.location?.region, session.location?.country].filter(Boolean).join(', ')}`}>
                         {[session.location?.city, session.location?.region, session.location?.country].filter(Boolean).join(', ') || 'Unknown Location'}
                       </p>
-                      <p className={`${currentTheme.textSecondary} text-xs truncate`} title={session.location?.isp}>
-                        {session.location?.zip && `${session.location.zip} • `}{session.location?.isp || 'Unknown ISP'}
+                      <p className={`text-xs ${currentTheme.textSecondary} truncate`}>
+                        {session.location?.isp || 'Unknown ISP'}
                       </p>
                     </div>
-                    <div className="min-w-0">
-                      <p
-                        className={`${currentTheme.textSecondary} mb-0.5 sm:mb-1 text-xs`}
-                      >
-                        Device
-                      </p>
-                      <p className={`${currentTheme.text} truncate`} title={`${session.device?.browser} on ${session.device?.deviceType}`}>
-                        {session.device?.browser || 'Unknown Browser'}
-                      </p>
-                      <p className={`${currentTheme.textSecondary} text-xs truncate`}>
-                        {session.device?.deviceType || 'Unknown Device'}
-                      </p>
+
+                    {/* Stats Grid */}
+                    <div className="grid grid-cols-2 gap-3 mb-3">
+                      <div>
+                        <p className={`text-xs ${currentTheme.textSecondary}`}>
+                          Device
+                        </p>
+                        <p className={`${currentTheme.text} text-sm font-medium truncate`}>
+                          {session.device?.browser || 'Unknown'}
+                        </p>
+                      </div>
+                      <div>
+                        <p className={`text-xs ${currentTheme.textSecondary}`}>
+                          Duration
+                        </p>
+                        <p className={`${currentTheme.text} text-sm font-medium`}>
+                          {session.duration}
+                        </p>
+                      </div>
+                      <div>
+                        <p className={`text-xs ${currentTheme.textSecondary}`}>
+                          Date
+                        </p>
+                        <p className={`${currentTheme.text} text-sm font-medium`}>
+                          {new Date(session.startTime).toLocaleDateString('en-US', { 
+                            month: 'short', 
+                            day: 'numeric'
+                          })}
+                        </p>
+                      </div>
+                      <div>
+                        <p className={`text-xs ${currentTheme.textSecondary}`}>
+                          Messages
+                        </p>
+                        <p className={`${currentTheme.text} text-sm font-medium`}>
+                          {session.messageCount?.total || session.transcriptCount || session.transcripts.length || 0}
+                        </p>
+                      </div>
                     </div>
-                    <div className="min-w-0">
-                      <p
-                        className={`${currentTheme.textSecondary} mb-0.5 sm:mb-1 text-xs`}
-                      >
-                        Duration
-                      </p>
-                      <p className={`${currentTheme.text} truncate`}>
-                        {session.duration}
-                      </p>
-                    </div>
-                    <div className="min-w-0">
-                      <p
-                        className={`${currentTheme.textSecondary} mb-0.5 sm:mb-1 text-xs`}
-                      >
-                        Date & Time
-                      </p>
-                      <p className={`${currentTheme.text} truncate`} title={formatDate(session.startTime)}>
-                        {new Date(session.startTime).toLocaleDateString('en-US', { 
-                          month: 'short', 
-                          day: 'numeric',
-                          year: '2-digit'
-                        })}
-                      </p>
-                      <p className={`${currentTheme.textSecondary} text-xs truncate`}>
+
+                    {/* Time */}
+                    <div className={`pt-2 border-t ${currentTheme.border} text-center`}>
+                      <p className={`text-xs ${currentTheme.textSecondary}`}>
                         {new Date(session.startTime).toLocaleTimeString('en-US', {
                           hour: '2-digit',
                           minute: '2-digit',
@@ -910,34 +1084,27 @@ const AIEmployeeStatsMain = ({ onViewEmployee }) => {
                         })}
                       </p>
                     </div>
-                    <div className="min-w-0">
-                      <p
-                        className={`${currentTheme.textSecondary} mb-0.5 sm:mb-1 text-xs`}
-                      >
-                        Messages
-                      </p>
-                      <p className={`${currentTheme.text} truncate`}>
-                        {session.messageCount?.total || session.transcriptCount || session.transcripts.length || 0}
-                      </p>
-                      <p className={`${currentTheme.textSecondary} text-xs truncate`}>
-                        AI: {session.messageCount?.ai || 0} • User: {session.messageCount?.user || 0}
-                      </p>
-                    </div>
-                  </div>
 
-                  {session.tags && (
-                    <div className="flex flex-wrap gap-2 mt-3">
-                      {session.tags.map((tag, index) => (
-                        <span
-                          key={index}
-                          className="px-2 py-1 bg-gray-100 text-gray-700 text-xs rounded-full"
-                        >
-                          {tag}
-                        </span>
-                      ))}
-                    </div>
-                  )}
-                </div>
+                    {/* Tags */}
+                    {session.tags && session.tags.length > 0 && (
+                      <div className="flex flex-wrap gap-1 mt-3">
+                        {session.tags.slice(0, 2).map((tag, index) => (
+                          <span
+                            key={index}
+                            className="px-2 py-1 bg-gray-100 text-gray-700 text-xs rounded-full"
+                          >
+                            {tag}
+                          </span>
+                        ))}
+                        {session.tags.length > 2 && (
+                          <span className={`text-xs ${currentTheme.textSecondary} px-1 py-1`}>
+                            +{session.tags.length - 2}
+                          </span>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )
               ))}
             </div>
 
@@ -1300,101 +1467,115 @@ const AIEmployeeStatsMain = ({ onViewEmployee }) => {
           </div>
         )}
 
-        {/* Pagination Footer - Mobile Optimized */}
-        <div className="mt-3 sm:mt-4 md:mt-6 pt-3 sm:pt-4 border-t border-gray-200">
-          {/* Mobile-first responsive pagination info */}
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
-            <div className="text-xs sm:text-sm text-gray-500 text-center sm:text-left">
-              {startIndex + 1}-{Math.min(endIndex, filteredSessions.length)} of{" "}
-              {filteredSessions.length}
-              {filteredSessions.length !== sessions.length &&
-                ` (${sessions.length} total)`}
+        {/* Pagination Footer - Professional & Modern */}
+        <div className={`mt-4 sm:mt-6 pt-4 sm:pt-6 border-t ${currentTheme.border}`}>
+          {/* Results Summary */}
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className={`text-sm ${currentTheme.textSecondary} text-center sm:text-left`}>
+              Showing <span className={`font-medium ${currentTheme.text}`}>{startIndex + 1}</span> to{' '}
+              <span className={`font-medium ${currentTheme.text}`}>{Math.min(endIndex, filteredSessions.length)}</span> of{' '}
+              <span className={`font-medium ${currentTheme.text}`}>{filteredSessions.length}</span> results
+              {filteredSessions.length !== sessions.length && (
+                <span className="block sm:inline sm:ml-1 text-xs">
+                  ({sessions.length} total entries)
+                </span>
+              )}
             </div>
 
-            {/* Pagination Controls */}
+            {/* Pagination Controls - Modern Design - Hidden on mobile */}
             {totalPages > 1 && (
-              <div className="flex items-center justify-center gap-0.5 sm:gap-1">
+              <nav className="hidden sm:flex items-center justify-end space-x-1" aria-label="Pagination">
                 {/* Previous Button */}
                 <button
                   onClick={goToPrevPage}
                   disabled={currentPage === 1}
-                  className="p-1.5 sm:p-2 rounded-lg text-white disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 hover:shadow-lg"
+                  className={`
+                    inline-flex items-center px-3 py-2 text-sm font-medium rounded-lg
+                    border ${currentTheme.border} ${currentTheme.text}
+                    hover:${currentTheme.hover} 
+                    disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-transparent
+                    focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2
+                    transition-all duration-200
+                  `}
                   title="Previous page"
-                  style={{
-                    background: "linear-gradient(0deg, #0a0a0a 0%, #000 100%)",
-                    boxShadow:
-                      "0 4px 6px rgba(0, 0, 0, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.1)",
-                  }}
+                  aria-label="Go to previous page"
                 >
-                  <ArrowLeft className="w-3 h-3 sm:w-4 sm:h-4" />
+                  <ArrowLeft className="w-4 h-4 mr-1" />
+                  <span className="hidden sm:inline">Previous</span>
                 </button>
 
-                {/* Page Numbers - Mobile responsive */}
-                <div className="hidden sm:flex items-center gap-1">
-                  {/* First page */}
+                {/* Page Numbers */}
+                <div className="flex items-center space-x-1">
+                  {/* First Page */}
                   {currentPage > 3 && (
                     <>
                       <button
                         onClick={() => goToPage(1)}
-                        className="px-3 py-2 text-sm rounded-lg text-white transition-all duration-200 hover:shadow-lg"
-                        style={{
-                          background:
-                            "linear-gradient(0deg, #0a0a0a 0%, #000 100%)",
-                          boxShadow:
-                            "0 4px 6px rgba(0, 0, 0, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.1)",
-                          opacity: "0.8",
-                        }}
+                        className={`
+                          inline-flex items-center justify-center px-3 py-2 text-sm font-medium rounded-lg
+                          border ${currentTheme.border} ${currentTheme.text}
+                          hover:${currentTheme.hover}
+                          focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2
+                          transition-all duration-200 min-w-[40px]
+                        `}
+                        aria-label="Go to page 1"
                       >
                         1
                       </button>
                       {currentPage > 4 && (
-                        <span className="px-2 text-gray-400">...</span>
+                        <span className={`px-2 py-2 text-sm ${currentTheme.textSecondary}`} aria-hidden="true">
+                          ⋯
+                        </span>
                       )}
                     </>
                   )}
 
-                  {/* Page range around current page */}
+                  {/* Visible Page Range */}
                   {Array.from({ length: totalPages }, (_, i) => i + 1)
                     .filter(
                       (page) =>
-                        page >= Math.max(1, currentPage - 2) &&
-                        page <= Math.min(totalPages, currentPage + 2)
+                        page >= Math.max(1, currentPage - 1) &&
+                        page <= Math.min(totalPages, currentPage + 1)
                     )
                     .map((page) => (
                       <button
                         key={page}
                         onClick={() => goToPage(page)}
-                        className="px-3 py-2 text-sm rounded-lg text-white transition-all duration-200 hover:shadow-lg"
-                        style={{
-                          background:
+                        className={`
+                          inline-flex items-center justify-center px-3 py-2 text-sm font-medium rounded-lg
+                          border transition-all duration-200 min-w-[40px]
+                          focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2
+                          ${
                             page === currentPage
-                              ? "linear-gradient(0deg, #1a1a1a 0%, #333 100%)"
-                              : "linear-gradient(0deg, #0a0a0a 0%, #000 100%)",
-                          boxShadow:
-                            "0 4px 6px rgba(0, 0, 0, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.1)",
-                          opacity: page === currentPage ? "1" : "0.8",
-                        }}
+                              ? `${currentTheme.activeBg} ${currentTheme.text} border-blue-500 shadow-sm`
+                              : `${currentTheme.border} ${currentTheme.text} hover:${currentTheme.hover}`
+                          }
+                        `}
+                        aria-label={`Go to page ${page}`}
+                        aria-current={page === currentPage ? 'page' : undefined}
                       >
                         {page}
                       </button>
                     ))}
 
-                  {/* Last page */}
+                  {/* Last Page */}
                   {currentPage < totalPages - 2 && (
                     <>
                       {currentPage < totalPages - 3 && (
-                        <span className="px-2 text-gray-400">...</span>
+                        <span className={`px-2 py-2 text-sm ${currentTheme.textSecondary}`} aria-hidden="true">
+                          ⋯
+                        </span>
                       )}
                       <button
                         onClick={() => goToPage(totalPages)}
-                        className="px-3 py-2 text-sm rounded-lg text-white transition-all duration-200 hover:shadow-lg"
-                        style={{
-                          background:
-                            "linear-gradient(0deg, #0a0a0a 0%, #000 100%)",
-                          boxShadow:
-                            "0 4px 6px rgba(0, 0, 0, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.1)",
-                          opacity: "0.8",
-                        }}
+                        className={`
+                          inline-flex items-center justify-center px-3 py-2 text-sm font-medium rounded-lg
+                          border ${currentTheme.border} ${currentTheme.text}
+                          hover:${currentTheme.hover}
+                          focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2
+                          transition-all duration-200 min-w-[40px]
+                        `}
+                        aria-label={`Go to page ${totalPages}`}
                       >
                         {totalPages}
                       </button>
@@ -1402,28 +1583,64 @@ const AIEmployeeStatsMain = ({ onViewEmployee }) => {
                   )}
                 </div>
 
-                {/* Mobile: Simple page info */}
-                <div className="sm:hidden px-2 py-1 text-xs text-gray-600 bg-gray-50 rounded">
-                  {currentPage}/{totalPages}
-                </div>
-
                 {/* Next Button */}
                 <button
                   onClick={goToNextPage}
                   disabled={currentPage === totalPages}
-                  className="p-1.5 sm:p-2 rounded-lg text-white disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 hover:shadow-lg"
+                  className={`
+                    inline-flex items-center px-3 py-2 text-sm font-medium rounded-lg
+                    border ${currentTheme.border} ${currentTheme.text}
+                    hover:${currentTheme.hover}
+                    disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-transparent
+                    focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2
+                    transition-all duration-200
+                  `}
                   title="Next page"
-                  style={{
-                    background: "linear-gradient(0deg, #0a0a0a 0%, #000 100%)",
-                    boxShadow:
-                      "0 4px 6px rgba(0, 0, 0, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.1)",
-                  }}
+                  aria-label="Go to next page"
                 >
-                  <ArrowLeft className="w-3 h-3 sm:w-4 sm:h-4 rotate-180" />
+                  <span className="hidden sm:inline mr-1">Next</span>
+                  <ArrowLeft className="w-4 h-4 rotate-180" />
                 </button>
-              </div>
+              </nav>
             )}
           </div>
+
+          {/* Mobile Compact View */}
+          {totalPages > 1 && (
+            <div className="flex sm:hidden items-center justify-center mt-4 space-x-2">
+              <button
+                onClick={goToPrevPage}
+                disabled={currentPage === 1}
+                className={`
+                  p-2 rounded-lg border ${currentTheme.border} ${currentTheme.text}
+                  hover:${currentTheme.hover} disabled:opacity-50 disabled:cursor-not-allowed
+                  focus:outline-none focus:ring-2 focus:ring-blue-500
+                  transition-all duration-200
+                `}
+                aria-label="Previous page"
+              >
+                <ArrowLeft className="w-4 h-4" />
+              </button>
+              
+              <div className={`px-4 py-2 text-sm font-medium ${currentTheme.text} border ${currentTheme.border} rounded-lg`}>
+                Page {currentPage} of {totalPages}
+              </div>
+              
+              <button
+                onClick={goToNextPage}
+                disabled={currentPage === totalPages}
+                className={`
+                  p-2 rounded-lg border ${currentTheme.border} ${currentTheme.text}
+                  hover:${currentTheme.hover} disabled:opacity-50 disabled:cursor-not-allowed
+                  focus:outline-none focus:ring-2 focus:ring-blue-500
+                  transition-all duration-200
+                `}
+                aria-label="Next page"
+              >
+                <ArrowLeft className="w-4 h-4 rotate-180" />
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </div>

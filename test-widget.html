@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test ShivAI Widget</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>ShivAI Widget Test Page</h1>
+        <p>This is a test page for the unified ShivAI widget. The widget should appear in the bottom-right corner.</p>
+        <p>Features to test:</p>
+        <ul>
+            <li>Click the widget button to open</li>
+            <li>Click "Start Chat" or "Start Call" - both should start a unified call interface</li>
+            <li>Transcript should appear in the chat area during the call</li>
+            <li>Mute and End Call buttons should be at the bottom</li>
+            <li>After ending call, message input should appear</li>
+        </ul>
+    </div>
+
+    <!-- ShivAI Widget -->
+    <script src="./public/widget.js" data-client-id="test-client-123"></script>
+</body>
+</html>

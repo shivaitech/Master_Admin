@@ -51,11 +51,11 @@
     min-height: 44px;
     min-width: 44px;
   }
-  
+
   .table-responsive {
     font-size: 14px;
   }
-  
+
   .table-responsive th,
   .table-responsive td {
     padding: 12px 8px;
@@ -74,8 +74,12 @@
 }
 
 @keyframes spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
 }
 
 /* Status badge animations */
@@ -103,17 +107,17 @@
   .table-mobile-stack {
     display: block;
   }
-  
+
   .table-mobile-stack thead {
     display: none;
   }
-  
+
   .table-mobile-stack tbody,
   .table-mobile-stack tr,
   .table-mobile-stack td {
     display: block;
   }
-  
+
   .table-mobile-stack tr {
     border: 1px solid #e5e7eb;
     border-radius: 8px;
@@ -122,13 +126,13 @@
     background: white;
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
   }
-  
+
   .table-mobile-stack td {
     border: none;
     padding: 8px 0;
     text-align: left;
   }
-  
+
   .table-mobile-stack td:before {
     content: attr(data-label) ": ";
     font-weight: 600;
@@ -177,11 +181,11 @@
   .bg-gray-50 {
     background-color: white;
   }
-  
+
   .border-gray-200 {
     border-color: #000000;
   }
-  
+
   .text-gray-600 {
     color: #000000;
   }
@@ -204,11 +208,11 @@
   .dark-mode .bg-white {
     background-color: #1f2937;
   }
-  
+
   .dark-mode .text-gray-900 {
     color: #f9fafb;
   }
-  
+
   .dark-mode .border-gray-200 {
     border-color: #374151;
   }
@@ -222,12 +226,12 @@
   button {
     display: none !important;
   }
-  
+
   .main-content {
     margin-left: 0 !important;
     padding: 0 !important;
   }
-  
+
   .content-card {
     box-shadow: none !important;
     border: 1px solid #000 !important;
@@ -313,5 +317,67 @@
   textarea {
     font-size: 16px; /* Prevents zoom on iOS */
     padding: 12px;
+  }
+}
+
+/* Common Button Styles */
+.admin-btn-primary {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  transition: 0.3s;
+  background: linear-gradient(
+    135deg,
+    rgb(75, 85, 99) 0%,
+    rgb(107, 114, 128) 30%,
+    rgb(55, 65, 81) 70%,
+    rgb(31, 41, 55) 100%
+  );
+  box-shadow: rgba(0, 0, 0, 0.25) 0px 8px 32px, rgba(0, 0, 0, 0.15) 0px 2px 8px;
+  transform: scale(1);
+  border-color: rgba(255, 255, 255, 0.15);
+  color: #ffffff;
+  border-radius: 0.5rem;
+  transition: all 300ms ease-in-out;
+  font-size: 0.875rem;
+  font-weight: 500;
+  border: none;
+  cursor: pointer;
+}
+
+.admin-btn-primary:hover {
+  background: #ffffff;
+  color: #000000;
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1),
+    0 4px 6px -2px rgba(0, 0, 0, 0.05);
+}
+
+.admin-btn-primary:focus {
+  outline: 2px solid #3b82f6;
+  outline-offset: 2px;
+}
+
+/* Button size variants */
+.admin-btn-sm {
+  padding: 0.25rem 0.5rem;
+}
+
+.admin-btn-lg {
+  padding: 1rem 1rem;
+}
+
+.admin-btn-full {
+  width: 100%;
+  justify-content: center;
+}
+
+/* Icon-only button variant */
+.admin-btn-icon {
+  padding: 0.5rem;
+}
+
+@media (max-width: 640px) {
+  .admin-btn-primary {
+    display: none;
   }
 }

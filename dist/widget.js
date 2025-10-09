@@ -302,6 +302,7 @@
     }
 
     async connectToWebSocket(pythonServiceUrl) {
+
       try {
         console.log("Connecting to Python service:", pythonServiceUrl);
 
@@ -688,6 +689,75 @@
           50% { opacity: 0.3; }
         }
         
+        .shivai-neon-pulse {
+          position: relative;
+          overflow: visible;
+        }
+        
+        .shivai-neon-pulse::before,
+        .shivai-neon-pulse::after {
+          content: "";
+          position: absolute;
+          inset: -4px;
+          border: 2px solid rgba(107, 114, 128, 0.6);
+          border-radius: 50%;
+          animation: neonPulseOut 2s ease-out infinite;
+          opacity: 0;
+          pointer-events: none;
+        }
+        
+        .shivai-neon-pulse::after {
+          animation-delay: 1s;
+        }
+        
+        @keyframes neonPulseOut {
+          0% {
+            transform: scale(1);
+            opacity: 1;
+          }
+          100% {
+            transform: scale(1.5);
+            opacity: 0;
+          }
+        }
+        
+        @keyframes livePulse {
+          0%, 100% {
+            transform: scale(1);
+            opacity: 1;
+          }
+          50% {
+            transform: scale(1.2);
+            opacity: 0.7;
+          }
+        }
+        
+        @keyframes bubbleSlideIn {
+          0% {
+            opacity: 0;
+            transform: translateY(-50%) translateX(10px) scale(0.8);
+          }
+          100% {
+            opacity: 1;
+            transform: translateY(-50%) translateX(0) scale(1);
+          }
+        }
+        
+        @keyframes bubbleSlideOut {
+          0% {
+            opacity: 1;
+            transform: translateY(-50%) translateX(0) scale(1);
+          }
+          100% {
+            opacity: 0;
+            transform: translateY(-50%) translateX(10px) scale(0.8);
+          }
+        }
+        
+        .shivai-message-bubble {
+          cursor: pointer;
+        }
+        
         @media (max-width: 768px) {
           .shivai-widget-chat {
             width: calc(100vw - 16px) !important;
@@ -760,16 +830,17 @@
             border-radius: 12px !important;
           }
           
-          .shivai-call-controls {
-            flex-direction: row !important;
-            gap: 16px !important;
-            justify-content: center !important;
-            padding: 20px !important;
-          }
-          
-          .shivai-call-button {
+          /* Mobile call controls at bottom of unified interface */
+          .shivai-widget-chat .shivai-call-button {
             width: 56px !important;
             height: 56px !important;
+            touch-action: manipulation !important;
+          }
+          
+          /* Mobile unified interface adjustments */
+          .shivai-widget-messages {
+            max-height: 30vh !important;
+            padding: 12px !important;
           }
           
           /* Mobile start button - make it full width */
@@ -796,16 +867,14 @@
           }
         }
         
-        @media (max-width: 640px) and (min-width: 481px) {
+        @media (max-width: 640px) and (min-width: 420px) {
           .shivai-widget-chat {
             width: calc(100vw - 16px) !important;
-            max-width: 480px !important;
+            max-width: 400px !important;
             height: auto !important;
             max-height: 80vh !important;
             min-height: 320px !important;
-            bottom: 85px !important;
-            right: 20px !important;
-            left: 20px !important;
+            bottom: 50px !important;
             border-radius: 16px !important;
           }
           
@@ -854,10 +923,10 @@
           }
         }
 
-        @media (max-width: 480px) {
+        @media (max-width: 420px) {
           .shivai-widget-chat {
             width: calc(100vw - 16px) !important;
-            max-width: 400px !important;
+            max-width: 360px !important;
             
             height: auto !important;
             max-height: 70vh !important;
@@ -905,7 +974,7 @@
           /* Mobile navigation buttons */
           .shivai-widget-header button {
             padding: 12px 8px !important;
-            font-size: 13px !important;
+            font-size: 16px !important;
           }
           
           /* Mobile start button - make it full width */
@@ -986,7 +1055,7 @@
       this.triggerButton = createElement(
         "button",
         {
-          class: "shivai-widget-button",
+          class: "shivai-widget-button shivai-neon-pulse",
           style: {
             width: size,
             height: size,
@@ -998,13 +1067,19 @@
             transition: "all 0.3s ease",
             background:
               "linear-gradient(135deg, #4b5563 0%, #6b7280 30%, #374151 70%, #1f2937 100%)",
-            // border: "2px solid rgba(255, 255, 255, 0.15)",
+            border: "2px solid rgba(107, 114, 128, 0.3)",
             boxShadow:
               "0 8px 32px rgba(0, 0, 0, 0.25), 0 2px 8px rgba(0, 0, 0, 0.15)",
           },
         },
         [createIcon("phone", window.innerWidth <= 768 ? 26 : 24)]
       );
+
+      // Create live message bubble
+      this.createLiveMessageBubble();
+
+      // Set trigger button position
+      this.triggerButton.style.position = "relative";
 
       // Add hover and touch effects
       this.triggerButton.addEventListener("mouseover", () => {
@@ -1013,7 +1088,7 @@
           "linear-gradient(135deg, #6b7280 0%, #9ca3af 30%, #4b5563 70%, #374151 100%)";
         this.triggerButton.style.boxShadow =
           "0 12px 40px rgba(0, 0, 0, 0.35), 0 4px 12px rgba(0, 0, 0, 0.25)";
-        this.triggerButton.style.borderColor = "rgba(255, 255, 255, 0.25)";
+        this.triggerButton.style.borderColor = "rgba(107, 114, 128, 0.5)";
       });
 
       this.triggerButton.addEventListener("mouseout", () => {
@@ -1022,7 +1097,7 @@
           "linear-gradient(135deg, #4b5563 0%, #6b7280 30%, #374151 70%, #1f2937 100%)";
         this.triggerButton.style.boxShadow =
           "0 8px 32px rgba(0, 0, 0, 0.25), 0 2px 8px rgba(0, 0, 0, 0.15)";
-        this.triggerButton.style.borderColor = "rgba(255, 255, 255, 0.15)";
+        this.triggerButton.style.borderColor = "rgba(107, 114, 128, 0.3)";
       });
 
       this.triggerButton.addEventListener("touchstart", () => {
@@ -1044,6 +1119,159 @@
       });
 
       this.container.appendChild(this.triggerButton);
+    }
+
+    createLiveMessageBubble() {
+      // Array of live messages
+      this.liveMessages = [
+        "Hi! 👋",
+        "How's your day?",
+        "Let's meet!",
+        "Can we call?",
+        "Need help?",
+        "I'm here for you!",
+        "Ready to assist!",
+        "Let's chat!"
+      ];
+      
+      this.currentMessageIndex = 0;
+      
+      // Create the bubble container
+      this.messageBubble = createElement("div", {
+        class: "shivai-message-bubble",
+        style: {
+          position: "absolute",
+          right: "70px", // Position to the left of the trigger button
+          top: "50%",
+          transform: "translateY(-50%)",
+          backgroundColor: "#ffffff",
+          color: "#374151",
+          padding: "8px 12px",
+          borderRadius: "16px",
+          boxShadow: "0 4px 16px rgba(0, 0, 0, 0.15)",
+          fontSize: "14px",
+          fontWeight: "500",
+          whiteSpace: "nowrap",
+          opacity: "0",
+          visibility: "hidden",
+          transition: "all 0.3s ease",
+          zIndex: "10000",
+          border: "1px solid #e5e7eb",
+          maxWidth: "160px",
+        },
+      });
+
+      // Create the bubble tail (pointing to the trigger button)
+      const bubbleTail = createElement("div", {
+        style: {
+          position: "absolute",
+          right: "-6px",
+          top: "50%",
+          transform: "translateY(-50%)",
+          width: "0",
+          height: "0",
+          borderTop: "6px solid transparent",
+          borderBottom: "6px solid transparent",
+          borderLeft: "6px solid #ffffff",
+        },
+      });
+
+      this.messageBubble.appendChild(bubbleTail);
+      this.container.appendChild(this.messageBubble);
+
+      // Add click event to bubble
+      this.messageBubble.addEventListener("click", () => {
+        this.toggleWidget();
+      });
+
+      // Add hover effects to bubble
+      this.messageBubble.addEventListener("mouseover", () => {
+        this.messageBubble.style.transform = "translateY(-50%) scale(1.05)";
+        this.messageBubble.style.boxShadow = "0 6px 20px rgba(0, 0, 0, 0.2)";
+      });
+
+      this.messageBubble.addEventListener("mouseout", () => {
+        this.messageBubble.style.transform = "translateY(-50%) scale(1)";
+        this.messageBubble.style.boxShadow = "0 4px 16px rgba(0, 0, 0, 0.15)";
+      });
+
+      // Start the live message rotation
+      this.startLiveMessages();
+    }
+
+    startLiveMessages() {
+      // Show first message after 3 seconds
+      setTimeout(() => {
+        this.showNextMessage();
+      }, 3000);
+
+      // Set interval to rotate messages
+      this.messageInterval = setInterval(() => {
+        this.showNextMessage();
+      }, 8000); // Show new message every 8 seconds
+    }
+
+    showNextMessage() {
+      if (!this.isOpen) { // Only show if widget is closed
+        const message = this.liveMessages[this.currentMessageIndex];
+        
+        // Clear the bubble first
+        this.messageBubble.innerHTML = '';
+        
+        // Create the bubble tail again
+        const bubbleTail = createElement("div", {
+          style: {
+            position: "absolute",
+            right: "-6px",
+            top: "50%",
+            transform: "translateY(-50%)",
+            width: "0",
+            height: "0",
+            borderTop: "6px solid transparent",
+            borderBottom: "6px solid transparent",
+            borderLeft: "6px solid #ffffff",
+          },
+        });
+        
+        this.messageBubble.appendChild(bubbleTail);
+        
+        // Show bubble with slide-in animation
+        this.messageBubble.style.visibility = "visible";
+        this.messageBubble.style.animation = "bubbleSlideIn 0.4s ease-out forwards";
+        
+        // Type out the message
+        this.typeMessage(message);
+        
+        // Hide bubble after 4 seconds
+        setTimeout(() => {
+          this.hideBubble();
+        }, 4000);
+        
+        // Move to next message
+        this.currentMessageIndex = (this.currentMessageIndex + 1) % this.liveMessages.length;
+      }
+    }
+
+    typeMessage(message) {
+      let i = 0;
+      const messageEl = createElement("span");
+      this.messageBubble.insertBefore(messageEl, this.messageBubble.firstChild);
+      
+      const typeInterval = setInterval(() => {
+        if (i < message.length) {
+          messageEl.textContent = message.substring(0, i + 1);
+          i++;
+        } else {
+          clearInterval(typeInterval);
+        }
+      }, 50); // Type each character every 50ms
+    }
+
+    hideBubble() {
+      this.messageBubble.style.animation = "bubbleSlideOut 0.3s ease-in forwards";
+      setTimeout(() => {
+        this.messageBubble.style.visibility = "hidden";
+      }, 300);
     }
 
     createChatInterface() {
@@ -1083,21 +1311,7 @@
             position: "absolute",
             top: "8px",
             right: "8px",
-            width: "32px",
-            height: "32px",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            color: "#9ca3af",
-            background: "transparent",
-            border: "none",
-            borderRadius: "50%",
-            cursor: "pointer",
-            fontSize: "18px",
-            fontWeight: "400",
-            transition: "all 0.2s",
-            webkitTapHighlightColor: "transparent",
-            touchAction: "manipulation",
+            fontSize: "1.2vw",
           },
         },
         ["×"]
@@ -1131,9 +1345,9 @@
       // Avatar/Logo (no background)
       const avatar = createElement("div", {
         style: {
-          width: "68px",
-          height: "68px",
-          margin: "0 auto 16px",
+          width: "80px",
+          height: "80px",
+          margin: "0 auto 8px",
           borderRadius: "0",
           background: "transparent",
           display: "flex",
@@ -1141,13 +1355,33 @@
           justifyContent: "center",
           position: "relative",
           color: "#111827",
+          border:"1.4px solid #e5e7eb",
+          borderRadius:"50%",
+          boxShadow: "0 4px 16px rgba(0, 0, 0, 0.2)",
+          padding: "8px",
         },
       });
 
-      // Insert provided sparkle SVG without background
+      // Insert ShivAI company logo as avatar
       avatar.innerHTML = `
-        <svg xmlns="http://www.w3.org/2000/svg" width="54" height="54" viewBox="0 0 24 24" aria-label="Logo">
-          <path fill="none" stroke="currentColor" stroke-linejoin="round" stroke-width="2" d="M15 19c1.2-3.678 2.526-5.005 6-6c-3.474-.995-4.8-2.322-6-6c-1.2 3.678-2.526 5.005-6 6c3.474.995 4.8 2.322 6 6Zm-8-9c.6-1.84 1.263-2.503 3-3c-1.737-.497-2.4-1.16-3-3c-.6 1.84-1.263 2.503-3 3c1.737.497 2.4 1.16 3 3Zm1.5 10c.3-.92.631-1.251 1.5-1.5c-.869-.249-1.2-.58-1.5-1.5c-.3.92-.631 1.251-1.5 1.5c.869.249 1.2.58 1.5 1.5Z"/>
+        <svg viewBox="0 0 94 29" xmlns="http://www.w3.org/2000/svg" aria-label="ShivAI Logo" width="64" height="auto">
+          <g clip-path="url(#clip0_302_587_avatar)">
+            <path d="M19.9124 3.47757C19.1031 2.88384 15.8286 0.624395 11.3008 1.09206C9.13407 1.31573 7.41793 2.08839 6.23291 2.80494C5.06252 3.51254 4.04016 4.46008 3.35452 5.64348C2.36795 7.34578 2.05807 9.32381 2.57372 11.1579C2.90068 12.3193 3.50011 13.2148 4.08896 13.8663C4.65097 14.4885 5.32767 14.996 6.06129 15.4027C8.15725 16.5674 10.2532 17.7312 12.3492 18.8959C13.3235 19.5108 13.8693 20.599 13.7457 21.6889C13.7367 21.7711 13.7237 21.85 13.7074 21.9272C13.4756 23.0521 12.4549 23.8353 11.3081 23.902C10.607 23.9427 9.79856 23.9248 8.91609 23.7841C6.10277 23.3359 4.17111 21.9069 3.27237 21.1375C2.18657 22.8536 1.09996 24.5697 0.0141602 26.2859C1.14957 27.0789 2.68271 27.976 4.61112 28.6714C8.02956 29.9052 11.0674 29.9223 12.9315 29.7767C13.57 29.7019 16.6029 29.2781 18.8079 26.5762C18.912 26.4485 19.0104 26.32 19.1047 26.1915C21.3715 23.074 20.9868 18.7089 18.3003 15.946C18.2759 15.9208 18.2515 15.8955 18.2263 15.8703C16.8363 14.4657 15.3235 13.6247 14.0767 13.1172C12.4956 12.4747 10.982 11.6768 9.59767 10.678C9.53423 10.6325 9.47079 10.5869 9.40816 10.5414C8.62248 9.97447 8.40858 8.89762 8.91772 8.07372C9.51145 7.12374 10.7323 6.63737 12.0019 6.85209C12.6704 6.80898 13.7367 6.82281 14.9689 7.20101C16.2166 7.58409 17.1145 8.1827 17.6456 8.5975C18.402 6.89113 19.1584 5.18394 19.9148 3.47757H19.9124Z" fill="currentColor"/>
+            <path d="M38.2895 14.2557C37.9755 13.893 37.6055 13.5327 37.1703 13.1943C35.7722 12.1093 34.2781 11.7067 33.1224 11.5742C31.8658 11.431 30.5856 11.636 29.4518 12.1947C29.4453 12.198 29.4388 12.2012 29.4315 12.2045C28.3628 12.7348 27.6088 13.4074 27.1273 13.9206V0.160645H21.251V29.3113H27.1273V18.7022C27.8992 16.9617 29.6389 15.9889 31.2355 16.2785C31.5242 16.3305 31.7869 16.4208 32.0252 16.5347C33.1736 17.0845 33.8536 18.2988 33.8536 19.5725V29.3121H39.8462V18.5721C39.8462 16.9958 39.3208 15.4481 38.2895 14.2565V14.2557Z" fill="currentColor"/>
+            <path d="M46.9394 11.9143H40.8882V29.3115H46.9394V11.9143Z" fill="currentColor"/>
+            <path d="M64.5132 21.1113C63.3941 23.8449 62.2749 26.5777 61.1558 29.3114H68.0219L70.1163 23.7839C69.3891 23.2512 68.4562 22.6591 67.3159 22.1264C66.283 21.6441 65.3249 21.326 64.5124 21.1113H64.5132Z" fill="currentColor"/>
+            <path d="M90.3039 8.36483C92.3284 8.36483 93.9696 6.72364 93.9696 4.69914C93.9696 2.67463 92.3284 1.03345 90.3039 1.03345C88.2794 1.03345 86.6382 2.67463 86.6382 4.69914C86.6382 6.72364 88.2794 8.36483 90.3039 8.36483Z" fill="currentColor"/>
+            <path d="M43.9137 8.36483C45.9382 8.36483 47.5794 6.72364 47.5794 4.69914C47.5794 2.67463 45.9382 1.03345 43.9137 1.03345C41.8892 1.03345 40.248 2.67463 40.248 4.69914C40.248 6.72364 41.8892 8.36483 43.9137 8.36483Z" fill="currentColor"/>
+            <path d="M64.5994 20.9152L72.3748 1.80029H78.1601L85.8428 20.9152C84.7123 20.8713 81.4272 20.5907 78.8384 18.0767C76.7237 16.0231 76.1324 13.5074 75.9006 12.5208C75.8616 12.3533 75.8396 12.2337 75.7941 11.9971C75.4012 9.94339 75.3785 8.43953 75.3565 5.76692C75.3386 3.55221 75.3329 2.0817 75.3199 2.0817C75.3045 2.0817 75.2931 4.19718 75.2182 6.2541C75.1825 7.2358 75.1377 8.10932 75.1377 8.10932C75.1125 8.58105 75.0938 8.8405 75.0743 9.27401C74.9954 11.0259 75.0027 11.0471 74.9572 11.3252C74.7555 12.5688 73.8771 16.7738 70.2024 19.1959C67.956 20.6769 65.6933 20.8892 64.5969 20.9161L64.5994 20.9152Z" fill="currentColor"/>
+            <path d="M85.8793 21.1699C85.3612 21.2048 84.7682 21.291 84.1298 21.4692C82.264 21.9905 80.9797 23.0283 80.2656 23.7213C80.8716 25.5472 81.4775 27.374 82.0834 29.1999H93.2375V20.9153L87.3132 21.169L87.3595 25.0568L85.8784 21.169L85.8793 21.1699Z" fill="currentColor"/>
+            <path d="M87.3604 12.2607H93.2383V21.1114L87.3604 20.8731V12.2607Z" fill="currentColor"/>
+            <path d="M57.9853 20.7748C59.795 20.8146 61.6038 20.8545 63.4135 20.8943C64.8945 17.9907 66.3748 15.0871 67.8559 12.1835L61.3395 11.9143L57.3826 21.3986H56.9174L52.7279 11.9143H46.8516V14.1835L54.8808 29.3115H59.128C60.5204 26.5779 61.9137 23.8451 63.3061 21.1115C61.5322 20.9992 59.7583 20.887 57.9845 20.7748H57.9853Z" fill="currentColor"/>
+          </g>
+          <defs>
+            <clipPath id="clip0_302_587_avatar">
+              <rect width="94" height="29" fill="white"/>
+            </clipPath>
+          </defs>
         </svg>`;
 
       // Title
@@ -1162,7 +1396,7 @@
             letterSpacing: "-0.01em",
           },
         },
-        ["ShivAI Employee"]
+        ["AI Employee"]
       );
 
       // Description
@@ -1233,7 +1467,7 @@
       });
 
       const privacyContent = document.createTextNode(
-        "By starting call you agree to "
+        "By using this service you agree to our"
       );
 
       const privacyLink = createElement(
@@ -1263,19 +1497,17 @@
       );
 
       privacyText.appendChild(privacyContent);
-      privacyText.appendChild(privacyLink);
       privacyText.appendChild(andText);
       privacyText.appendChild(tcLink);
 
-      // Bottom navigation
+      // Bottom navigation (Chat/Voice Call selection)
       const bottomNav = createElement("div", {
         style: {
-          display: "flex",
-          gap: "4px",
-          padding: "8px 12px",
-          background: "#fff",
-          borderRadius: "0 0 16px 16px",
-          margin: "0 -2px",
+          display: "flex", // Show navigation for mode selection
+          gap: "0px",
+          padding: "0px",
+          background: "transparent",
+          margin: "8px 0 0px 0",
         },
       });
 
@@ -1285,14 +1517,12 @@
           display: "flex",
           justifyContent: "center",
           alignItems: "center",
-          padding: "14px 12px",
+          padding: "16px 12px 12px 12px",
           border: "none",
           cursor: "pointer",
           color: this.currentMode === "chat" ? "#111827" : "#6b7280",
           background: "transparent",
-          borderBottom: this.currentMode === "chat" ? "2px solid #000" : "none",
-          borderRadius: "8px",
-          margin: "6px 4px",
+          borderBottom: this.currentMode === "chat" ? "2px solid #000" : "2px solid transparent",
           transition: "all 0.3s ease",
           fontWeight: this.currentMode === "chat" ? "600" : "400",
           fontSize: "14px",
@@ -1326,14 +1556,12 @@
           display: "flex",
           justifyContent: "center",
           alignItems: "center",
-          padding: "14px 12px",
+          padding: "16px 12px 12px 12px",
           border: "none",
           cursor: "pointer",
           color: this.currentMode === "voice" ? "#111827" : "#6b7280",
           background: "transparent",
-          borderBottom: this.currentMode === "voice" ? "2px solid #000" : "none",
-          borderRadius: "8px",
-          margin: "6px 4px",
+          borderBottom: this.currentMode === "voice" ? "2px solid #000" : "2px solid transparent",
           transition: "all 0.3s ease",
           fontWeight: this.currentMode === "voice" ? "600" : "400",
           fontSize: "14px",
@@ -1389,9 +1617,21 @@
 
       bottomNav.appendChild(this.chatNavButton);
       bottomNav.appendChild(this.voiceNavButton);
+      
+      // Add divider line after navigation
+      const divider = createElement("div", {
+        style: {
+          width: "100%",
+          height: "1px",
+          backgroundColor: "#e5e7eb",
+          margin: "12px 0 1px 0",
+        },
+      });
+
       this.header.appendChild(this.startButton);
       this.header.appendChild(privacyText);
       this.header.appendChild(bottomNav);
+      // this.header.appendChild(divider);
     }
 
     updateStartButton() {
@@ -1429,10 +1669,293 @@
         },
       });
 
-      this.createChatMode();
-      this.createCallMode();
+      this.createUnifiedInterface();
 
       this.chatInterface.appendChild(this.body);
+    }
+
+    createUnifiedInterface() {
+      // Create unified container that shows both call status and transcript
+      this.unifiedMode = createElement("div", {
+        style: {
+          display: this.hasStarted ? "flex" : "none",
+          flexDirection: "column",
+          height: "100%",
+        },
+      });
+
+      // Header with AI status (improved design)
+      this.unifiedHeader = createElement("div", {
+        style: {
+          padding: "16px",
+          borderBottom: "1px solid #e5e7eb",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          backgroundColor: "white",
+          borderRadius: "16px 16px 0 0",
+        },
+      });
+
+      // Left side - AI info and status
+      const aiInfo = createElement("div", {
+        style: {
+          display: "flex",
+          alignItems: "center",
+          gap: "8px",
+        },
+      });
+
+      const aiAvatar = createElement("div", {
+        style: {
+          width: "24px",
+          height: "24px",
+          borderRadius: "0",
+          background: "transparent",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          color: "#111827",
+        },
+      });
+      
+      aiAvatar.innerHTML = `
+        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" aria-label="Avatar">
+          <path fill="none" stroke="currentColor" stroke-linejoin="round" stroke-width="2" d="M15 19c1.2-3.678 2.526-5.005 6-6c-3.474-.995-4.8-2.322-6-6c-1.2 3.678-2.526 5.005-6 6c3.474.995 4.8 2.322 6 6Zm-8-9c.6-1.84 1.263-2.503 3-3c-1.737-.497-2.4-1.16-3-3c-.6 1.84-1.263 2.503-3 3c1.737.497 2.4 1.16 3 3Zm1.5 10c.3-.92.631-1.251 1.5-1.5c-.869-.249-1.2-.58-1.5-1.5c-.3.92-.631 1.251-1.5 1.5c.869.249 1.2.58 1.5 1.5Z"/>
+        </svg>`;
+
+      const aiDetails = createElement("div");
+      const aiName = createElement(
+        "div",
+        {
+          style: {
+            fontSize: "14px",
+            fontWeight: "600",
+            color: "#111827",
+          },
+        },
+        ["ShivAI Employee"]
+      );
+
+      this.aiStatus = createElement("div", {
+        style: {
+          fontSize: "12px",
+          color: "#10b981",
+          display: "flex",
+          alignItems: "center",
+          gap: "4px",
+        },
+      });
+
+      const statusDot = createElement("div", {
+        style: {
+          width: "6px",
+          height: "6px",
+          borderRadius: "50%",
+          backgroundColor: "#10b981",
+        },
+      });
+
+      this.aiStatus.appendChild(statusDot);
+      this.aiStatus.appendChild(document.createTextNode("Call in Progress"));
+
+      aiDetails.appendChild(aiName);
+      aiDetails.appendChild(this.aiStatus);
+      aiInfo.appendChild(aiAvatar);
+      aiInfo.appendChild(aiDetails);
+
+      // Right side - Call controls (speaker and end call icons)
+      this.headerCallControls = createElement("div", {
+        style: {
+          display: "flex",
+          alignItems: "center",
+          gap: "12px",
+        },
+      });
+
+      // Speaker/Mute button in header
+      this.headerMuteButton = createElement("button", {
+        style: {
+          width: "36px",
+          height: "36px",
+          borderRadius: "50%",
+          backgroundColor: "#f3f4f6",
+          border: "1px solid #e5e7eb",
+          cursor: "pointer",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          transition: "all 0.2s",
+        },
+      });
+
+      // End call button in header
+      this.headerEndCallButton = createElement("button", {
+        style: {
+          width: "36px",
+          height: "36px",
+          borderRadius: "50%",
+          backgroundColor: "#dc2626",
+          border: "1px solid #b91c1c",
+          cursor: "pointer",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          color: "white",
+          transition: "all 0.2s",
+        },
+      });
+
+      // Add icons to header buttons
+      this.updateHeaderMuteButton();
+      const headerEndIcon = createIcon("phone", 14);
+      headerEndIcon.style.transform = "rotate(135deg)";
+      this.headerEndCallButton.appendChild(headerEndIcon);
+
+      this.headerCallControls.appendChild(this.headerMuteButton);
+      this.headerCallControls.appendChild(this.headerEndCallButton);
+
+      this.unifiedHeader.appendChild(aiInfo);
+      this.unifiedHeader.appendChild(this.headerCallControls);
+
+      // Transcript/Messages container (improved spacing)
+      this.messagesContainer = createElement("div", {
+        class: "shivai-widget-messages",
+        style: {
+          flex: "1",
+          padding: "12px 16px",
+          backgroundColor: "#f9fafb",
+          overflowY: "auto",
+          minHeight: "200px",
+        },
+      });
+
+      // Input container (hidden during call, shown after call ends)
+      this.inputContainer = createElement("div", {
+        class: "shivai-widget-input-container",
+        style: {
+          padding: "12px 16px",
+          borderTop: "1px solid #e2e8f0",
+          display: "none", // Hidden during call
+          gap: "8px",
+          backgroundColor: "white",
+          alignItems: "flex-end",
+        },
+      });
+
+      this.messageInput = createElement("input", {
+        class: "shivai-widget-input",
+        type: "text",
+        placeholder: this.config.content.placeholderText,
+        style: { flex: "1" },
+      });
+
+      this.sendButton = createElement(
+        "button",
+        {
+          style: {
+            padding: "8px",
+            width: "36px",
+            height: "36px",
+            color: "white",
+            backgroundColor: "#3b82f6",
+            borderRadius: "8px",
+            border: "none",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            cursor: "pointer",
+            transition: "all 0.2s",
+            flexShrink: "0",
+          },
+        },
+        [createIcon("send", 18)]
+      );
+
+      this.inputContainer.appendChild(this.messageInput);
+      this.inputContainer.appendChild(this.sendButton);
+
+      // Call timer at bottom center
+      this.callTimerContainer = createElement("div", {
+        style: {
+          padding: "8px 16px",
+          backgroundColor: "white",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+        },
+      });
+
+      this.callTimer = createElement("div", {
+        style: {
+          fontSize: "16px",
+          color: "#111827",
+          fontWeight: "600",
+          fontFamily: "monospace",
+        },
+      });
+
+      this.callTimerContainer.appendChild(this.callTimer);
+
+      // Back to main UI button (in footer)
+      this.backToMainContainer = createElement("div", {
+        style: {
+          padding: "8px 16px",
+          backgroundColor: "white",
+          borderTop: "1px solid #e5e7eb",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between", // Space between back button and powered by text
+        },
+      });
+
+      this.backToMainButton = createElement("button", {
+        style: {
+          backgroundColor: "transparent",
+          border: "none",
+          cursor: "pointer",
+          display: "none", // Hidden by default, show only in call interface
+          alignItems: "center",
+          justifyContent: "center",
+          color: "#6b7280",
+          transition: "all 0.2s ease",
+          padding: "4px",
+          width: "20px",
+          height: "20px",
+          position: "absolute",
+          left: "16px",
+          top: "50%",
+          transform: "translateY(-50%)",
+        },
+      });
+
+      // Add just the back arrow SVG (no text)
+      this.backToMainButton.innerHTML = `
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 48 48">
+          <path fill="none" stroke="currentColor" stroke-linejoin="round" stroke-width="4" 
+                d="M44 40.836q-7.34-8.96-13.036-10.168t-10.846-.365V41L4 23.545L20.118 7v10.167q9.523.075 16.192 6.833q6.668 6.758 7.69 16.836Z" 
+                clip-rule="evenodd"/>
+        </svg>`;
+
+      this.backToMainButton.addEventListener("mouseover", () => {
+        this.backToMainButton.style.color = "#111827";
+        this.backToMainButton.style.transform = "scale(1.1)";
+      });
+
+      this.backToMainButton.addEventListener("mouseout", () => {
+        this.backToMainButton.style.color = "#6b7280";
+        this.backToMainButton.style.transform = "scale(1)";
+      });
+
+      this.backToMainContainer.appendChild(this.backToMainButton);
+
+      // Assemble unified interface
+      this.unifiedMode.appendChild(this.unifiedHeader);
+      this.unifiedMode.appendChild(this.messagesContainer);
+      this.unifiedMode.appendChild(this.inputContainer);
+      this.unifiedMode.appendChild(this.callTimerContainer);
+
+      this.body.appendChild(this.unifiedMode);
     }
 
     createChatMode() {
@@ -1462,7 +1985,7 @@
         style: {
           display: "flex",
           alignItems: "center",
-          gap: "12px",
+          gap: "6px",
         },
       });
 
@@ -1645,20 +2168,23 @@
         },
       });
 
-      const callAvatar = createElement("div", {
+        const callAvatar = createElement("div", {
         style: {
-          width: "32px",
-          height: "32px",
-          borderRadius: "50%",
-          background: "linear-gradient(0deg, #0a0a0a 0%, #000 100%)",
+          width: "24px",
+          height: "24px",
+          borderRadius: "0",
+          background: "transparent",
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
+          color: "#111827",
         },
       });
-
-      const phoneIcon = createIcon("phone", 16);
-      callAvatar.appendChild(phoneIcon);
+      // Inline sparkle SVG without background for chat header avatar
+      callAvatar.innerHTML = `
+        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" aria-label="Avatar">
+          <path fill="none" stroke="currentColor" stroke-linejoin="round" stroke-width="2" d="M15 19c1.2-3.678 2.526-5.005 6-6c-3.474-.995-4.8-2.322-6-6c-1.2 3.678-2.526 5.005-6 6c3.474.995 4.8 2.322 6 6Zm-8-9c.6-1.84 1.263-2.503 3-3c-1.737-.497-2.4-1.16-3-3c-.6 1.84-1.263 2.503-3 3c1.737.497 2.4 1.16 3 3Zm1.5 10c.3-.92.631-1.251 1.5-1.5c-.869-.249-1.2-.58-1.5-1.5c-.3.92-.631 1.251-1.5 1.5c.869.249 1.2.58 1.5 1.5Z"/>
+        </svg>`;
 
       const callDetails = createElement("div");
       const callName = createElement(
@@ -1670,9 +2196,14 @@
             color: "#111827",
           },
         },
-        ["Voice Call"]
+        ["ShivAI Employee"]
       );
 
+
+      const phoneIcon = createIcon("phone", 16);
+      callAvatar.appendChild(phoneIcon);
+
+    
       const callStatusText = createElement(
         "div",
         {
@@ -1885,10 +2416,20 @@
 
     updateMuteButton() {
       this.muteButton.innerHTML = "";
-      const icon = createIcon(this.isMuted ? "volume-x" : "volume-2", 20);
+      const icon = createIcon(this.isMuted ? "volume-x" : "volume-2", 16);
       icon.style.color = this.isMuted ? "#dc2626" : "#6b7280";
       this.muteButton.appendChild(icon);
       this.muteButton.style.backgroundColor = this.isMuted
+        ? "#fef2f2"
+        : "#f3f4f6";
+    }
+
+    updateHeaderMuteButton() {
+      this.headerMuteButton.innerHTML = "";
+      const icon = createIcon(this.isMuted ? "volume-x" : "volume-2", 14);
+      icon.style.color = this.isMuted ? "#dc2626" : "#6b7280";
+      this.headerMuteButton.appendChild(icon);
+      this.headerMuteButton.style.backgroundColor = this.isMuted
         ? "#fef2f2"
         : "#f3f4f6";
     }
@@ -1898,21 +2439,26 @@
         style: {
           // borderTop: "1px solid #e5e7eb",
           background: "#fff",
+          padding: "8px 16px",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          position: "relative",
         },
       });
 
       if (this.config.features.showBranding) {
         const brandingContainer = createElement("div", {
           style: {
-            textAlign: "center",
-            padding: "2px 16px",
+            display: "flex",
+            alignItems: "center",
           },
         });
 
         const link = createElement(
           "a",
           {
-            href: this.config.content.privacyPolicyUrl || "https://shivai.com",
+            href: "https://shivai-calling-frontend-38ax.vercel.app/landing",
             target: "_blank",
             rel: "noopener noreferrer",
             style: {
@@ -1979,6 +2525,9 @@
         });
 
         brandingContainer.appendChild(link);
+        
+        // Add both back button and branding to footer
+        this.footer.appendChild(this.backToMainButton);
         this.footer.appendChild(brandingContainer);
       }
 
@@ -2046,29 +2595,40 @@
         this.handleStart();
       });
 
-      // Navigation buttons
-      this.chatNavButton.addEventListener("click", () => this.setMode("chat"));
-      this.voiceNavButton.addEventListener("click", () =>
-        this.setMode("voice")
-      );
-
-      // Send message
-      this.sendButton.addEventListener("click", () => this.sendMessage());
-      this.messageInput.addEventListener("keypress", (e) => {
-        if (e.key === "Enter" && !e.shiftKey) {
-          e.preventDefault();
-          this.sendMessage();
-        }
-      });
-
-      // Call controls
-      if (this.muteButton) {
-        this.muteButton.addEventListener("click", () => this.toggleMute());
+      // Navigation buttons (not used in unified interface)
+      if (this.chatNavButton && this.voiceNavButton) {
+        this.chatNavButton.addEventListener("click", () => this.setMode("chat"));
+        this.voiceNavButton.addEventListener("click", () => this.setMode("voice"));
       }
-      if (this.endCallButton) {
-        this.endCallButton.addEventListener("click", () =>
+
+      // Send message (unified interface)
+      if (this.sendButton) {
+        this.sendButton.addEventListener("click", () => this.sendMessage());
+      }
+      if (this.messageInput) {
+        this.messageInput.addEventListener("keypress", (e) => {
+          if (e.key === "Enter" && !e.shiftKey) {
+            e.preventDefault();
+            this.sendMessage();
+          }
+        });
+      }
+
+      // Note: Bottom call controls removed - only header controls now
+
+      // Header call controls
+      if (this.headerMuteButton) {
+        this.headerMuteButton.addEventListener("click", () => this.toggleMute());
+      }
+      if (this.headerEndCallButton) {
+        this.headerEndCallButton.addEventListener("click", () =>
           this.endCurrentCall()
         );
+      }
+
+      // Back to main UI button
+      if (this.backToMainButton) {
+        this.backToMainButton.addEventListener("click", () => this.backToMainUI());
       }
 
       // Switch buttons
@@ -2114,6 +2674,11 @@
       if (this.isOpen) {
         this.triggerButton.style.display = "none";
         this.chatInterface.style.display = "flex";
+        
+        // Hide message bubble when widget opens
+        if (this.messageBubble) {
+          this.hideBubble();
+        }
 
         // Show overlay on mobile
         if (isMobile && this.overlay) {
@@ -2197,13 +2762,8 @@
       // Update start button
       this.updateStartButton();
 
-      // Update privacy text
-      const privacyTextElements = this.header.querySelectorAll("p");
-      if (privacyTextElements.length > 1) {
-        const privacyElement = privacyTextElements[1];
-        privacyElement.childNodes[1].textContent =
-          this.currentMode === "chat" ? "chat" : "call";
-      }
+      // Privacy text is now fixed and doesn't change based on mode
+      // Removed dynamic privacy text updating to keep "Privacy policy & T&C" consistent
     }
 
     async handleStart() {
@@ -2214,18 +2774,15 @@
         this.isCallActive
       );
 
-      if (this.currentMode === "chat") {
-        console.log("📱 Starting chat mode");
-        this.startChat();
+      // Always start with call mode regardless of selection
+      console.log("� Starting unified call + chat interface");
+      if (this.isCallActive) {
+        console.log("☎️ Ending current call");
+        await this.endCurrentCall();
       } else {
-        console.log("📞 Voice mode - checking if call is active");
-        if (this.isCallActive) {
-          console.log("☎️ Ending current call");
-          await this.endCurrentCall();
-        } else {
-          console.log("🚀 Starting new call");
-          await this.startCurrentCall();
-        }
+        console.log("� Starting new call with chat transcript");
+        this.startChat(); // Initialize chat for transcript display
+        await this.startCurrentCall();
       }
     }
 
@@ -2353,9 +2910,9 @@
           this.callInterval = null;
         }
 
-        // Reset call state
+        // Reset call state but keep session active
         this.isCallActive = false;
-        this.hasStarted = false;
+        // Keep hasStarted = true to maintain the unified interface
         this.callDuration = 0;
         this.callStartTime = null;
         this.currentCallId = null;
@@ -2380,7 +2937,7 @@
 
         // Still reset the UI even if API call fails
         this.isCallActive = false;
-        this.hasStarted = false;
+        // Keep hasStarted = true to maintain the unified interface
         this.currentCallId = null;
         this.stopAudioCapture();
 
@@ -2411,8 +2968,8 @@
       console.log(
         "updateUI - hasStarted:",
         this.hasStarted,
-        "currentMode:",
-        this.currentMode
+        "isCallActive:",
+        this.isCallActive
       );
 
       // iOS specific handling
@@ -2423,50 +2980,89 @@
         this.chatInterface.style.transform = "translateZ(0)";
       }
 
-      // Show/hide welcome screen vs active session
+      // Show/hide welcome screen vs unified interface
       this.header.style.display = this.hasStarted ? "none" : "block";
       this.body.style.display = this.hasStarted ? "flex" : "none";
 
-      // Update navigation button states
-      this.updateNavigationButtons();
+      // Update back button visibility based on interface state
+      if (this.backToMainButton) {
+        this.backToMainButton.style.display = this.hasStarted ? "flex" : "none";
+      }
+
+      // Update start button
       this.updateStartButton();
 
-      if (this.hasStarted) {
-        if (this.currentMode === "chat") {
-          console.log("Showing chat mode");
-          this.chatMode.style.display = "flex";
-          this.callMode.style.display = "none";
-        } else {
-          console.log("Showing call mode");
-          this.chatMode.style.display = "none";
-          this.callMode.style.display = "flex";
+      if (this.hasStarted && this.unifiedMode) {
+        console.log("Showing unified interface");
+        this.unifiedMode.style.display = "flex";
+        
+        // Update timer container visibility
+        this.callTimerContainer.style.display = this.isCallActive ? "flex" : "none";
+        
+        // Update header call controls visibility
+        if (this.headerCallControls) {
+          this.headerCallControls.style.display = this.isCallActive ? "flex" : "none";
         }
+        
+        // Update back button visibility (show in both call interface and post-call chat)
+        if (this.backToMainButton) {
+          this.backToMainButton.style.display = "flex";
+        }
+        
+        // Update input container visibility
+        this.inputContainer.style.display = this.isCallActive ? "none" : "flex";
+        
+        // Update status text
+        if (this.aiStatus) {
+          const statusText = this.isCallActive ? "Call in Progress" : "Online";
+          this.aiStatus.childNodes[1].textContent = statusText;
+        }
+        
+        // Update call timer
+        if (this.callTimer) {
+          this.updateCallTimer();
+        }
+      }
+    }
+
+    updateCallTimer() {
+      if (this.isCallActive && this.callStartTime) {
+        const now = new Date();
+        const duration = Math.floor((now - this.callStartTime) / 1000);
+        const minutes = Math.floor(duration / 60).toString().padStart(2, '0');
+        const seconds = (duration % 60).toString().padStart(2, '0');
+        this.callTimer.textContent = `${minutes}:${seconds}`;
+      } else {
+        this.callTimer.textContent = "00:00";
       }
     }
 
     updateNavigationButtons() {
       if (this.chatNavButton && this.voiceNavButton) {
-        // Update chat button
+        // Update chat button - only bottom border as indicator
         this.chatNavButton.style.color =
-          this.currentMode === "chat" ? "#2563eb" : "#64748b";
-        this.chatNavButton.style.background =
-          this.currentMode === "chat" ? "#f0f9ff" : "transparent";
+          this.currentMode === "chat" ? "#111827" : "#6b7280";
+        this.chatNavButton.style.borderBottom =
+          this.currentMode === "chat" ? "2px solid #000" : "2px solid transparent";
         this.chatNavButton.style.fontWeight =
-          this.currentMode === "chat" ? "600" : "500";
+          this.currentMode === "chat" ? "600" : "400";
 
-        // Update voice button
+        // Update voice button - only bottom border as indicator
         this.voiceNavButton.style.color =
-          this.currentMode === "voice" ? "#2563eb" : "#64748b";
-        this.voiceNavButton.style.background =
-          this.currentMode === "voice" ? "#f0f9ff" : "transparent";
+          this.currentMode === "voice" ? "#111827" : "#6b7280";
+        this.voiceNavButton.style.borderBottom =
+          this.currentMode === "voice" ? "2px solid #000" : "2px solid transparent";
         this.voiceNavButton.style.fontWeight =
-          this.currentMode === "voice" ? "600" : "500";
+          this.currentMode === "voice" ? "600" : "400";
       }
     }
 
     toggleMute() {
       this.isMuted = !this.isMuted;
       this.updateMuteButton();
+      if (this.headerMuteButton) {
+        this.updateHeaderMuteButton();
+      }
       if (this.callStatus) {
         if (this.isMuted) {
           this.callStatus.textContent = "Muted";
@@ -2501,6 +3097,46 @@
         this.currentMode = "chat";
         this.updateUI();
       }
+    }
+
+    backToMainUI() {
+      console.log("🔙 Going back to main UI - canceling all ongoing processes");
+      
+      // Cancel call and cleanup all background processes
+      if (this.isCallActive) {
+        console.log("📞 Ending active call");
+        this.endCurrentCall();
+      }
+      
+      // Stop audio capture if running
+      if (this.hasStartedCapture) {
+        console.log("🎤 Stopping audio capture");
+        this.stopAudioCapture();
+      }
+      
+      // Disconnect WebSocket if connected
+      if (this.isWebSocketConnected) {
+        console.log("🔌 Disconnecting WebSocket");
+        this.disconnectWebSocket();
+      }
+      
+      // Clear any ongoing timers
+      if (this.callInterval) {
+        clearInterval(this.callInterval);
+        this.callInterval = null;
+      }
+      
+      // Reset all states and return to welcome screen
+      this.hasStarted = false;
+      this.messages = [];
+      this.isCallActive = false;
+      this.callStartTime = null;
+      this.currentCallId = null;
+      this.pythonServiceUrl = null;
+      this.hasStartedCapture = false;
+      
+      this.updateUI();
+      console.log("✅ All processes stopped - returned to main screen");
     }
 
     updateAIStatus(status, color = "#10b981") {
@@ -2614,12 +3250,14 @@
           style: {
             width: "24px",
             height: "24px",
-            borderRadius: "50%",
-            background: "linear-gradient(0deg, #0a0a0a 0%, #000 100%)",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
             flexShrink: "0",
+            border: "1.4px solid #e3e3e3",
+            background: "fff",
+            borderRadius: "50%",
+            padding: "4px",
           },
         });
 
@@ -3137,6 +3775,14 @@
         bytes[i] = binaryString.charCodeAt(i);
       }
       return bytes.buffer;
+    }
+
+    // Clean up intervals and resources
+    cleanup() {
+      if (this.messageInterval) {
+        clearInterval(this.messageInterval);
+        this.messageInterval = null;
+      }
     }
   }
 

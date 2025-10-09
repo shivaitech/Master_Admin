@@ -39,19 +39,17 @@ const WidgetManagementPlaceholder = () => {
     variant = "default",
     className = "",
   }) => {
-    const baseStyle = {
-      background: "linear-gradient(0deg, #0a0a0a 0%, #000 100%)",
-      boxShadow: `0 1.688px 0.844px 0 #33332f inset,
-        0 3.797px 0.844px 0 #5e5e5e inset, 0 -6.75px 10.126px 0 #171717 inset,
-        0 13.501px 20.251px -10.126px rgba(0, 0, 0, 0.25)`,
+    const variantStyles = {
+      default: `${currentTheme.cardBg} border ${currentTheme.border} hover:${currentTheme.activeBg}`,
+      primary: "bg-blue-600 hover:bg-blue-700 text-white border-blue-600",
+      secondary: `${currentTheme.activeBg} border ${currentTheme.border} ${currentTheme.text}`,
     };
 
     return (
       <button
         onClick={onClick}
         title={title}
-        style={baseStyle}
-        className={`p-2 text-white rounded-lg transition-all duration-200 hover:scale-105 hover:brightness-110 ${className}`}
+        className={`p-2 rounded-lg transition-all duration-200 ${variantStyles[variant]} ${className}`}
       >
         {children}
       </button>
@@ -604,33 +602,31 @@ const WidgetManagementPlaceholder = () => {
   };
 
   return (
-    <div
-      className={`${currentTheme.cardBg} backdrop-blur-lg rounded-xl sm:rounded-2xl border ${currentTheme.border} p-3 sm:p-4 lg:p-6 shadow-lg w-full overflow-hidden`}
-    >
-      {/* Header - Mobile Optimized */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4 mb-4 sm:mb-6">
-        <div
-          className={`p-2 sm:p-3 ${currentTheme.activeBg} rounded-lg shrink-0`}
-        >
-          <Bot className="w-5 h-5 sm:w-6 sm:h-6 text-blue-600" />
+    <div className="space-y-6 mt-10 lg:mt-2">
+      {/* Header with icon and title */}
+      {/* <div className={`${currentTheme.cardBg} backdrop-blur-lg rounded-xl border ${currentTheme.border} p-4 sm:p-6 shadow-lg`}>
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <div className={`p-2.5 ${currentTheme.activeBg} rounded-lg`}>
+              <Bot className="w-6 h-6 text-blue-600" />
+            </div>
+            <div>
+              <h2 className={`text-2xl font-bold ${currentTheme.text}`}>
+                Widget Management
+              </h2>
+              <p className={`text-sm ${currentTheme.textSecondary} mt-1`}>
+                Create and customize embeddable AI widgets with live preview
+              </p>
+            </div>
+          </div>
         </div>
-        <div className="flex-1 min-w-0">
-          <h2
-            className={`text-xl sm:text-2xl font-bold ${currentTheme.text} leading-tight`}
-          >
-            Widget Management
-          </h2>
-          <p
-            className={`text-xs sm:text-sm ${currentTheme.textSecondary} mt-1 leading-relaxed`}
-          >
-            Create and customize embeddable AI widgets with live preview
-          </p>
-        </div>
-      </div>
+      </div> */}
 
-      {/* Navigation Tabs - Mobile Responsive */}
-      <div className="mb-4 sm:mb-6 overflow-x-auto">
-        <div className="flex space-x-1 p-1 bg-gray-100 rounded-lg min-w-full">
+      {/* Main Content Card */}
+      <div className={`${currentTheme.cardBg} backdrop-blur-lg rounded-xl border ${currentTheme.border} p-4 sm:p-6 shadow-lg`}>
+        {/* Navigation Tabs - Mobile Responsive */}
+        <div className="mb-6 overflow-x-auto">
+          <div className={`flex space-x-1 p-1 ${currentTheme.activeBg} rounded-lg`}>
           {[
             {
               id: "overview",
@@ -656,107 +652,63 @@ const WidgetManagementPlaceholder = () => {
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
-                className={`flex-1 sm:flex-auto flex items-center justify-center gap-1 sm:gap-2 px-2 sm:px-4 py-2 sm:py-2.5 rounded-md text-xs sm:text-sm font-medium transition-all whitespace-nowrap min-w-0 ${
+                className={`flex-1 sm:flex-auto flex items-center justify-center gap-2 px-4 py-2.5 rounded-md text-sm font-medium transition-all ${
                   activeTab === tab.id
-                    ? "bg-white text-blue-600 shadow-sm"
-                    : "text-gray-600 hover:text-gray-900"
+                    ? `${currentTheme.cardBg} text-blue-600 shadow-sm`
+                    : `${currentTheme.textSecondary} hover:${currentTheme.text}`
                 }`}
               >
-                <Icon className="w-3 h-3 sm:w-4 sm:h-4 shrink-0" />
-                <span className="hidden min-[475px]:inline sm:hidden">
-                  {tab.shortLabel}
-                </span>
+                <Icon className="w-4 h-4" />
                 <span className="hidden sm:inline">{tab.label}</span>
-                <span className="min-[475px]:hidden">{tab.shortLabel}</span>
+                <span className="sm:hidden">{tab.shortLabel}</span>
               </button>
             );
           })}
+          </div>
         </div>
-      </div>
 
-      {/* Tab Content */}
-      <div className="space-y-6">
+        {/* Tab Content */}
         {activeTab === "overview" && (
-          <>
-            {/* Stats Grid - Mobile First Responsive */}
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-4 mb-4 sm:mb-6">
-              <div
-                className={`${currentTheme.cardBg} border ${currentTheme.border} rounded-lg p-3 sm:p-4 hover:shadow-md transition-shadow`}
-              >
-                <div className="flex flex-col sm:flex-row items-start sm:items-center sm:justify-between gap-2">
-                  <div className="flex-1 min-w-0">
-                    <p
-                      className={`text-lg sm:text-xl lg:text-2xl font-bold ${currentTheme.text} leading-tight`}
-                    >
-                      12
-                    </p>
-                    <p
-                      className={`text-xs sm:text-sm ${currentTheme.textSecondary} truncate`}
-                    >
-                      Active Widgets
-                    </p>
+          <div className="space-y-6">
+            {/* Stats Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className={`${currentTheme.cardBg} border ${currentTheme.border} rounded-lg p-4 hover:shadow-md transition-shadow`}>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className={`text-2xl font-bold ${currentTheme.text}`}>12</p>
+                    <p className={`text-sm ${currentTheme.textSecondary}`}>Active Widgets</p>
                   </div>
-                  <Bot className="w-6 h-6 sm:w-7 sm:h-7 lg:w-8 lg:h-8 text-blue-500 shrink-0" />
+                  <Bot className="w-8 h-8 text-blue-500" />
                 </div>
               </div>
 
-              <div
-                className={`${currentTheme.cardBg} border ${currentTheme.border} rounded-lg p-3 sm:p-4 hover:shadow-md transition-shadow`}
-              >
-                <div className="flex flex-col sm:flex-row items-start sm:items-center sm:justify-between gap-2">
-                  <div className="flex-1 min-w-0">
-                    <p
-                      className={`text-lg sm:text-xl lg:text-2xl font-bold ${currentTheme.text} leading-tight`}
-                    >
-                      2.4k
-                    </p>
-                    <p
-                      className={`text-xs sm:text-sm ${currentTheme.textSecondary} truncate`}
-                    >
-                      Conversations
-                    </p>
+              <div className={`${currentTheme.cardBg} border ${currentTheme.border} rounded-lg p-4 hover:shadow-md transition-shadow`}>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className={`text-2xl font-bold ${currentTheme.text}`}>2.4k</p>
+                    <p className={`text-sm ${currentTheme.textSecondary}`}>Conversations</p>
                   </div>
-                  <MessageSquare className="w-6 h-6 sm:w-7 sm:h-7 lg:w-8 lg:h-8 text-green-500 shrink-0" />
+                  <MessageSquare className="w-8 h-8 text-green-500" />
                 </div>
               </div>
 
-              <div
-                className={`${currentTheme.cardBg} border ${currentTheme.border} rounded-lg p-3 sm:p-4 hover:shadow-md transition-shadow`}
-              >
-                <div className="flex flex-col sm:flex-row items-start sm:items-center sm:justify-between gap-2">
-                  <div className="flex-1 min-w-0">
-                    <p
-                      className={`text-lg sm:text-xl lg:text-2xl font-bold ${currentTheme.text} leading-tight`}
-                    >
-                      8
-                    </p>
-                    <p
-                      className={`text-xs sm:text-sm ${currentTheme.textSecondary} truncate`}
-                    >
-                      Custom Themes
-                    </p>
+              <div className={`${currentTheme.cardBg} border ${currentTheme.border} rounded-lg p-4 hover:shadow-md transition-shadow`}>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className={`text-2xl font-bold ${currentTheme.text}`}>8</p>
+                    <p className={`text-sm ${currentTheme.textSecondary}`}>Custom Themes</p>
                   </div>
-                  <Palette className="w-6 h-6 sm:w-7 sm:h-7 lg:w-8 lg:h-8 text-purple-500 shrink-0" />
+                  <Palette className="w-8 h-8 text-purple-500" />
                 </div>
               </div>
 
-              <div
-                className={`${currentTheme.cardBg} border ${currentTheme.border} rounded-lg p-3 sm:p-4 hover:shadow-md transition-shadow`}
-              >
-                <div className="flex flex-col sm:flex-row items-start sm:items-center sm:justify-between gap-2">
-                  <div className="flex-1 min-w-0">
-                    <p
-                      className={`text-lg sm:text-xl lg:text-2xl font-bold ${currentTheme.text} leading-tight`}
-                    >
-                      98%
-                    </p>
-                    <p
-                      className={`text-xs sm:text-sm ${currentTheme.textSecondary} truncate`}
-                    >
-                      Uptime
-                    </p>
+              <div className={`${currentTheme.cardBg} border ${currentTheme.border} rounded-lg p-4 hover:shadow-md transition-shadow`}>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className={`text-2xl font-bold ${currentTheme.text}`}>98%</p>
+                    <p className={`text-sm ${currentTheme.textSecondary}`}>Uptime</p>
                   </div>
-                  <Eye className="w-6 h-6 sm:w-7 sm:h-7 lg:w-8 lg:h-8 text-orange-500 shrink-0" />
+                  <Eye className="w-8 h-8 text-orange-500" />
                 </div>
               </div>
             </div>
@@ -845,7 +797,7 @@ const WidgetManagementPlaceholder = () => {
                 </div>
               </div>
             </div>
-          </>
+          </div>
         )}
 
         {activeTab === "customize" && (
