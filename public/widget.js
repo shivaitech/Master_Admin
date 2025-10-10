@@ -900,7 +900,7 @@
             max-height: 75vh !important;
             min-height: 300px !important;
             position: fixed !important;
-            bottom: 90px !important;
+            bottom: 40px !important;
             right: 16px !important;
             left: 16px !important;
             transform: none !important;
@@ -1008,7 +1008,7 @@
             height: auto !important;
             max-height: 80vh !important;
             min-height: 320px !important;
-            bottom: 50px !important;
+            bottom: 30px !important;
             border-radius: 16px !important;
           }
           
@@ -1057,14 +1057,14 @@
         @media (max-width: 420px) {
           .shivai-widget-chat {
             width: calc(100vw - 16px) !important;
-            max-width: 360px !important;
+            max-width: 93vw !important;
             
             height: auto !important;
             max-height: 70vh !important;
             min-height: 280px !important;
             left: 12px !important;
             right: 12px !important;
-            bottom: 70px !important;
+            bottom: 30px !important;
             border-radius: 16px !important;
             -webkit-overflow-scrolling: touch !important;
           }
