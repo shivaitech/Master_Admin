@@ -735,7 +735,6 @@
         
           .shivai-widget-messages {
             /* Fill available space equally with call interface */
-            max-height: none !important;
             padding: 12px !important;
             -webkit-overflow-scrolling: touch !important;
           }
@@ -935,7 +934,7 @@
           }
           
           .shivai-widget-messages {
-            max-height: 25vh !important;
+            max-height: 30vh !important;
             padding: 12px !important;
           }
           
@@ -974,7 +973,7 @@
           
           /* Mobile unified interface adjustments */
           .shivai-widget-messages {
-            max-height: 30vh !important;
+            max-height: 35vh !important;
             padding: 12px !important;
           }
           
@@ -1018,10 +1017,7 @@
             height: 54px !important;
           }
           
-          .shivai-widget-messages {
-            max-height: none !important;
-          }
-          
+ 
           /* Tablet start button - make it full width */
           .shivai-widget-header .shivai-widget-button {
             width: 100% !important;
@@ -1080,7 +1076,6 @@
           }
           
           .shivai-widget-messages {
-            max-height: none !important;
             padding: 10px !important;
             -webkit-overflow-scrolling: touch !important;
           }
