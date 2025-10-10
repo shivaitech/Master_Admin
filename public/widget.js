@@ -287,7 +287,9 @@
       this.isPlayingAudio = false; // AI audio playback state
       this.audioChunksQueue = []; // queued AI audio chunks (base64)
       this.currentAudio = null; // currently playing Audio element
+      this.currentBufferSource = null; // WebAudio buffer source
       this.currentAiTranscript = ""; // build up streamed AI text
+      this.userInteracted = false; // Track user interaction for iOS audio
 
       this.recognition = null;
       this.synthesis = window.speechSynthesis;
@@ -316,10 +318,28 @@
         // iOS Safari requires user interaction to unlock audio context
         if (this.soundContext.state === 'suspended') {
           const unlockAudio = () => {
+            // Mark user interaction for iOS
+            this.userInteracted = true;
+            
+            // Resume sound context
             this.soundContext.resume().then(() => {
-              document.removeEventListener('touchstart', unlockAudio);
-              document.removeEventListener('click', unlockAudio);
+              console.log('🔊 Sound context resumed');
+            }).catch(err => {
+              console.warn('Failed to resume sound context:', err);
             });
+            
+            // Also resume voice audio context if available (iOS fix)
+            if (this.audioContext && this.audioContext.state === 'suspended') {
+              this.audioContext.resume().then(() => {
+                console.log('🎤 Voice audio context resumed');
+              }).catch(err => {
+                console.warn('Failed to resume voice audio context:', err);
+              });
+            }
+            
+            // Clean up listeners after first user interaction
+            document.removeEventListener('touchstart', unlockAudio);
+            document.removeEventListener('click', unlockAudio);
           };
           document.addEventListener('touchstart', unlockAudio);
           document.addEventListener('click', unlockAudio);
@@ -3253,6 +3273,10 @@
     }
 
     async handleStart() {
+      // Mark user interaction for iOS audio permissions
+      this.userInteracted = true;
+      console.log("👤 User interaction detected for iOS audio permissions");
+      
       console.log(
         "🔥 handleStart() called - currentMode:",
         this.currentMode,
@@ -4060,38 +4084,192 @@
     }
 
     playAudioResponse(audioData) {
-      // Handle audio playback from AI response
-      try {
-        console.log("🔊 Playing AI audio response");
+      // Handle audio playback from AI response with iOS optimizations
+      if (!audioData || this.isMuted) {
+        console.log("🔇 Audio muted or no data, skipping playback");
+        return Promise.resolve();
+      }
 
-        // Convert base64 audio data to blob and play
-        if (audioData) {
-          const audioBlob = new Blob(
-            [Uint8Array.from(atob(audioData), (c) => c.charCodeAt(0))],
-            {
-              type: "audio/wav",
+      return new Promise((resolve, reject) => {
+        try {
+          console.log("🔊 Playing AI audio response");
+
+          // Stop any currently playing audio
+          if (this.currentAudio) {
+            if (this.currentAudio.pause) {
+              this.currentAudio.pause();
+              this.currentAudio.currentTime = 0;
+            } else if (this.currentAudio.stop) {
+              // WebAudio buffer source
+              this.currentAudio.stop();
             }
+          }
+
+          // Try WebAudio API first (better for iOS)
+          if (this.audioContext && this.audioContext.state !== 'suspended') {
+            this.playWithWebAudio(audioData)
+              .then(resolve)
+              .catch(error => {
+                console.warn("WebAudio playback failed, falling back to HTMLAudio:", error);
+                this.playWithHTMLAudio(audioData).then(resolve).catch(reject);
+              });
+          } else {
+            // Fallback to HTMLAudio
+            this.playWithHTMLAudio(audioData).then(resolve).catch(reject);
+          }
+        } catch (error) {
+          console.error("❌ Error in audio playback:", error);
+          reject(error);
+        }
+      });
+    }
+
+    async playWithWebAudio(base64AudioData) {
+      try {
+        // Ensure AudioContext is resumed on iOS (requires user gesture)
+        if (this.audioContext.state === 'suspended') {
+          if (this.userInteracted) {
+            try {
+              await this.audioContext.resume();
+              console.log('🎤 AudioContext resumed for playback');
+            } catch (e) {
+              console.warn('Could not resume AudioContext:', e);
+              throw e;
+            }
+          } else {
+            throw new Error('AudioContext suspended and no user interaction');
+          }
+        }
+
+        // Convert base64 to ArrayBuffer
+        const binaryString = atob(base64AudioData);
+        const bytes = new Uint8Array(binaryString.length);
+        for (let i = 0; i < binaryString.length; i++) {
+          bytes[i] = binaryString.charCodeAt(i);
+        }
+        
+        // Stop any existing buffer source
+        if (this.currentBufferSource) {
+          try { 
+            this.currentBufferSource.stop(0); 
+          } catch (e) {}
+          try {
+            this.currentBufferSource.disconnect();
+          } catch (e) {}
+          this.currentBufferSource = null;
+        }
+        
+        // Decode audio data (use slice to avoid transfer issues)
+        const audioBuffer = await this.audioContext.decodeAudioData(bytes.buffer.slice(0));
+        
+        // Create buffer source
+        const source = this.audioContext.createBufferSource();
+        source.buffer = audioBuffer;
+        source.connect(this.audioContext.destination);
+        
+        // Store reference for potential stopping
+        this.currentBufferSource = source;
+        this.currentAudio = source; // Keep both for compatibility
+        this.isPlayingAudio = true;
+        
+        return new Promise((resolve, reject) => {
+          source.onended = () => {
+            console.log("✅ WebAudio playback finished");
+            this.isPlayingAudio = false;
+            this.currentBufferSource = null;
+            this.currentAudio = null;
+            resolve();
+          };
+          
+          try {
+            source.start(0);
+            console.log("🔊 WebAudio playback started");
+          } catch (error) {
+            this.isPlayingAudio = false;
+            this.currentBufferSource = null;
+            this.currentAudio = null;
+            reject(error);
+          }
+        });
+      } catch (error) {
+        this.isPlayingAudio = false;
+        this.currentBufferSource = null;
+        this.currentAudio = null;
+        throw error;
+      }
+    }
+
+    playWithHTMLAudio(base64AudioData) {
+      return new Promise((resolve, reject) => {
+        try {
+          // Convert base64 audio data to blob
+          const audioBlob = new Blob(
+            [Uint8Array.from(atob(base64AudioData), (c) => c.charCodeAt(0))],
+            { type: "audio/wav" }
           );
           const audioUrl = URL.createObjectURL(audioBlob);
+          
+          // Create new audio element with iOS optimizations
           const audio = new Audio(audioUrl);
+          this.currentAudio = audio;
 
-          audio
-            .play()
-            .then(() => {
-              console.log("✅ Audio playback started");
-            })
-            .catch((error) => {
-              console.error("❌ Audio playback failed:", error);
-            });
+          // iOS-specific attributes for better performance
+          audio.playsInline = true;
+          audio.setAttribute('playsinline', 'true');
+          audio.crossOrigin = 'anonymous';
+          audio.preload = 'auto';
+          
+          // iOS performance optimizations
+          if (/iPad|iPhone|iPod/.test(navigator.userAgent)) {
+            audio.setAttribute('webkit-playsinline', 'true');
+            audio.muted = false; // Ensure not muted
+            audio.volume = 1.0; // Full volume
+          }
 
-          // Clean up URL after playing
-          audio.addEventListener("ended", () => {
+          // Set up event listeners
+          audio.oncanplaythrough = () => {
+            console.log("🔊 HTMLAudio ready to play");
+            this.isPlayingAudio = true;
+            
+            // iOS requires immediate play after user gesture
+            audio.play()
+              .then(() => {
+                console.log("✅ HTMLAudio playback started successfully");
+              })
+              .catch((error) => {
+                console.error("❌ HTMLAudio play failed:", error);
+                this.isPlayingAudio = false;
+                URL.revokeObjectURL(audioUrl);
+                reject(error);
+              });
+          };
+
+
+          audio.onended = () => {
+            console.log("✅ HTMLAudio playback finished");
+            this.isPlayingAudio = false;
+            this.currentAudio = null;
             URL.revokeObjectURL(audioUrl);
-          });
+            resolve();
+          };
+
+          audio.onerror = (error) => {
+            console.error("❌ HTMLAudio error:", error);
+            this.isPlayingAudio = false;
+            this.currentAudio = null;
+            URL.revokeObjectURL(audioUrl);
+            reject(error);
+          };
+
+          // Load the audio
+          audio.load();
+        } catch (error) {
+          console.error("❌ Error creating HTMLAudio:", error);
+          this.isPlayingAudio = false;
+          this.currentAudio = null;
+          reject(error);
         }
-      } catch (error) {
-        console.error("❌ Error playing audio response:", error);
-      }
+      });
     }
 
     handleTranscription(text) {
@@ -4196,13 +4374,21 @@
       }
 
       try {
-        // Create/resume audio context
+        // Create/resume audio context with iOS optimization
         if (!this.audioContext) {
           this.audioContext = new (window.AudioContext ||
             window.webkitAudioContext)({ sampleRate: 24000 });
         }
+        
+        // iOS requires explicit resume after user gesture
         if (this.audioContext.state === "suspended") {
-          await this.audioContext.resume();
+          try {
+            await this.audioContext.resume();
+            console.log('🎤 Audio context resumed for capture');
+          } catch (error) {
+            console.warn('⚠️ Failed to resume audio context - iOS may require user interaction first:', error);
+            // Continue anyway - the unlockAudio handler will catch this
+          }
         }
 
         // Create nodes if not already present
@@ -4316,72 +4502,220 @@
         return;
       }
 
+      if (this.isMuted) {
+        console.log("🔇 Audio muted, clearing queue");
+        this.audioChunksQueue = [];
+        this.isPlayingAudio = false;
+        return;
+      }
+
       this.isPlayingAudio = true;
       try {
-        // Gather available chunks to reduce gaps
+        // Gather available chunks to reduce gaps (iOS optimization)
         const chunksToPlay = [];
-        while (this.audioChunksQueue.length > 0) {
+        const maxBatchSize = 5; // Limit batch size for iOS performance
+        let batchCount = 0;
+        
+        while (this.audioChunksQueue.length > 0 && batchCount < maxBatchSize) {
           chunksToPlay.push(this.audioChunksQueue.shift());
+          batchCount++;
         }
 
-        // Combine into single blob
-        const audioBuffers = chunksToPlay.map((b64) =>
-          this.base64ToArrayBuffer(b64)
-        );
-        const totalLength = audioBuffers.reduce(
-          (acc, buf) => acc + buf.byteLength,
-          0
-        );
-        const combined = new Uint8Array(totalLength);
-        let offset = 0;
-        for (const buffer of audioBuffers) {
-          combined.set(new Uint8Array(buffer), offset);
-          offset += buffer.byteLength;
-        }
-
-        const blob = new Blob([combined], { type: "audio/mpeg" });
-        const audioUrl = URL.createObjectURL(blob);
-        const audio = new Audio(audioUrl);
-        this.currentAudio = audio;
-
-        audio.onended = () => {
-          URL.revokeObjectURL(audioUrl);
-          this.currentAudio = null;
-          if (this.audioChunksQueue.length > 0) {
-            this.playQueuedAudio();
-          } else {
-            this.isPlayingAudio = false;
-          }
-        };
-
-        audio.onerror = (error) => {
-          console.error("Audio playback error:", error);
-          URL.revokeObjectURL(audioUrl);
-          this.currentAudio = null;
+        if (chunksToPlay.length === 0) {
           this.isPlayingAudio = false;
-        };
+          return;
+        }
 
-        await audio.play();
+        // Try WebAudio first, then fallback to HTMLAudio
+        try {
+          await this.playBatchedChunksWebAudio(chunksToPlay);
+        } catch (error) {
+          console.warn("WebAudio batch failed, falling back to HTMLAudio:", error);
+          await this.playBatchedChunksHTMLAudio(chunksToPlay);
+        }
       } catch (error) {
-        console.error("Error playing audio:", error);
+        console.error("Error playing batched audio:", error);
         this.isPlayingAudio = false;
+        // Retry with remaining chunks after short delay
         if (this.audioChunksQueue.length > 0) {
-          setTimeout(() => this.playQueuedAudio(), 100);
+          setTimeout(() => this.playQueuedAudio(), 200);
         }
       }
     }
 
+    async playBatchedChunksWebAudio(chunks) {
+      if (!this.audioContext) {
+        throw new Error("AudioContext not available");
+      }
+
+      // Ensure AudioContext is resumed on iOS (requires user gesture)
+      if (this.audioContext.state === 'suspended') {
+        if (this.userInteracted) {
+          try {
+            await this.audioContext.resume();
+            console.log('🎤 AudioContext resumed for batch playback');
+          } catch (e) {
+            console.warn('Could not resume AudioContext:', e);
+            throw new Error("AudioContext suspended and could not resume");
+          }
+        } else {
+          throw new Error("AudioContext suspended and no user interaction");
+        }
+      }
+
+      // Combine chunks into single buffer for seamless playback
+      const combinedBase64 = chunks.join('');
+      const binaryString = atob(combinedBase64);
+      const bytes = new Uint8Array(binaryString.length);
+      
+      for (let i = 0; i < binaryString.length; i++) {
+        bytes[i] = binaryString.charCodeAt(i);
+      }
+
+      // Stop any existing buffer source
+      if (this.currentBufferSource) {
+        try { 
+          this.currentBufferSource.stop(0); 
+        } catch (e) {}
+        try { 
+          this.currentBufferSource.disconnect(); 
+        } catch (e) {}
+        this.currentBufferSource = null;
+      }
+
+      const audioBuffer = await this.audioContext.decodeAudioData(bytes.buffer.slice(0));
+      const source = this.audioContext.createBufferSource();
+      source.buffer = audioBuffer;
+      source.connect(this.audioContext.destination);
+      
+      this.currentBufferSource = source;
+      this.currentAudio = source; // Keep both for compatibility
+
+      return new Promise((resolve, reject) => {
+        source.onended = () => {
+          console.log("✅ WebAudio batch playback finished");
+          this.currentBufferSource = null;
+          this.currentAudio = null;
+          // Continue with remaining chunks
+          if (this.audioChunksQueue.length > 0) {
+            this.playQueuedAudio().then(resolve).catch(reject);
+          } else {
+            this.isPlayingAudio = false;
+            resolve();
+          }
+        };
+
+        try {
+          source.start(0);
+          console.log("🔊 WebAudio batch playback started");
+        } catch (error) {
+          this.currentBufferSource = null;
+          this.currentAudio = null;
+          reject(error);
+        }
+      });
+    }
+
+    async playBatchedChunksHTMLAudio(chunks) {
+      // Combine chunks for HTMLAudio playback with iOS optimizations
+      const audioBuffers = chunks.map((b64) => this.base64ToArrayBuffer(b64));
+      const totalLength = audioBuffers.reduce((acc, buf) => acc + buf.byteLength, 0);
+      const combined = new Uint8Array(totalLength);
+      
+      let offset = 0;
+      for (const buffer of audioBuffers) {
+        combined.set(new Uint8Array(buffer), offset);
+        offset += buffer.byteLength;
+      }
+
+      const blob = new Blob([combined], { type: "audio/wav" });
+      const audioUrl = URL.createObjectURL(blob);
+      const audio = new Audio(audioUrl);
+      
+      // Apply iOS optimizations
+      audio.playsInline = true;
+      audio.setAttribute('playsinline', 'true');
+      audio.crossOrigin = 'anonymous';
+      audio.preload = 'auto';
+      
+      if (/iPad|iPhone|iPod/.test(navigator.userAgent)) {
+        audio.setAttribute('webkit-playsinline', 'true');
+        audio.muted = false;
+        audio.volume = 1.0;
+      }
+      
+      this.currentAudio = audio;
+
+      return new Promise((resolve, reject) => {
+        audio.onended = () => {
+          console.log("✅ HTMLAudio batch playback finished");
+          URL.revokeObjectURL(audioUrl);
+          this.currentAudio = null;
+          // Continue with remaining chunks
+          if (this.audioChunksQueue.length > 0) {
+            this.playQueuedAudio().then(resolve).catch(reject);
+          } else {
+            this.isPlayingAudio = false;
+            resolve();
+          }
+        };
+
+        audio.onerror = (error) => {
+          console.error("HTMLAudio batch error:", error);
+          URL.revokeObjectURL(audioUrl);
+          this.currentAudio = null;
+          this.isPlayingAudio = false;
+          reject(error);
+        };
+
+        audio.oncanplaythrough = () => {
+          audio.play()
+            .then(() => console.log("🔊 HTMLAudio batch playback started"))
+            .catch(reject);
+        };
+
+        audio.load();
+      });
+    }
+
     stopAudioPlayback() {
+      // Stop HTMLAudio element
       if (this.currentAudio) {
         try {
-          this.currentAudio.pause();
-          this.currentAudio.currentTime = 0;
-        } catch (_) {}
+          if (this.currentAudio.pause) {
+            this.currentAudio.pause();
+            this.currentAudio.currentTime = 0;
+          }
+        } catch (e) {}
         this.currentAudio = null;
       }
+
+      // Stop WebAudio buffer source
+      if (this.currentBufferSource) {
+        try { 
+          this.currentBufferSource.stop(0); 
+        } catch (e) {}
+        try { 
+          this.currentBufferSource.disconnect(); 
+        } catch (e) {}
+        this.currentBufferSource = null;
+      }
+      
+      // Clear queue and state
       this.audioChunksQueue = [];
       this.isPlayingAudio = false;
       this.currentAiTranscript = "";
+      
+      // Send interrupt signal to backend if connected
+      if (this.webSocket && this.webSocket.readyState === WebSocket.OPEN) {
+        try {
+          this.webSocket.send(JSON.stringify({
+            type: 'interrupt'
+          }));
+        } catch (e) {
+          console.warn('Failed to send interrupt signal:', e);
+        }
+      }
       // Tell backend to interrupt current TTS if needed
       if (this.webSocket && this.webSocket.readyState === WebSocket.OPEN) {
         this.sendWebSocketMessage({ type: "interrupt" });

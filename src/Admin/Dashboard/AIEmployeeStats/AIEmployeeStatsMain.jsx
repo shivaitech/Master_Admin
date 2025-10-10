@@ -1167,146 +1167,14 @@ const AIEmployeeStatsMain = ({ onViewEmployee }) => {
                   onClick={() => setSelectedSession(null)}
                   className="p-1.5 sm:p-2 text-white rounded-lg transition-all duration-200 hover:shadow-lg flex-shrink-0"
                   title="Close"
-                  style={{
-                    background: "linear-gradient(0deg, #0a0a0a 0%, #000 100%)",
-                    boxShadow:
-                      "0 4px 6px rgba(0, 0, 0, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.1)",
-                  }}
+                  style={{ backgroundColor: '#EEEDEB' }}
                 >
                   <XCircle className="w-4 h-4 sm:w-5 sm:h-5" />
                 </button>
               </div>
 
               {/* Session Details - Mobile Optimized */}
-              <div className="px-3 sm:px-4 lg:px-6 py-2 sm:py-3 bg-gradient-to-r from-gray-50 to-blue-50 border-b border-gray-100">
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4 text-xs sm:text-sm">
-                  {/* Location Info */}
-                  <div className="flex items-center gap-2 p-2 bg-white rounded-lg shadow-sm">
-                    <div className="w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center">
-                      <Building2 className="w-3 h-3 text-blue-600" />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="font-medium text-gray-900 truncate">
-                        {[
-                          selectedSession.location?.city,
-                          selectedSession.location?.region,
-                          selectedSession.location?.country
-                        ].filter(Boolean).join(', ') || 'Unknown Location'}
-                      </p>
-                      <p className="text-gray-500 text-xs truncate">
-                        {selectedSession.location?.isp || 'Unknown ISP'} {selectedSession.location?.zip && `• ${selectedSession.location.zip}`}
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* Device Info */}
-                  <div className="flex items-center gap-2 p-2 bg-white rounded-lg shadow-sm">
-                    <div className="w-6 h-6 bg-green-100 rounded-full flex items-center justify-center">
-                      <Activity className="w-3 h-3 text-green-600" />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="font-medium text-gray-900 truncate">
-                        {selectedSession.device?.browser}
-                      </p>
-                      <p className="text-gray-500 text-xs truncate">
-                        {selectedSession.device?.deviceType}
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* Message Count */}
-                  <div className="flex items-center gap-2 p-2 bg-white rounded-lg shadow-sm">
-                    <div className="w-6 h-6 bg-purple-100 rounded-full flex items-center justify-center">
-                      <MessageSquare className="w-3 h-3 text-purple-600" />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="font-medium text-gray-900">
-                        {selectedSession.messageCount?.total || selectedSession.transcriptCount} Messages
-                      </p>
-                      <p className="text-gray-500 text-xs">
-                        AI: {selectedSession.messageCount?.ai || 0}, User: {selectedSession.messageCount?.user || 0}
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* Session Config */}
-                  <div className="flex items-center gap-2 p-2 bg-white rounded-lg shadow-sm">
-                    <div className="w-6 h-6 bg-orange-100 rounded-full flex items-center justify-center">
-                      <Bot className="w-3 h-3 text-orange-600" />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="font-medium text-gray-900 truncate">
-                        {selectedSession.config?.agent} ({selectedSession.config?.gender})
-                      </p>
-                      <p className="text-gray-500 text-xs truncate">
-                        Language: {selectedSession.config?.language}
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* IP Address */}
-                  <div className="flex items-center gap-2 p-2 bg-white rounded-lg shadow-sm">
-                    <div className="w-6 h-6 bg-gray-100 rounded-full flex items-center justify-center">
-                      <ExternalLink className="w-3 h-3 text-gray-600" />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="font-medium text-gray-900 font-mono text-xs">
-                        {selectedSession.userIP}
-                      </p>
-                      <p className="text-gray-500 text-xs">
-                        User IP Address
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* Session Duration */}
-                  <div className="flex items-center gap-2 p-2 bg-white rounded-lg shadow-sm">
-                    <div className="w-6 h-6 bg-indigo-100 rounded-full flex items-center justify-center">
-                      <Clock className="w-3 h-3 text-indigo-600" />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="font-medium text-gray-900">
-                        {selectedSession.duration}
-                      </p>
-                      <p className="text-gray-500 text-xs">
-                        Session Duration
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* Status & Rating */}
-                  <div className="flex items-center gap-2 p-2 bg-white rounded-lg shadow-sm">
-                    <div className="w-6 h-6 bg-yellow-100 rounded-full flex items-center justify-center">
-                      <BarChart3 className="w-3 h-3 text-yellow-600" />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2">
-                        {getStatusBadge(selectedSession.status)}
-                      </div>
-                      <p className="text-gray-500 text-xs mt-0.5">
-                        Rating: {selectedSession.rating}/5 ⭐
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* Coordinates (if available) */}
-                  {selectedSession.location?.lat && selectedSession.location?.lon && (
-                    <div className="flex items-center gap-2 p-2 bg-white rounded-lg shadow-sm">
-                      <div className="w-6 h-6 bg-red-100 rounded-full flex items-center justify-center">
-                        <Building2 className="w-3 h-3 text-red-600" />
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <p className="font-medium text-gray-900 font-mono text-xs">
-                          {selectedSession.location.lat.toFixed(4)}, {selectedSession.location.lon.toFixed(4)}
-                        </p>
-                        <p className="text-gray-500 text-xs">
-                          Coordinates
-                        </p>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
+             
 
               {/* Transcript Messages - Mobile Optimized */}
               <div
