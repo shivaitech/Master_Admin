@@ -290,6 +290,7 @@
       this.currentBufferSource = null; // WebAudio buffer source
       this.currentAiTranscript = ""; // build up streamed AI text
       this.userInteracted = false; // Track user interaction for iOS audio
+      this.audioStartTime = null; // Track when audio playback started
 
       this.recognition = null;
       this.synthesis = window.speechSynthesis;
@@ -648,7 +649,11 @@
             this.callStatus.textContent = "Listening...";
             this.callStatus.style.color = "#10b981";
           }
-          this.stopAudioPlayback();
+          // Less aggressive interruption - only stop if AI has been playing for more than 1 second
+          if (this.isPlayingAudio && this.audioStartTime && (Date.now() - this.audioStartTime) > 1000) {
+            console.log("🛑 User speech detected after 1s - stopping AI audio");
+            this.stopAudioPlayback();
+          }
           break;
         case "speech_stopped":
           if (this.callStatus) {
@@ -688,10 +693,46 @@
     }
 
     init() {
+      this.optimizePhoneAudio(); // Optimize for phone audio first
       this.injectStyles();
       this.createWidget();
       this.initSpeechRecognition();
       this.bindEvents();
+    }
+
+    // Optimize settings for maximum phone audio quality
+    optimizePhoneAudio() {
+      console.log("📱 Optimizing for phone audio...");
+      
+      // Force phone into speakerphone mode if possible
+      if ('mediaSession' in navigator) {
+        navigator.mediaSession.metadata = new MediaMetadata({
+          title: 'ShivAI Voice Call',
+          artist: 'ShivAI Assistant',
+          album: 'AI Communication'
+        });
+        
+        // Set up media session for proper audio routing
+        navigator.mediaSession.setActionHandler('play', () => {
+          console.log("📱 Media session play activated");
+        });
+      }
+
+      // Request wake lock to maintain audio performance
+      if ('wakeLock' in navigator) {
+        navigator.wakeLock.request('screen').then(() => {
+          console.log("🔒 Screen wake lock acquired for audio optimization");
+        }).catch(e => {
+          console.log("Wake lock not available:", e.message);
+        });
+      }
+
+      // Set global audio optimization flags
+      if (typeof window !== 'undefined') {
+        window.shivaiPhoneMode = true;
+        window.shivaiMaxVolume = true;
+        console.log("✅ Phone audio optimization flags set");
+      }
     }
 
     injectStyles() {
@@ -4329,15 +4370,19 @@
           this.callStatus.style.color = "#f59e0b";
         }
         
-        // iOS Safari compatible constraints
+        // Enhanced mobile phone audio constraints for maximum quality
         const constraints = {
           audio: {
             echoCancellation: true,
             noiseSuppression: true,
             autoGainControl: true,
-            // iOS Safari friendly constraints
+            // High quality audio settings
             sampleRate: { ideal: 24000, min: 16000 },
-            channelCount: { ideal: 1 }
+            channelCount: { ideal: 1 },
+            // Enable high quality audio processing
+            latency: { ideal: 0.1 },
+            // Force use of device's primary microphone
+            deviceId: 'default'
           },
           video: false
         };
@@ -4374,10 +4419,19 @@
       }
 
       try {
-        // Create/resume audio context with iOS optimization
+        // Create/resume audio context with maximum phone optimization
         if (!this.audioContext) {
           this.audioContext = new (window.AudioContext ||
-            window.webkitAudioContext)({ sampleRate: 24000 });
+            window.webkitAudioContext)({ 
+              sampleRate: 24000,
+              latencyHint: 'playback' // Optimize for audio output quality
+            });
+            
+          // Log audio capabilities for debugging
+          console.log("🔊 AudioContext created:");
+          console.log("  - Sample Rate:", this.audioContext.sampleRate);
+          console.log("  - Max Channels:", this.audioContext.destination.maxChannelCount);
+          console.log("  - State:", this.audioContext.state);
         }
         
         // iOS requires explicit resume after user gesture
@@ -4495,7 +4549,7 @@
       this.stopAudioPlayback();
     }
 
-    // ===== AI Audio Playback & Transcript Handling =====
+    // ===== AI Audio Playback & Transcript Handling (Working Version) =====
     async playQueuedAudio() {
       if (this.audioChunksQueue.length === 0) {
         this.isPlayingAudio = false;
@@ -4510,36 +4564,151 @@
       }
 
       this.isPlayingAudio = true;
+
       try {
-        // Gather available chunks to reduce gaps (iOS optimization)
+        // Collect all available chunks to reduce gaps (like working app.js)
         const chunksToPlay = [];
-        const maxBatchSize = 5; // Limit batch size for iOS performance
-        let batchCount = 0;
-        
-        while (this.audioChunksQueue.length > 0 && batchCount < maxBatchSize) {
+        while (this.audioChunksQueue.length > 0) {
           chunksToPlay.push(this.audioChunksQueue.shift());
-          batchCount++;
         }
 
-        if (chunksToPlay.length === 0) {
-          this.isPlayingAudio = false;
-          return;
+        // Combine chunks into single blob
+        const audioBuffers = chunksToPlay.map(base64 => this.base64ToArrayBuffer(base64));
+        const totalLength = audioBuffers.reduce((acc, buf) => acc + buf.byteLength, 0);
+        const combined = new Uint8Array(totalLength);
+        
+        let offset = 0;
+        for (const buffer of audioBuffers) {
+          combined.set(new Uint8Array(buffer), offset);
+          offset += buffer.byteLength;
         }
 
-        // Try WebAudio first, then fallback to HTMLAudio
-        try {
-          await this.playBatchedChunksWebAudio(chunksToPlay);
-        } catch (error) {
-          console.warn("WebAudio batch failed, falling back to HTMLAudio:", error);
-          await this.playBatchedChunksHTMLAudio(chunksToPlay);
+        // Create blob (we assume server sends mp3/mpeg format)
+        const blob = new Blob([combined], { type: 'audio/mpeg' });
+        const arrayBuffer = await blob.arrayBuffer();
+
+        console.log(`🎵 Playing ${chunksToPlay.length} audio chunks, total size: ${totalLength} bytes`);
+
+        // Ensure AudioContext is resumed on iOS (requires user gesture)
+        if (this.audioContext && this.audioContext.state === 'suspended') {
+          if (this.userInteracted) {
+            try {
+              await this.audioContext.resume();
+              console.log('🎤 AudioContext resumed for playback');
+            } catch (e) {
+              console.warn('Could not resume AudioContext:', e);
+            }
+          }
         }
+
+        // Prefer decoding/playback via AudioContext for lower latency and better control
+        if (this.audioContext && this.audioContext.decodeAudioData) {
+          try {
+            const decoded = await this.audioContext.decodeAudioData(arrayBuffer.slice(0));
+
+            // Stop any existing buffer source
+            if (this.currentBufferSource) {
+              try { this.currentBufferSource.stop(0); } catch (e) {}
+              this.currentBufferSource.disconnect();
+              this.currentBufferSource = null;
+            }
+
+            const source = this.audioContext.createBufferSource();
+            source.buffer = decoded;
+            
+            // Create gain node for MAXIMUM volume
+            const gainNode = this.audioContext.createGain();
+            gainNode.gain.value = 3.0; // Maximum safe amplification
+            
+            // Connect: source -> gain -> destination (MAXIMUM VOLUME)
+            source.connect(gainNode);
+            gainNode.connect(this.audioContext.destination);
+            
+            this.currentBufferSource = source;
+
+            source.onended = () => {
+              console.log("✅ WebAudio playback finished");
+              this.currentBufferSource = null;
+              // Continue playing if more chunks arrived
+              if (this.audioChunksQueue.length > 0) {
+                this.playQueuedAudio();
+              } else {
+                this.isPlayingAudio = false;
+              }
+            };
+
+            source.start(0);
+            this.audioStartTime = Date.now(); // Track when audio started
+            console.log("🔊 WebAudio playback started with MAXIMUM VOLUME");
+
+          } catch (e) {
+            console.warn('decodeAudioData failed, falling back to HTMLAudioElement:', e);
+
+            // Fallback to HTMLAudio element for playback with MAXIMUM VOLUME
+            this.playHTMLAudioMaxVolume(blob);
+          }
+
+        } else {
+          // No AudioContext available - plain HTMLAudio with MAXIMUM VOLUME
+          this.playHTMLAudioMaxVolume(blob);
+        }
+
       } catch (error) {
-        console.error("Error playing batched audio:", error);
+        console.error('Error playing audio:', error);
         this.isPlayingAudio = false;
-        // Retry with remaining chunks after short delay
+        
+        // Retry if there are more chunks
         if (this.audioChunksQueue.length > 0) {
-          setTimeout(() => this.playQueuedAudio(), 200);
+          setTimeout(() => this.playQueuedAudio(), 100);
         }
+      }
+    }
+
+    playHTMLAudioMaxVolume(blob) {
+      const audioUrl = URL.createObjectURL(blob);
+      const audio = new Audio();
+      audio.src = audioUrl;
+      
+      // MAXIMUM VOLUME SETTINGS
+      audio.playsInline = true;
+      audio.setAttribute('playsinline', 'true');
+      audio.crossOrigin = 'anonymous';
+      audio.volume = 1.0; // Maximum HTML5 audio volume
+      audio.muted = false;
+      
+      // Force use of phone's main speaker (not earpiece)
+      if (/iPhone|iPad|iPod/.test(navigator.userAgent)) {
+        audio.setAttribute('webkit-playsinline', 'true');
+      }
+
+      this.currentAudio = audio;
+
+      audio.onended = () => {
+        console.log("✅ HTMLAudio playback finished");
+        URL.revokeObjectURL(audioUrl);
+        this.currentAudio = null;
+        if (this.audioChunksQueue.length > 0) {
+          this.playQueuedAudio();
+        } else {
+          this.isPlayingAudio = false;
+        }
+      };
+
+      audio.onerror = (error) => {
+        console.error('HTMLAudio playback error:', error);
+        URL.revokeObjectURL(audioUrl);
+        this.currentAudio = null;
+        this.isPlayingAudio = false;
+      };
+
+      try {
+        audio.play().then(() => {
+          this.audioStartTime = Date.now(); // Track when audio started
+          console.log("🔊 HTMLAudio MAXIMUM VOLUME playbook started");
+        });
+      } catch (playErr) {
+        console.error('Playback failed:', playErr);
+        this.isPlayingAudio = false;
       }
     }
 
