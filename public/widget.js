@@ -312,6 +312,18 @@
       
       try {
         this.soundContext = new (window.AudioContext || window.webkitAudioContext)();
+        
+        // iOS Safari requires user interaction to unlock audio context
+        if (this.soundContext.state === 'suspended') {
+          const unlockAudio = () => {
+            this.soundContext.resume().then(() => {
+              document.removeEventListener('touchstart', unlockAudio);
+              document.removeEventListener('click', unlockAudio);
+            });
+          };
+          document.addEventListener('touchstart', unlockAudio);
+          document.addEventListener('click', unlockAudio);
+        }
       } catch (error) {
         console.warn("Could not initialize audio context for sound effects:", error);
         this.soundsEnabled = false;
@@ -2214,7 +2226,11 @@
           padding: "12px 16px",
           backgroundColor: "#f9fafb",
           overflowY: "auto",
+          overflowX: "hidden",
           minHeight: "200px",
+          maxHeight: "400px",
+          scrollBehavior: "smooth",
+          WebkitOverflowScrolling: "touch", // iOS smooth scrolling
         },
       });
 
@@ -2460,8 +2476,15 @@
       this.messagesContainer = createElement("div", {
         class: "shivai-widget-messages",
         style: {
+          flex: "1",
           padding: "16px",
           backgroundColor: "#f9fafb",
+          overflowY: "auto",
+          overflowX: "hidden",
+          minHeight: "200px",
+          maxHeight: "400px",
+          scrollBehavior: "smooth",
+          WebkitOverflowScrolling: "touch", // iOS smooth scrolling
         },
       });
 
@@ -3436,9 +3459,17 @@
           this.callStatus.style.color = "#6b7280";
         }
 
+        // Ensure input container is visible for post-call messaging
+        if (this.inputContainer) {
+          this.inputContainer.style.display = "flex";
+        }
+        
         // Update UI
         this.updateStartButton();
         this.updateUI();
+        
+        // Add a helpful message for post-call interaction
+        this.addMessage("System", "Call ended. You can continue the conversation by typing below.", "bot");
 
         console.log("📞 Call ended - returned to main interface");
       } catch (error) {
@@ -4108,23 +4139,47 @@
     // ===== Microphone & Streaming Helpers (PCM16 over WS) =====
     async ensureMicrophoneAccess() {
       if (this.mediaStream) return this.mediaStream;
-      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      
+      // Check for getUserMedia support with iOS Safari fallbacks
+      const getUserMedia = navigator.mediaDevices?.getUserMedia || 
+                          navigator.getUserMedia || 
+                          navigator.webkitGetUserMedia || 
+                          navigator.mozGetUserMedia;
+                          
+      if (!getUserMedia) {
         throw new Error("getUserMedia not supported in this browser");
       }
+      
       try {
         if (this.callStatus) {
           this.callStatus.textContent = "Requesting microphone...";
           this.callStatus.style.color = "#f59e0b";
         }
-        const stream = await navigator.mediaDevices.getUserMedia({
+        
+        // iOS Safari compatible constraints
+        const constraints = {
           audio: {
-            channelCount: 1,
-            sampleRate: 24000,
             echoCancellation: true,
             noiseSuppression: true,
             autoGainControl: true,
+            // iOS Safari friendly constraints
+            sampleRate: { ideal: 24000, min: 16000 },
+            channelCount: { ideal: 1 }
           },
-        });
+          video: false
+        };
+        
+        let stream;
+        if (navigator.mediaDevices?.getUserMedia) {
+          // Modern browsers
+          stream = await navigator.mediaDevices.getUserMedia(constraints);
+        } else {
+          // Fallback for older browsers
+          stream = await new Promise((resolve, reject) => {
+            getUserMedia.call(navigator, constraints, resolve, reject);
+          });
+        }
+        
         this.mediaStream = stream;
         if (this.callStatus) {
           this.callStatus.textContent = "Microphone ready";
