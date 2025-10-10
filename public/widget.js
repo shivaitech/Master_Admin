@@ -97,6 +97,7 @@
       "message-circle": `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>`,
       phone: `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>`,
       mic: `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>`,
+      "mic-off": `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="1" y1="1" x2="23" y2="23"/><path d="M9 9v3a3 3 0 0 0 5.12 2.12L9 9z"/><path d="M12 1a3 3 0 0 0-3 3v2l6 6V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-1.29 4.08L19 17.27V12z"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>`,
       send: `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22,2 15,22 11,13 2,9 22,2"/></svg>`,
       x: `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`,
       minimize: `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 3v3a2 2 0 0 1-2 2H3"/><path d="M21 8h-3a2 2 0 0 1-2-2V3"/><path d="M3 16h3a2 2 0 0 1 2 2v3"/><path d="M16 21v-3a2 2 0 0 1 2-2h3"/></svg>`,
@@ -290,6 +291,10 @@
 
       this.recognition = null;
       this.synthesis = window.speechSynthesis;
+      
+      // Sound effects audio context
+      this.soundContext = null;
+      this.soundsEnabled = this.config.features.soundEffects;
 
       this.init();
     }
@@ -299,6 +304,104 @@
         Math.random().toString(36).substring(2, 15) +
         Math.random().toString(36).substring(2, 15)
       );
+    }
+
+    // Sound Effects System
+    initSoundContext() {
+      if (!this.soundsEnabled) return;
+      
+      try {
+        this.soundContext = new (window.AudioContext || window.webkitAudioContext)();
+      } catch (error) {
+        console.warn("Could not initialize audio context for sound effects:", error);
+        this.soundsEnabled = false;
+      }
+    }
+
+    playSound(type) {
+      if (!this.soundsEnabled || !this.soundContext) {
+        this.initSoundContext();
+        if (!this.soundContext) return;
+      }
+
+      try {
+        switch (type) {
+          case 'connecting':
+            this.playConnectingSound();
+            break;
+          case 'call-start':
+            this.playCallStartSound();
+            break;
+          case 'call-end':
+            this.playCallEndSound();
+            break;
+          default:
+            console.warn('Unknown sound type:', type);
+        }
+      } catch (error) {
+        console.warn('Error playing sound:', error);
+      }
+    }
+
+    playConnectingSound() {
+      // Generate ascending tone sequence for connecting
+      const frequencies = [440, 554, 659]; // A, C#, E notes
+      let delay = 0;
+
+      frequencies.forEach((freq, index) => {
+        setTimeout(() => {
+          this.generateTone(freq, 0.15, 0.3); // frequency, duration, volume
+        }, delay);
+        delay += 120;
+      });
+    }
+
+    playCallStartSound() {
+      // Generate pleasant ascending chord for call start
+      const frequencies = [261.63, 329.63, 392.00]; // C, E, G major chord
+      
+      frequencies.forEach((freq, index) => {
+        setTimeout(() => {
+          this.generateTone(freq, 0.3, 0.25);
+        }, index * 50);
+      });
+    }
+
+    playCallEndSound() {
+      // Generate descending tone for call end
+      const frequencies = [392.00, 329.63, 261.63]; // G, E, C descending
+      let delay = 0;
+
+      frequencies.forEach((freq, index) => {
+        setTimeout(() => {
+          this.generateTone(freq, 0.2, 0.2);
+        }, delay);
+        delay += 100;
+      });
+    }
+
+    generateTone(frequency, duration, volume = 0.1) {
+      if (!this.soundContext) return;
+
+      const oscillator = this.soundContext.createOscillator();
+      const gainNode = this.soundContext.createGain();
+
+      // Connect oscillator to gain to speakers
+      oscillator.connect(gainNode);
+      gainNode.connect(this.soundContext.destination);
+
+      // Configure oscillator
+      oscillator.frequency.setValueAtTime(frequency, this.soundContext.currentTime);
+      oscillator.type = 'sine'; // Smooth, pleasant tone
+
+      // Configure gain envelope (fade in/out to avoid clicks)
+      gainNode.gain.setValueAtTime(0, this.soundContext.currentTime);
+      gainNode.gain.linearRampToValueAtTime(volume, this.soundContext.currentTime + 0.01);
+      gainNode.gain.exponentialRampToValueAtTime(0.001, this.soundContext.currentTime + duration);
+
+      // Start and stop the oscillator
+      oscillator.start(this.soundContext.currentTime);
+      oscillator.stop(this.soundContext.currentTime + duration);
     }
 
     async connectToWebSocket(pythonServiceUrl) {
@@ -593,9 +696,9 @@
           box-shadow: 0 8px 30px rgba(0,0,0,0.15);
           overflow: hidden;
           border: 1px solid #e5e7eb;
-          height: 60vh;
+          height: 420px;
           max-height: 600px;
-          min-height: 400px;
+          min-height: 380px;
         }
         
         .shivai-widget-messages {
@@ -765,6 +868,17 @@
         @keyframes typingCursor {
           0%, 50% { opacity: 1; }
           51%, 100% { opacity: 0; }
+        }
+        
+        @keyframes typingBounce {
+          0%, 80%, 100% {
+            transform: scale(0);
+            opacity: 0.5;
+          }
+          40% {
+            transform: scale(1);
+            opacity: 1;
+          }
         }
         
         @media (max-width: 768px) {
@@ -1131,15 +1245,18 @@
     }
 
     createLiveMessageBubble() {
-      // Array of live messages
+      // Dynamic context-aware messages
       this.liveMessages = [
-        "👋 Need help?",
-        "📞 Try AI voice call!",
-        "💬 Chat with me!",
-        "🤖 I'm your AI Employee.",
-        "🚀 Fast answers, friendly service.",
-        "🕒 24/7 support.",
-        "🎤 Voice enabled."
+        "👋 Hi there! Need help?",
+        "🤖 I'm Sarah, your AI assistant",
+        "� Want to talk? Click for voice call!",
+        "💬 I'm here to help you",
+        "🚀 Getting quick answers is my thing",
+        "🕒 Available 24/7 for you",
+        "� Let's solve this together",
+        "✨ Ready when you are!",
+        "🔥 I love helping people",
+        "💡 Got questions? I have answers!"
       ];
       this.currentMessageIndex = 0;
       
@@ -1218,6 +1335,39 @@
       this.messageInterval = setInterval(() => {
         this.showNextMessage();
       }, 8000); // Show new message every 8 seconds
+    }
+
+    updateLiveMessagesForState(state) {
+      // Update messages based on current state
+      if (state === 'calling') {
+        this.liveMessages = [
+          "📞 Call in progress...",
+          "🎤 I'm listening!",
+          "🗣️ Speak freely",
+          "💬 Having a conversation with Sarah"
+        ];
+      } else if (state === 'connected') {
+        this.liveMessages = [
+          "✅ Connected to Sarah",
+          "🎯 Ready to help!",
+          "💡 Ask me anything",
+          "🚀 Let's get started"
+        ];
+      } else {
+        // Default idle messages
+        this.liveMessages = [
+          "👋 Hi there! Need help?",
+          "🤖 I'm Sarah, your AI assistant",
+          "📞 Want to talk? Click for voice call!",
+          "💬 I'm here to help you",
+          "🚀 Getting quick answers is my thing",
+          "🕒 Available 24/7 for you",
+          "🎯 Let's solve this together",
+          "✨ Ready when you are!",
+          "🔥 I love helping people",
+          "💡 Got questions? I have answers!"
+        ];
+      }
     }
 
     showNextMessage() {
@@ -1313,6 +1463,168 @@
       }, 300);
     }
 
+    showConnectingStatus(statusText, descriptionText, isError = false) {
+      this.connectingStatus.style.display = "block";
+      this.connectingStatusText.textContent = statusText;
+      this.connectingStatusText.style.color = isError ? "#ef4444" : "#f59e0b";
+      this.connectingStatusDescription.textContent = descriptionText;
+      
+      // Hide start button when connecting
+      if (this.startButton) {
+        this.startButton.style.display = "none";
+      }
+    }
+
+    hideConnectingStatus() {
+      this.connectingStatus.style.display = "none";
+      // Show start button again
+      if (this.startButton) {
+        this.startButton.style.display = "flex";
+      }
+    }
+
+    async showProgressiveConnectionStatesInWelcome() {
+      const states = [
+        { text: "Connecting to AI servers...", desc: "Establishing secure connection", delay: 800, sound: true },
+        { text: "Setting up voice pipeline...", desc: "Configuring audio processing", delay: 700, sound: false },
+        { text: "Configuring audio streams...", desc: "Optimizing voice quality", delay: 650, sound: true },
+        { text: "Almost ready to talk...", desc: "Finalizing setup", delay: 500, sound: false },
+        { text: "Connection established! 🎉", desc: "Ready to start your conversation", delay: 800, sound: false }
+      ];
+
+      for (const state of states) {
+        this.showConnectingStatus(state.text, state.desc);
+        if (state.sound) {
+          this.playSound('connecting');
+        }
+        if (state.delay > 0) {
+          await new Promise(resolve => setTimeout(resolve, state.delay));
+        }
+      }
+    }
+
+    async showProgressiveConnectionStates() {
+      const states = [
+        { text: "Initializing call session...", color: "#f59e0b", delay: 600 },
+        { text: "Connecting to AI servers...", color: "#f59e0b", delay: 800 },
+        { text: "Setting up voice pipeline...", color: "#f59e0b", delay: 700 },
+        { text: "Configuring audio streams...", color: "#f59e0b", delay: 650 },
+        { text: "Almost ready to talk...", color: "#10b981", delay: 500 },
+        { text: "Connected! Sarah is listening 🎤", color: "#10b981", delay: 0 }
+      ];
+
+      for (const state of states) {
+        if (this.callStatus) {
+          this.callStatus.textContent = state.text;
+          this.callStatus.style.color = state.color;
+        }
+        if (state.delay > 0) {
+          await new Promise(resolve => setTimeout(resolve, state.delay));
+        }
+      }
+    }
+
+    async showTypingIndicator() {
+      // Add typing indicator message
+      const typingMessage = {
+        id: "typing-indicator",
+        type: "bot",
+        content: "typing",
+        timestamp: new Date(),
+        isTyping: true
+      };
+
+      const typingElement = this.createTypingElement();
+      this.messagesContainer.appendChild(typingElement);
+      this.messagesContainer.scrollTop = this.messagesContainer.scrollHeight;
+
+      return typingElement;
+    }
+
+    createTypingElement() {
+      const messageDiv = createElement("div", {
+        class: "shivai-widget-message",
+        id: "typing-indicator",
+        style: {
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "flex-start",
+          marginBottom: "16px",
+        },
+      });
+
+      const senderInfo = createElement("div", {
+        style: {
+          display: "flex",
+          alignItems: "center",
+          gap: "6px",
+          marginBottom: "4px",
+          fontSize: "12px",
+          color: "#6b7280",
+        },
+      });
+
+      const aiAvatar = createElement("div", {
+        style: {
+          width: "20px",
+          height: "20px",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          color: "#10b981",
+        },
+      });
+
+      aiAvatar.innerHTML = `
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24">
+          <path fill="none" stroke="currentColor" stroke-linejoin="round" stroke-width="2" d="M15 19c1.2-3.678 2.526-5.005 6-6c-3.474-.995-4.8-2.322-6-6c-1.2 3.678-2.526 5.005-6 6c3.474.995 4.8 2.322 6 6Zm-8-9c.6-1.84 1.263-2.503 3-3c-1.737-.497-2.4-1.16-3-3c-.6 1.84-1.263 2.503-3 3c1.737.497 2.4 1.16 3 3Zm1.5 10c.3-.92.631-1.251 1.5-1.5c-.869-.249-1.2-.58-1.5-1.5c-.3.92-.631 1.251-1.5 1.5c.869.249 1.2.58 1.5 1.5Z"/>
+        </svg>`;
+
+      senderInfo.appendChild(aiAvatar);
+      senderInfo.appendChild(document.createTextNode("AI Employee is responding..."));
+
+      const messageBubble = createElement("div", {
+        style: {
+          backgroundColor: "#f3f4f6",
+          padding: "12px 16px",
+          borderRadius: "18px 18px 18px 4px",
+          maxWidth: "80%",
+          wordWrap: "break-word",
+          display: "flex",
+          alignItems: "center",
+          gap: "4px",
+        },
+      });
+
+      // Create typing dots
+      for (let i = 0; i < 3; i++) {
+        const dot = createElement("div", {
+          class: "shivai-typing-dot",
+          style: {
+            width: "6px",
+            height: "6px",
+            borderRadius: "50%",
+            backgroundColor: "#9ca3af",
+            animation: `typingBounce 1.4s ease-in-out infinite both`,
+            animationDelay: `${i * 0.16}s`,
+          },
+        });
+        messageBubble.appendChild(dot);
+      }
+
+      messageDiv.appendChild(senderInfo);
+      messageDiv.appendChild(messageBubble);
+
+      return messageDiv;
+    }
+
+    removeTypingIndicator() {
+      const typingElement = document.getElementById("typing-indicator");
+      if (typingElement) {
+        typingElement.remove();
+      }
+    }
+
     createChatInterface() {
       this.chatInterface = createElement("div", {
         class: "shivai-widget-chat",
@@ -1328,6 +1640,9 @@
       this.createFooter();
 
       this.container.appendChild(this.chatInterface);
+      
+      // Set initial compact height
+      this.adjustModalHeight();
     }
 
     createHeader() {
@@ -1403,25 +1718,25 @@
 
       // Insert ShivAI company logo as avatar
       avatar.innerHTML = `
-        <svg viewBox="0 0 94 29" xmlns="http://www.w3.org/2000/svg" aria-label="ShivAI Logo" width="70" height="auto">
-          <g clip-path="url(#clip0_302_587_avatar)">
-            <path d="M19.9124 3.47757C19.1031 2.88384 15.8286 0.624395 11.3008 1.09206C9.13407 1.31573 7.41793 2.08839 6.23291 2.80494C5.06252 3.51254 4.04016 4.46008 3.35452 5.64348C2.36795 7.34578 2.05807 9.32381 2.57372 11.1579C2.90068 12.3193 3.50011 13.2148 4.08896 13.8663C4.65097 14.4885 5.32767 14.996 6.06129 15.4027C8.15725 16.5674 10.2532 17.7312 12.3492 18.8959C13.3235 19.5108 13.8693 20.599 13.7457 21.6889C13.7367 21.7711 13.7237 21.85 13.7074 21.9272C13.4756 23.0521 12.4549 23.8353 11.3081 23.902C10.607 23.9427 9.79856 23.9248 8.91609 23.7841C6.10277 23.3359 4.17111 21.9069 3.27237 21.1375C2.18657 22.8536 1.09996 24.5697 0.0141602 26.2859C1.14957 27.0789 2.68271 27.976 4.61112 28.6714C8.02956 29.9052 11.0674 29.9223 12.9315 29.7767C13.57 29.7019 16.6029 29.2781 18.8079 26.5762C18.912 26.4485 19.0104 26.32 19.1047 26.1915C21.3715 23.074 20.9868 18.7089 18.3003 15.946C18.2759 15.9208 18.2515 15.8955 18.2263 15.8703C16.8363 14.4657 15.3235 13.6247 14.0767 13.1172C12.4956 12.4747 10.982 11.6768 9.59767 10.678C9.53423 10.6325 9.47079 10.5869 9.40816 10.5414C8.62248 9.97447 8.40858 8.89762 8.91772 8.07372C9.51145 7.12374 10.7323 6.63737 12.0019 6.85209C12.6704 6.80898 13.7367 6.82281 14.9689 7.20101C16.2166 7.58409 17.1145 8.1827 17.6456 8.5975C18.402 6.89113 19.1584 5.18394 19.9148 3.47757H19.9124Z" fill="currentColor"/>
-            <path d="M38.2895 14.2557C37.9755 13.893 37.6055 13.5327 37.1703 13.1943C35.7722 12.1093 34.2781 11.7067 33.1224 11.5742C31.8658 11.431 30.5856 11.636 29.4518 12.1947C29.4453 12.198 29.4388 12.2012 29.4315 12.2045C28.3628 12.7348 27.6088 13.4074 27.1273 13.9206V0.160645H21.251V29.3113H27.1273V18.7022C27.8992 16.9617 29.6389 15.9889 31.2355 16.2785C31.5242 16.3305 31.7869 16.4208 32.0252 16.5347C33.1736 17.0845 33.8536 18.2988 33.8536 19.5725V29.3121H39.8462V18.5721C39.8462 16.9958 39.3208 15.4481 38.2895 14.2565V14.2557Z" fill="currentColor"/>
-            <path d="M46.9394 11.9143H40.8882V29.3115H46.9394V11.9143Z" fill="currentColor"/>
-            <path d="M64.5132 21.1113C63.3941 23.8449 62.2749 26.5777 61.1558 29.3114H68.0219L70.1163 23.7839C69.3891 23.2512 68.4562 22.6591 67.3159 22.1264C66.283 21.6441 65.3249 21.326 64.5124 21.1113H64.5132Z" fill="currentColor"/>
-            <path d="M90.3039 8.36483C92.3284 8.36483 93.9696 6.72364 93.9696 4.69914C93.9696 2.67463 92.3284 1.03345 90.3039 1.03345C88.2794 1.03345 86.6382 2.67463 86.6382 4.69914C86.6382 6.72364 88.2794 8.36483 90.3039 8.36483Z" fill="currentColor"/>
-            <path d="M43.9137 8.36483C45.9382 8.36483 47.5794 6.72364 47.5794 4.69914C47.5794 2.67463 45.9382 1.03345 43.9137 1.03345C41.8892 1.03345 40.248 2.67463 40.248 4.69914C40.248 6.72364 41.8892 8.36483 43.9137 8.36483Z" fill="currentColor"/>
-            <path d="M64.5994 20.9152L72.3748 1.80029H78.1601L85.8428 20.9152C84.7123 20.8713 81.4272 20.5907 78.8384 18.0767C76.7237 16.0231 76.1324 13.5074 75.9006 12.5208C75.8616 12.3533 75.8396 12.2337 75.7941 11.9971C75.4012 9.94339 75.3785 8.43953 75.3565 5.76692C75.3386 3.55221 75.3329 2.0817 75.3199 2.0817C75.3045 2.0817 75.2931 4.19718 75.2182 6.2541C75.1825 7.2358 75.1377 8.10932 75.1377 8.10932C75.1125 8.58105 75.0938 8.8405 75.0743 9.27401C74.9954 11.0259 75.0027 11.0471 74.9572 11.3252C74.7555 12.5688 73.8771 16.7738 70.2024 19.1959C67.956 20.6769 65.6933 20.8892 64.5969 20.9161L64.5994 20.9152Z" fill="currentColor"/>
-            <path d="M85.8793 21.1699C85.3612 21.2048 84.7682 21.291 84.1298 21.4692C82.264 21.9905 80.9797 23.0283 80.2656 23.7213C80.8716 25.5472 81.4775 27.374 82.0834 29.1999H93.2375V20.9153L87.3132 21.169L87.3595 25.0568L85.8784 21.169L85.8793 21.1699Z" fill="currentColor"/>
-            <path d="M87.3604 12.2607H93.2383V21.1114L87.3604 20.8731V12.2607Z" fill="currentColor"/>
-            <path d="M57.9853 20.7748C59.795 20.8146 61.6038 20.8545 63.4135 20.8943C64.8945 17.9907 66.3748 15.0871 67.8559 12.1835L61.3395 11.9143L57.3826 21.3986H56.9174L52.7279 11.9143H46.8516V14.1835L54.8808 29.3115H59.128C60.5204 26.5779 61.9137 23.8451 63.3061 21.1115C61.5322 20.9992 59.7583 20.887 57.9845 20.7748H57.9853Z" fill="currentColor"/>
-          </g>
-          <defs>
-            <clipPath id="clip0_302_587_avatar">
-              <rect width="94" height="29" fill="white"/>
-            </clipPath>
-          </defs>
-        </svg>`;
+       <svg id="Layer_1" data-name="Layer 1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1500 1500">
+  <defs>
+    <style>
+      .cls-1 {
+        stroke-width: 0px;
+      }
+    </style>
+  </defs>
+  <path class="cls-1" d="m404.66,608.33c-9.95-7.3-50.21-35.08-105.88-29.33-26.64,2.75-47.74,12.25-62.31,21.06-14.39,8.7-26.96,20.35-35.39,34.9-12.13,20.93-15.94,45.25-9.6,67.8,4.02,14.28,11.39,25.29,18.63,33.3,6.91,7.65,15.23,13.89,24.25,18.89,25.77,14.32,51.54,28.63,77.31,42.95,11.98,7.56,18.69,20.94,17.17,34.34-.11,1.01-.27,1.98-.47,2.93-2.85,13.83-15.4,23.46-29.5,24.28-8.62.5-18.56.28-29.41-1.45-34.59-5.51-58.34-23.08-69.39-32.54-13.35,21.1-26.71,42.2-40.06,63.3,13.96,9.75,32.81,20.78,56.52,29.33,42.03,15.17,79.38,15.38,102.3,13.59,7.85-.92,45.14-6.13,72.25-39.35,1.28-1.57,2.49-3.15,3.65-4.73,27.87-38.33,23.14-92-9.89-125.97-.3-.31-.6-.62-.91-.93-17.09-17.27-35.69-27.61-51.02-33.85-19.44-7.9-38.05-17.71-55.07-29.99-.78-.56-1.56-1.12-2.33-1.68-9.66-6.97-12.29-20.21-6.03-30.34h0c7.3-11.68,22.31-17.66,37.92-15.02,8.22-.53,21.33-.36,36.48,4.29,15.34,4.71,26.38,12.07,32.91,17.17,9.3-20.98,18.6-41.97,27.9-62.95Z"/>
+  <path class="cls-1" d="m630.61,740.85c-3.86-4.46-8.41-8.89-13.76-13.05-17.19-13.34-35.56-18.29-49.77-19.92-15.45-1.76-31.19.76-45.13,7.63-.08.04-.16.08-.25.12-13.14,6.52-22.41,14.79-28.33,21.1v-169.18h-72.25v358.41h72.25v-130.44c9.49-21.4,30.88-33.36,50.51-29.8,3.55.64,6.78,1.75,9.71,3.15,14.12,6.76,22.48,21.69,22.48,37.35v119.75h73.68v-132.05c0-19.38-6.46-38.41-19.14-53.06Z"/>
+  <rect class="cls-1" x="662.56" y="712.06" width="74.4" height="213.9"/>
+  <path class="cls-1" d="m953.03,825.14c-13.76,33.61-27.52,67.21-41.28,100.82h84.42l25.75-67.96c-8.94-6.55-20.41-13.83-34.43-20.38-12.7-5.93-24.48-9.84-34.47-12.48Z"/>
+  <circle class="cls-1" cx="1270.13" cy="623.35" r="45.07"/>
+  <circle class="cls-1" cx="699.76" cy="623.35" r="45.07"/>
+  <path class="cls-1" d="m954.09,822.73l95.6-235.02h71.13l94.46,235.02c-13.9-.54-54.29-3.99-86.12-34.9-26-25.25-33.27-56.18-36.12-68.31-.48-2.06-.75-3.53-1.31-6.44-4.83-25.25-5.11-43.74-5.38-76.6-.22-27.23-.29-45.31-.45-45.31-.19,0-.33,26.01-1.25,51.3-.44,12.07-.99,22.81-.99,22.81-.31,5.8-.54,8.99-.78,14.32-.97,21.54-.88,21.8-1.44,25.22-2.48,15.29-13.28,66.99-58.46,96.77-27.62,18.21-55.44,20.82-68.92,21.15Z"/>
+  <path class="cls-1" d="m1215.73,825.86c-6.37.43-13.66,1.49-21.51,3.68-22.94,6.41-38.73,19.17-47.51,27.69,7.45,22.45,14.9,44.91,22.35,67.36h137.14v-101.86l-72.84,3.12.57,47.8-18.21-47.8Z"/>
+  <polygon class="cls-1" points="1233.94 716.32 1306.21 716.32 1306.21 825.14 1233.94 822.21 1233.94 716.32"/>
+  <path class="cls-1" d="m872.77,821c22.25.49,44.49.98,66.74,1.47,18.21-35.7,36.41-71.4,54.62-107.1l-80.12-3.31-48.65,116.61h-5.72l-51.51-116.61h-72.25v27.9l98.72,186h52.22c17.12-33.61,34.25-67.21,51.37-100.82-21.81-1.38-43.62-2.76-65.43-4.14Z"/>
+</svg>`;
 
       // Title
       const title = createElement(
@@ -1454,10 +1769,45 @@
         ]
       );
 
+      // Connecting status (hidden by default)
+      this.connectingStatus = createElement("div", {
+        style: {
+          display: "none",
+          textAlign: "center",
+          padding: "16px",
+          backgroundColor: "#f9fafb",
+          borderRadius: "8px",
+          margin: "16px 0",
+          border: "1px solid #e5e7eb",
+        },
+      });
+
+      this.connectingStatusText = createElement("p", {
+        style: {
+          fontSize: "14px",
+          color: "#f59e0b",
+          margin: "0 0 8px 0",
+          fontWeight: "500",
+        },
+      });
+
+      this.connectingStatusDescription = createElement("p", {
+        style: {
+          fontSize: "12px",
+          color: "#6b7280",
+          margin: "0",
+          lineHeight: "1.4",
+        },
+      });
+
+      this.connectingStatus.appendChild(this.connectingStatusText);
+      this.connectingStatus.appendChild(this.connectingStatusDescription);
+
       this.header.appendChild(this.closeButton);
       this.header.appendChild(avatar);
       this.header.appendChild(title);
       this.header.appendChild(description);
+      this.header.appendChild(this.connectingStatus);
 
       this.createModeButtons();
       this.chatInterface.appendChild(this.header);
@@ -2401,6 +2751,26 @@
 
       this.updateMuteButton();
 
+      // Add mute button event listener
+      this.muteButton.addEventListener("click", (e) => {
+        e.stopPropagation();
+        e.preventDefault();
+        this.toggleMute();
+      });
+
+      // Add hover effects for mute button
+      this.muteButton.addEventListener("mouseover", (e) => {
+        e.stopPropagation();
+        this.muteButton.style.transform = "scale(1.05)";
+        this.muteButton.style.boxShadow = "0 6px 16px rgba(0,0,0,0.15)";
+      });
+
+      this.muteButton.addEventListener("mouseout", (e) => {
+        e.stopPropagation();
+        this.muteButton.style.transform = "scale(1)";
+        this.muteButton.style.boxShadow = "0 4px 12px rgba(0,0,0,0.1)";
+      });
+
       // End call button
       this.endCallButton = createElement(
         "button",
@@ -2436,6 +2806,13 @@
           "0 4px 12px rgba(220, 38, 38, 0.3)";
       });
 
+      // Add end call button click handler
+      this.endCallButton.addEventListener("click", (e) => {
+        e.stopPropagation();
+        e.preventDefault();
+        this.endCurrentCall();
+      });
+
       controlsContainer.appendChild(this.muteButton);
       controlsContainer.appendChild(this.endCallButton);
 
@@ -2451,8 +2828,16 @@
     }
 
     updateMuteButton() {
+      if (!this.muteButton) {
+        console.log("Mute button not found!");
+        return;
+      }
+      
       this.muteButton.innerHTML = "";
-      const icon = createIcon(this.isMuted ? "volume-x" : "volume-2", 16);
+      // Show mic-off icon only when actually muted, otherwise show mic icon
+      const iconName = this.isMuted ? "mic-off" : "mic";
+      console.log(`Updating mute button - isMuted: ${this.isMuted}, icon: ${iconName}`);
+      const icon = createIcon(iconName, 16);
       icon.style.color = this.isMuted ? "#dc2626" : "#6b7280";
       this.muteButton.appendChild(icon);
       this.muteButton.style.backgroundColor = this.isMuted
@@ -2461,13 +2846,41 @@
     }
 
     updateHeaderMuteButton() {
+      if (!this.headerMuteButton) {
+        console.log("Header mute button not found!");
+        return;
+      }
+      
       this.headerMuteButton.innerHTML = "";
-      const icon = createIcon(this.isMuted ? "volume-x" : "volume-2", 14);
+      // Show mic-off icon only when actually muted, otherwise show mic icon
+      const iconName = this.isMuted ? "mic-off" : "mic";
+      console.log(`Updating header mute button - isMuted: ${this.isMuted}, icon: ${iconName}`);
+      const icon = createIcon(iconName, 14);
       icon.style.color = this.isMuted ? "#dc2626" : "#6b7280";
       this.headerMuteButton.appendChild(icon);
       this.headerMuteButton.style.backgroundColor = this.isMuted
         ? "#fef2f2"
         : "#f3f4f6";
+    }
+
+    updateAllMuteButtons() {
+      console.log("Updating all mute buttons");
+      
+      // Update main mute button if it exists
+      if (this.muteButton) {
+        console.log("Updating main mute button");
+        this.updateMuteButton();
+      } else {
+        console.log("Main mute button not found");
+      }
+      
+      // Update header mute button if it exists  
+      if (this.headerMuteButton) {
+        console.log("Updating header mute button");
+        this.updateHeaderMuteButton();
+      } else {
+        console.log("Header mute button not found");
+      }
     }
 
     createFooter() {
@@ -2654,12 +3067,31 @@
 
       // Header call controls
       if (this.headerMuteButton) {
-        this.headerMuteButton.addEventListener("click", () => this.toggleMute());
+        this.headerMuteButton.addEventListener("click", (e) => {
+          e.stopPropagation();
+          e.preventDefault();
+          this.toggleMute();
+        });
+        
+        // Add hover effects for header mute button
+        this.headerMuteButton.addEventListener("mouseover", (e) => {
+          e.stopPropagation();
+          this.headerMuteButton.style.transform = "scale(1.1)";
+          this.headerMuteButton.style.boxShadow = "0 4px 12px rgba(0,0,0,0.15)";
+        });
+
+        this.headerMuteButton.addEventListener("mouseout", (e) => {
+          e.stopPropagation();
+          this.headerMuteButton.style.transform = "scale(1)";
+          this.headerMuteButton.style.boxShadow = "none";
+        });
       }
       if (this.headerEndCallButton) {
-        this.headerEndCallButton.addEventListener("click", () =>
-          this.endCurrentCall()
-        );
+        this.headerEndCallButton.addEventListener("click", (e) => {
+          e.stopPropagation();
+          e.preventDefault();
+          this.endCurrentCall();
+        });
       }
 
       // Back to main UI button
@@ -2817,20 +3249,22 @@
         await this.endCurrentCall();
       } else {
         console.log("� Starting new call with chat transcript");
-        this.startChat(); // Initialize chat for transcript display
+        await this.startChat(); // Initialize chat for transcript display
         await this.startCurrentCall();
       }
     }
 
-    startChat() {
-      this.hasStarted = true;
-      this.updateUI();
+    async startChat() {
+      // Don't set hasStarted = true yet, keep in welcome screen
+      // this.hasStarted = true;
+      // this.updateUI();
 
-      // Add initial greeting message
+      // Add initial greeting message when call actually starts
       if (this.config.features.autoGreeting && !this.hasGreeted) {
-        this.addMessage(
+        await this.addMessage(
           "bot",
-          "Hi! I'm your AI Employee. How can I help you today?"
+          "Hi! I'm Sarah, your AI Employee. How can I help you today? 😊",
+          { skipTyping: true }
         );
         this.hasGreeted = true;
       }
@@ -2840,13 +3274,29 @@
       try {
         console.log("🚀 Starting call...");
 
-        // Update UI to show connecting state
-        if (this.callStatus) {
-          this.callStatus.textContent = "Connecting...";
-          this.callStatus.style.color = "#f59e0b";
+        // Show connecting status in welcome screen
+        this.showConnectingStatus("Initializing call...", "Please wait while we set up your connection");
+        this.playSound('connecting');
+        
+        // Step 1: Request microphone permission FIRST (within user gesture)
+        this.showConnectingStatus("Requesting microphone access...", "We need your permission to enable voice communication");
+        
+        try {
+          await this.ensureMicrophoneAccess();
+          this.showConnectingStatus("Microphone access granted! ✅", "Setting up audio pipeline...");
+          this.playSound('connecting');
+          await new Promise(resolve => setTimeout(resolve, 800));
+        } catch (micErr) {
+          console.warn("🔇 Microphone not granted/available:", micErr);
+          this.showConnectingStatus("Microphone access denied ❌", "Voice call unavailable. Please grant microphone permission and try again.", true);
+          return; // Exit if no microphone access
         }
 
-        // Call the new start-call API
+        // Step 2: Progressive connection states with realistic delays
+        await this.showProgressiveConnectionStatesInWelcome();
+
+        // Step 3: Call the API to start call
+        this.showConnectingStatus("Starting call session...", "Initializing with our servers");
         const callData = await this.api.startCall();
         console.log("✅ Call started successfully:", callData);
 
@@ -2855,35 +3305,49 @@
         this.pythonServiceUrl = callData.pythonServiceUrl;
         this.isCallActive = true;
         this.callStartTime = new Date(callData.startTime);
-        this.hasStarted = true;
+        
+        // Adjust modal height for call interface
+        this.adjustModalHeight();
+        
+        // Step 4: Connect to voice service
+        this.showConnectingStatus("Connecting to voice service...", "Establishing real-time communication");
 
-        // Update UI
+        if (this.pythonServiceUrl) {
+          await this.connectToWebSocket(this.pythonServiceUrl);
+          this.showConnectingStatus("Voice service connected! 🎯", "Everything is ready!");
+          this.playSound('call-start');
+        } else {
+          console.warn("⚠️ No Python service URL provided");
+          this.showConnectingStatus("Call ready (text mode) ✅", "Voice service unavailable, text chat enabled");
+          this.playSound('call-start');
+        }
+
+        await new Promise(resolve => setTimeout(resolve, 1000));
+
+        // Now transition to call interface
+        this.hasStarted = true;
+        this.hideConnectingStatus();
         this.updateModeUI();
         this.updateUI();
         this.startCallTimer();
         this.updateStartButton();
 
-        // Request microphone early (still within user gesture Promise chain)
-        try {
-          await this.ensureMicrophoneAccess();
-        } catch (micErr) {
-          console.warn("🔇 Microphone not granted/available:", micErr);
-          if (this.callStatus) {
-            this.callStatus.textContent = "Microphone unavailable";
-            this.callStatus.style.color = "#f59e0b";
-          }
+        // Update call status in the interface
+        if (this.callStatus) {
+          this.callStatus.textContent = "Connected! Sarah is listening 🎤";
+          this.callStatus.style.color = "#10b981";
         }
 
-        // Connect to Python WebSocket service
-        if (this.pythonServiceUrl) {
-          await this.connectToWebSocket(this.pythonServiceUrl);
-        } else {
-          console.warn("⚠️ No Python service URL provided");
-          if (this.callStatus) {
-            this.callStatus.textContent = "Connected (no voice service)";
-            this.callStatus.style.color = "#f59e0b";
-          }
-        }
+        // Update live messages for calling state
+        this.updateLiveMessagesForState('calling');
+
+        // Add initial AI greeting to chat
+        setTimeout(async () => {
+          await this.addMessage(
+            "bot",
+            "Hi! I'm Sarah. I can hear you now. How can I help you today? 😊"
+          );
+        }, 1000);
 
         console.log(
           "📞 Call interface activated with Call ID:",
@@ -2892,30 +3356,36 @@
       } catch (error) {
         console.error("❌ Failed to start call:", error);
 
-        // Show error state
-        if (this.callStatus) {
-          this.callStatus.textContent = "Connection failed";
-          this.callStatus.style.color = "#ef4444";
-        }
+        // Show error in welcome screen
+        this.showConnectingStatus(
+          "Connection failed ❌", 
+          "Unable to establish connection. Please check your internet and try again.", 
+          true
+        );
 
         // Reset call state
         this.isCallActive = false;
         this.currentCallId = null;
         this.pythonServiceUrl = null;
+        
         // Cleanup any partial mic resources
         try {
           this.stopAudioCapture();
         } catch (_) {}
-        this.updateStartButton();
 
-        // Optionally show error message to user
-        this.showErrorMessage("Failed to start call. Please try again.");
+        // Show start button again after 3 seconds
+        setTimeout(() => {
+          this.hideConnectingStatus();
+        }, 3000);
       }
     }
 
     async endCurrentCall() {
       try {
         console.log("🛑 Ending call...");
+        
+        // Play call end sound
+        this.playSound('call-end');
 
         if (this.currentCallId) {
           // Update UI to show ending state
@@ -2950,6 +3420,9 @@
         this.isCallActive = false;
         // Keep hasStarted = true to maintain the unified interface
         this.callDuration = 0;
+        
+        // Adjust modal height when call ends
+        this.adjustModalHeight();
         this.callStartTime = null;
         this.currentCallId = null;
         this.pythonServiceUrl = null;
@@ -3059,6 +3532,37 @@
           this.updateCallTimer();
         }
       }
+      
+      // Adjust modal height based on content visibility
+      this.adjustModalHeight();
+    }
+
+    adjustModalHeight() {
+      if (!this.chatInterface) return;
+      
+      // Calculate dynamic height based on current state
+      let targetHeight;
+      
+      if (!this.hasStarted) {
+        // Welcome screen - need more space for all content
+        targetHeight = 420; 
+      } else if (this.isCallActive) {
+        // Call active - larger for controls
+        targetHeight = 480;
+      } else {
+        // Post-call chat mode
+        targetHeight = 440;
+      }
+      
+      // Ensure responsive height
+      const maxHeight = Math.min(targetHeight + 50, window.innerHeight * 0.85);
+      const minHeight = Math.max(380, targetHeight - 50);
+      
+      // Apply the calculated heights with smooth transition
+      this.chatInterface.style.transition = "height 0.3s ease-in-out, min-height 0.3s ease-in-out";
+      this.chatInterface.style.height = `${targetHeight}px`;
+      this.chatInterface.style.minHeight = `${minHeight}px`;
+      this.chatInterface.style.maxHeight = `${maxHeight}px`;
     }
 
     updateCallTimer() {
@@ -3094,11 +3598,30 @@
     }
 
     toggleMute() {
+      console.log("Toggle mute called!");
       this.isMuted = !this.isMuted;
-      this.updateMuteButton();
-      if (this.headerMuteButton) {
-        this.updateHeaderMuteButton();
+      console.log(`Mute toggled - isMuted: ${this.isMuted}`);
+      
+      // Control the actual microphone track
+      if (this.mediaStream) {
+        const audioTracks = this.mediaStream.getAudioTracks();
+        audioTracks.forEach(track => {
+          track.enabled = !this.isMuted;
+          console.log(`Audio track enabled: ${track.enabled}`);
+        });
+      } else {
+        console.log("No media stream found");
       }
+      
+      // Force update all mute buttons by recreating their content
+      this.updateAllMuteButtons();
+      
+      // Adjust modal height when mute state changes
+      this.adjustModalHeight();
+      
+      // Adjust modal height when mute state changes
+      this.adjustModalHeight();
+      
       if (this.callStatus) {
         if (this.isMuted) {
           this.callStatus.textContent = "Muted";
@@ -3194,20 +3717,20 @@
       const message = this.messageInput.value.trim();
       if (!message || this.isLoading) return;
 
-      this.addMessage("user", message);
+      await this.addMessage("user", message, { skipTyping: true });
       this.messageInput.value = "";
       this.setLoading(true);
-      this.updateAIStatus("Typing...", "#f59e0b");
+      this.updateAIStatus("Thinking...", "#f59e0b");
 
       try {
         const response = await this.api.sendMessage(
           message,
           this.conversationId
         );
-        this.addMessage("bot", response);
+        await this.addMessage("bot", response);
         this.updateAIStatus("Online", "#10b981");
       } catch (error) {
-        this.addMessage(
+        await this.addMessage(
           "bot",
           "Sorry, I encountered an error. Please try again."
         );
@@ -3230,16 +3753,36 @@
       }
     }
 
-    addMessage(type, content) {
+    async addMessage(type, content, options = {}) {
       const messageId = this.generateId();
       const message = { id: messageId, type, content, timestamp: new Date() };
-      this.messages.push(message);
 
+      // Show typing indicator for bot messages (unless it's the initial greeting)
+      if (type === "bot" && !options.skipTyping && this.messages.length > 0) {
+        const typingElement = await this.showTypingIndicator();
+        
+        // Simulate typing delay based on message length
+        const typingDelay = Math.min(Math.max(content.length * 30, 800), 3000);
+        await new Promise(resolve => setTimeout(resolve, typingDelay));
+        
+        this.removeTypingIndicator();
+      }
+
+      this.messages.push(message);
       const messageElement = this.createMessageElement(message);
       this.messagesContainer.appendChild(messageElement);
 
       // Scroll to bottom
       this.messagesContainer.scrollTop = this.messagesContainer.scrollHeight;
+
+      // Add slide-in animation
+      messageElement.style.opacity = "0";
+      messageElement.style.transform = "translateY(10px)";
+      setTimeout(() => {
+        messageElement.style.transition = "all 0.3s ease";
+        messageElement.style.opacity = "1";
+        messageElement.style.transform = "translateY(0)";
+      }, 50);
     }
 
     createMessageElement(message) {
