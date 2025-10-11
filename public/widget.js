@@ -1315,16 +1315,11 @@
     createLiveMessageBubble() {
       // Dynamic context-aware messages
       this.liveMessages = [
-        "👋 Hi there! Need help?",
-        "🤖 I'm Sarah, your AI assistant",
-        "� Want to talk? Click for voice call!",
-        "💬 I'm here to help you",
-        "🚀 Getting quick answers is my thing",
-        "🕒 Available 24/7 for you",
-        "� Let's solve this together",
-        "✨ Ready when you are!",
-        "🔥 I love helping people",
-        "💡 Got questions? I have answers!"
+        "📞	Call ShivAI!",
+        "📞	Call ShivAI!",
+        "📞	Call ShivAI!",
+        "📞	Call ShivAI!",
+        
       ];
       this.currentMessageIndex = 0;
       
