@@ -472,7 +472,7 @@
             timestamp: new Date().toISOString(),
           });
           // Wait for handshake_response before starting mic streaming
-          // Fallback: if no handshake_response arrives, start capture after a short delay
+          // Fallback: if no handshake_response arrives, start capture after a shorter delay
           setTimeout(() => {
             if (this.isWebSocketConnected && !this.hasStartedCapture) {
               console.warn(
@@ -489,7 +489,7 @@
                 }
               });
             }
-          }, 1500);
+          }, 300); // Reduced from 1500ms to 300ms for faster connection
         };
 
         this.webSocket.onmessage = (event) => {
@@ -597,7 +597,8 @@
       switch (data.type) {
         case "handshake_response":
           console.log("🤝 Handshake confirmed with Python service");
-          // Start audio capture now that backend is ready
+          // Start audio capture immediately when backend is ready
+          this.hasStartedCapture = true; // Mark to prevent fallback timeout
           this.startAudioCapture().catch((err) => {
             console.error("❌ Failed to start audio capture:", err);
             if (this.callStatus) {
@@ -1548,11 +1549,11 @@
 
     async showProgressiveConnectionStatesInWelcome() {
       const states = [
-        { text: "Connecting to AI servers...", desc: "Establishing secure connection", delay: 800, sound: true },
-        { text: "Setting up voice pipeline...", desc: "Configuring audio processing", delay: 700, sound: false },
-        { text: "Configuring audio streams...", desc: "Optimizing voice quality", delay: 650, sound: true },
-        { text: "Almost ready to talk...", desc: "Finalizing setup", delay: 500, sound: false },
-        { text: "Connection established! 🎉", desc: "Ready to start your conversation", delay: 800, sound: false }
+        { text: "Connecting to AI servers...", desc: "Establishing secure connection", delay: 400, sound: true },
+        { text: "Setting up voice pipeline...", desc: "Configuring audio processing", delay: 300, sound: false },
+        { text: "Configuring audio streams...", desc: "Optimizing voice quality", delay: 300, sound: true },
+        { text: "Almost ready to talk...", desc: "Finalizing setup", delay: 200, sound: false },
+        { text: "Connection established! 🎉", desc: "Ready to start your conversation", delay: 300, sound: false }
       ];
 
       for (const state of states) {
@@ -1568,11 +1569,11 @@
 
     async showProgressiveConnectionStates() {
       const states = [
-        { text: "Initializing call session...", color: "#f59e0b", delay: 600 },
-        { text: "Connecting to AI servers...", color: "#f59e0b", delay: 800 },
-        { text: "Setting up voice pipeline...", color: "#f59e0b", delay: 700 },
-        { text: "Configuring audio streams...", color: "#f59e0b", delay: 650 },
-        { text: "Almost ready to talk...", color: "#10b981", delay: 500 },
+        { text: "Initializing call session...", color: "#f59e0b", delay: 200 },
+        { text: "Connecting to AI servers...", color: "#f59e0b", delay: 300 },
+        { text: "Setting up voice pipeline...", color: "#f59e0b", delay: 200 },
+        { text: "Configuring audio streams...", color: "#f59e0b", delay: 200 },
+        { text: "Almost ready to talk...", color: "#10b981", delay: 200 },
         { text: "Connected! Sarah is listening 🎤", color: "#10b981", delay: 0 }
       ];
 
@@ -3363,7 +3364,7 @@
           await this.ensureMicrophoneAccess();
           this.showConnectingStatus("Microphone access granted! ✅", "Setting up audio pipeline...");
           this.playSound('connecting');
-          await new Promise(resolve => setTimeout(resolve, 800));
+          await new Promise(resolve => setTimeout(resolve, 200));
         } catch (micErr) {
           console.warn("🔇 Microphone not granted/available:", micErr);
           this.showConnectingStatus("Microphone access denied ❌", "Voice call unavailable. Please grant microphone permission and try again.", true);
@@ -3400,7 +3401,7 @@
           this.playSound('call-start');
         }
 
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        await new Promise(resolve => setTimeout(resolve, 200));
 
         // Now transition to call interface
         this.hasStarted = true;
@@ -3425,7 +3426,7 @@
             "bot",
             "Hi! I'm Sarah. I can hear you now. How can I help you today? 😊"
           );
-        }, 1000);
+        }, 300);
 
         console.log(
           "📞 Call interface activated with Call ID:",
@@ -4406,12 +4407,20 @@
     }
 
     async startAudioCapture() {
+      // Prevent multiple simultaneous capture attempts
+      if (this.hasStartedCapture) {
+        console.log("🎤 Audio capture already started, skipping");
+        return;
+      }
+
       // Ensure mic and WS
       await this.ensureMicrophoneAccess();
       if (!this.webSocket || !this.isWebSocketConnected) {
         console.warn("🔌 WebSocket not connected; cannot stream audio yet");
         return;
       }
+
+      this.hasStartedCapture = true;
 
       try {
         // Create/resume audio context with maximum phone optimization
@@ -4539,6 +4548,7 @@
         console.warn("⚠️ Error closing audio context:", err);
       }
       this.audioContext = null;
+      this.hasStartedCapture = false; // Reset capture flag
 
       // Stop any AI audio playback
       this.stopAudioPlayback();
