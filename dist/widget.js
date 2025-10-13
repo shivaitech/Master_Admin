@@ -179,18 +179,25 @@
       }
     }
 
-    async startCall() {
+    async startCall(wasWarmedUp = false) {
       try {
+        console.log(`🚀 Starting call ${wasWarmedUp ? '(backend pre-warmed)' : '(cold start)'}`);
+        
         const response = await fetch(
           `https://shivai-com-backend.onrender.com/api/v1/calls/start-call`,
           {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
+              // Add keep-alive for connection reuse
+              "Connection": "keep-alive",
             },
             body: JSON.stringify({
               timestamp: new Date().toISOString(),
+              warmedUp: wasWarmedUp, // Let backend know if it was pre-warmed
             }),
+            // Use default fetch with connection pooling
+            cache: "no-store",
           }
         );
 
@@ -297,6 +304,11 @@
       // Sound effects audio context
       this.soundContext = null;
       this.soundsEnabled = this.config.features.soundEffects;
+      
+      // Connection optimization for first-time users
+      this.connectionCache = new Map(); // Cache for DNS/connection warmup
+      this.preloadedResources = false;
+      this.isWarmingUp = false;
 
       this.init();
     }
@@ -437,26 +449,71 @@
     }
 
     async connectToWebSocket(pythonServiceUrl) {
+      const startTime = Date.now();
+      
+      return new Promise((resolve, reject) => {
+        try {
+          console.log("🔌 Connecting to Python service:", pythonServiceUrl);
 
-      try {
-        console.log("Connecting to Python service:", pythonServiceUrl);
+          // Validate WebSocket URL
+          if (!pythonServiceUrl || !pythonServiceUrl.startsWith('ws')) {
+            reject(new Error('Invalid WebSocket URL provided'));
+            return;
+          }
 
-        // Close existing connection if any
-        if (this.webSocket) {
-          this.webSocket.close();
-        }
+          // Close existing connection if any
+          if (this.webSocket) {
+            this.webSocket.close();
+          }
 
-        // Create new WebSocket connection
-        this.webSocket = new WebSocket(pythonServiceUrl);
-        // Prefer binary as Blob; we also handle strings
+          // Create new WebSocket connection with optimizations
+          this.webSocket = new WebSocket(pythonServiceUrl);
+        
+        // Optimize WebSocket for faster connection
         try {
           this.webSocket.binaryType = "blob";
+          // Add connection timeout to fail fast instead of hanging
+          const connectionTimeout = setTimeout(() => {
+            if (this.webSocket.readyState === WebSocket.CONNECTING) {
+              console.warn("⏰ WebSocket connection timeout, closing connection...");
+              this.webSocket.close();
+              this.isWebSocketConnected = false;
+              
+              // Update UI to show timeout
+              if (this.callStatus) {
+                this.callStatus.textContent = "Connection timeout - continuing without voice";
+                this.callStatus.style.color = "#f59e0b";
+              }
+            }
+          }, 10000); // 10 second timeout (increased from 8s)
+          
+          // Clear timeout when connection opens or closes
+          this.webSocket.addEventListener('open', () => {
+            clearTimeout(connectionTimeout);
+          }, { once: true });
+          
+          this.webSocket.addEventListener('close', () => {
+            clearTimeout(connectionTimeout);
+          }, { once: true });
+          
+          this.webSocket.addEventListener('error', () => {
+            clearTimeout(connectionTimeout);
+          }, { once: true });
+          
         } catch (_) {}
 
         // WebSocket event handlers
         this.webSocket.onopen = () => {
-          console.log("✅ WebSocket connected to Python service");
+          const connectionTime = Date.now() - startTime;
+          console.log(`✅ WebSocket connected to Python service in ${connectionTime}ms`);
           this.isWebSocketConnected = true;
+          
+          // Cache successful connection info for future optimization
+          this.connectionCache.set('last-successful-connection', {
+            url: pythonServiceUrl,
+            time: connectionTime,
+            timestamp: Date.now()
+          });
 
           // Update UI to show connected state
           if (this.callStatus) {
@@ -470,6 +527,7 @@
             callId: this.currentCallId,
             timestamp: new Date().toISOString(),
           });
+          
           // Wait for handshake_response before starting mic streaming
           // Fallback: if no handshake_response arrives, start capture after a shorter delay
           setTimeout(() => {
@@ -489,6 +547,9 @@
               });
             }
           }, 300); // Reduced from 1500ms to 300ms for faster connection
+          
+          // Resolve the promise on successful connection
+          resolve();
         };
 
         this.webSocket.onmessage = (event) => {
@@ -565,22 +626,43 @@
             this.callStatus.textContent = "Voice service disconnected";
             this.callStatus.style.color = "#f59e0b";
           }
+          
+          // Reject promise if connection closed before opening
+          if (this.webSocket.readyState !== WebSocket.OPEN) {
+            reject(new Error(`WebSocket closed: ${event.code} ${event.reason}`));
+          }
         };
 
         this.webSocket.onerror = (error) => {
-          console.error("❌ WebSocket error:", error);
+          const connectionTime = Date.now() - startTime;
+          console.error(`❌ WebSocket error after ${connectionTime}ms:`, error);
           this.isWebSocketConnected = false;
+          
+          // Cache failed connection for analysis
+          this.connectionCache.set('last-failed-connection', {
+            url: pythonServiceUrl,
+            time: connectionTime,
+            timestamp: Date.now(),
+            error: error.message || 'Unknown error'
+          });
 
-          // Update UI
+          // Update UI with more helpful error message
           if (this.callStatus) {
-            this.callStatus.textContent = "Voice service error";
+            const errorMessage = connectionTime > 10000 ? 
+              "Connection timeout - continuing without voice" : "Voice service error";
+            this.callStatus.textContent = errorMessage;
             this.callStatus.style.color = "#ef4444";
           }
+          
+          // Reject the promise on error
+          reject(error);
         };
-      } catch (error) {
-        console.error("❌ Failed to connect to WebSocket:", error);
-        throw error;
-      }
+        
+        } catch (error) {
+          console.error("❌ Failed to connect to WebSocket:", error);
+          reject(error);
+        }
+      });
     }
 
     sendWebSocketMessage(data) {
@@ -698,6 +780,133 @@
       this.createWidget();
       this.initSpeechRecognition();
       this.bindEvents();
+      
+      // Preload and warm up connections for faster first-time experience
+      this.warmupConnections();
+    }
+
+    // Warm up connections and preload resources for faster first connection
+    async warmupConnections() {
+      if (this.isWarmingUp || this.preloadedResources) return;
+      this.isWarmingUp = true;
+      
+      try {
+        console.log("🔥 Warming up connections for faster first-time experience...");
+        
+        // 1. DNS prefetch for backend services
+        this.prefetchDNS([
+          'https://shivai-com-backend.onrender.com',
+          'wss://shivai.com',
+          'wss://api.shivai.com'
+        ]);
+        
+        // 2. Warm up the start-call API endpoint (non-blocking)
+        setTimeout(() => {
+          this.warmupStartCallAPI();
+        }, 1000);
+        
+        // 3. Pre-initialize audio context in background
+        setTimeout(() => {
+          this.preinitializeAudio();
+        }, 500);
+        
+        // 4. Cache microphone permissions check
+        setTimeout(() => {
+          this.cacheMicrophonePermissions();
+        }, 2000);
+        
+        console.log("✅ Connection warmup initiated");
+        this.preloadedResources = true;
+        
+      } catch (error) {
+        console.warn("⚠️ Connection warmup failed (non-critical):", error);
+      } finally {
+        this.isWarmingUp = false;
+      }
+    }
+
+    // DNS prefetch for faster domain resolution
+    prefetchDNS(domains) {
+      domains.forEach(domain => {
+        try {
+          const link = document.createElement('link');
+          link.rel = 'dns-prefetch';
+          link.href = domain;
+          document.head.appendChild(link);
+          console.log(`🌐 DNS prefetch added for: ${domain}`);
+        } catch (e) {
+          console.warn(`Failed to prefetch DNS for ${domain}:`, e);
+        }
+      });
+    }
+
+    // Warm up the start-call API to reduce cold start
+    async warmupStartCallAPI() {
+      try {
+        // Make a lightweight request to warm up the backend
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 5000); // 5s timeout
+        
+        const warmupResponse = await fetch(
+          'https://shivai-com-backend.onrender.com/api/v1/health',
+          {
+            method: 'GET',
+            mode: 'no-cors', // Avoid CORS issues for warmup
+            cache: 'no-store',
+            signal: controller.signal
+          }
+        );
+        clearTimeout(timeoutId);
+        console.log("🌡️ Backend warmup request sent");
+        this.connectionCache.set('backend-warmed', Date.now());
+      } catch (error) {
+        if (error.name === 'AbortError') {
+          console.log("Backend warmup timeout (non-critical)");
+        } else {
+          console.log("Backend warmup failed (expected for no-cors):", error.message);
+        }
+      }
+    }
+
+    // Pre-initialize audio resources
+    async preinitializeAudio() {
+      try {
+        // Pre-create audio context (suspended until user interaction)
+        if (!this.audioContext && (window.AudioContext || window.webkitAudioContext)) {
+          this.audioContext = new (window.AudioContext || window.webkitAudioContext)({
+            sampleRate: 24000,
+            latencyHint: 'playback'
+          });
+          console.log("🎤 Audio context pre-initialized (suspended)");
+        }
+        
+        // Pre-initialize sound context
+        if (!this.soundContext && this.soundsEnabled) {
+          this.initSoundContext();
+        }
+        
+      } catch (error) {
+        console.warn("Audio pre-initialization failed:", error);
+      }
+    }
+
+    // Cache microphone permissions status
+    async cacheMicrophonePermissions() {
+      try {
+        if (navigator.permissions && navigator.permissions.query) {
+          const micPermission = await navigator.permissions.query({ name: 'microphone' });
+          this.connectionCache.set('mic-permission', micPermission.state);
+          console.log(`🎤 Microphone permission cached: ${micPermission.state}`);
+          
+          // Listen for permission changes
+          micPermission.onchange = () => {
+            this.connectionCache.set('mic-permission', micPermission.state);
+            console.log(`🎤 Microphone permission updated: ${micPermission.state}`);
+          };
+        }
+      } catch (error) {
+        console.warn("Could not cache microphone permissions:", error);
+      }
     }
 
     // Optimize settings for maximum phone audio quality
@@ -1547,12 +1756,20 @@
     }
 
     async showProgressiveConnectionStatesInWelcome() {
+      // Optimize delays based on whether connections were pre-warmed
+      const wasWarmedUp = this.connectionCache.has('backend-warmed');
+      const hasPreloadedAudio = this.audioContext !== null;
+      const hasCachedPermissions = this.connectionCache.has('mic-permission');
+      
+      // Faster states if resources were pre-loaded
+      const baseDelay = wasWarmedUp ? 150 : 300;
+      
       const states = [
-        { text: "Connecting to AI servers...", desc: "Establishing secure connection", delay: 400, sound: true },
-        { text: "Setting up voice pipeline...", desc: "Configuring audio processing", delay: 300, sound: false },
-        { text: "Configuring audio streams...", desc: "Optimizing voice quality", delay: 300, sound: true },
-        { text: "Almost ready to talk...", desc: "Finalizing setup", delay: 200, sound: false },
-        { text: "Connection established! 🎉", desc: "Ready to start your conversation", delay: 300, sound: false }
+        { text: "Connecting to AI servers...", desc: wasWarmedUp ? "Using cached connection" : "Establishing secure connection", delay: baseDelay, sound: true },
+        { text: "Setting up voice pipeline...", desc: hasPreloadedAudio ? "Audio pipeline ready" : "Configuring audio processing", delay: hasPreloadedAudio ? 100 : baseDelay, sound: false },
+        { text: "Configuring audio streams...", desc: "Optimizing voice quality", delay: baseDelay, sound: true },
+        { text: "Almost ready to talk...", desc: "Finalizing setup", delay: 150, sound: false },
+        { text: "Connection established! 🎉", desc: "Ready to start your conversation", delay: 200, sound: false }
       ];
 
       for (const state of states) {
@@ -3375,7 +3592,10 @@
 
         // Step 3: Call the API to start call
         this.showConnectingStatus("Starting call session...", "Initializing with our servers");
-        const callData = await this.api.startCall();
+        
+        // Check if backend was warmed up from our cache
+        const wasWarmedUp = this.connectionCache.has('backend-warmed');
+        const callData = await this.api.startCall(wasWarmedUp);
         console.log("✅ Call started successfully:", callData);
 
         // Store call information
@@ -3391,9 +3611,27 @@
         this.showConnectingStatus("Connecting to voice service...", "Establishing real-time communication");
 
         if (this.pythonServiceUrl) {
-          await this.connectToWebSocket(this.pythonServiceUrl);
-          this.showConnectingStatus("Voice service connected! 🎯", "Everything is ready!");
-          this.playSound('call-start');
+          try {
+            await this.connectToWebSocket(this.pythonServiceUrl);
+            this.showConnectingStatus("Voice service connected! 🎯", "Everything is ready!");
+            this.playSound('call-start');
+            
+            // Log successful connection metrics for debugging
+            const diagnostics = this.getConnectionDiagnostics();
+            if (diagnostics.lastSuccessfulConnection) {
+              console.log(`🎯 Connection established in ${diagnostics.lastSuccessfulConnection.time}ms`);
+            }
+            
+          } catch (wsError) {
+            console.warn("WebSocket connection failed, continuing in text mode:", wsError);
+            
+            // Log connection issues for debugging (non-blocking)
+            setTimeout(() => this.logConnectionMetrics(), 100);
+            
+            // Continue without WebSocket (text mode) - don't wait
+            this.showConnectingStatus("Call ready (text mode) ✅", "Voice service unavailable, text chat enabled");
+            this.playSound('call-start');
+          }
         } else {
           console.warn("⚠️ No Python service URL provided");
           this.showConnectingStatus("Call ready (text mode) ✅", "Voice service unavailable, text chat enabled");
@@ -4349,6 +4587,12 @@
     async ensureMicrophoneAccess() {
       if (this.mediaStream) return this.mediaStream;
       
+      // Check cached permission status for faster flow
+      const cachedPermission = this.connectionCache.get('mic-permission');
+      if (cachedPermission === 'denied') {
+        throw new Error("Microphone access was previously denied");
+      }
+      
       // Check for getUserMedia support with iOS Safari fallbacks
       const getUserMedia = navigator.mediaDevices?.getUserMedia || 
                           navigator.getUserMedia || 
@@ -4361,7 +4605,9 @@
       
       try {
         if (this.callStatus) {
-          this.callStatus.textContent = "Requesting microphone...";
+          const statusText = cachedPermission === 'granted' ? 
+            "Accessing microphone..." : "Requesting microphone...";
+          this.callStatus.textContent = statusText;
           this.callStatus.style.color = "#f59e0b";
         }
         
@@ -4455,6 +4701,8 @@
           );
         }
         if (!this.audioProcessor) {
+          // Note: ScriptProcessorNode is deprecated, but AudioWorkletNode requires more complex setup
+          // TODO: Migrate to AudioWorkletNode for better performance
           this.audioProcessor = this.audioContext.createScriptProcessor(
             4096,
             1,
@@ -4919,6 +5167,31 @@
         clearInterval(this.messageInterval);
         this.messageInterval = null;
       }
+    }
+
+    // Get connection diagnostics for debugging
+    getConnectionDiagnostics() {
+      const lastSuccessful = this.connectionCache.get('last-successful-connection');
+      const lastFailed = this.connectionCache.get('last-failed-connection');
+      const currentPermission = this.connectionCache.get('mic-permission');
+      
+      return {
+        preloadedResources: this.preloadedResources,
+        audioContextReady: this.audioContext !== null,
+        microphonePermission: currentPermission,
+        lastSuccessfulConnection: lastSuccessful,
+        lastFailedConnection: lastFailed,
+        currentConnectionState: this.isWebSocketConnected,
+        cacheSize: this.connectionCache.size
+      };
+    }
+
+    // Log connection performance metrics
+    logConnectionMetrics() {
+      const diagnostics = this.getConnectionDiagnostics();
+      console.group("🔍 ShivAI Connection Diagnostics");
+      console.table(diagnostics);
+      console.groupEnd();
     }
   }
 
