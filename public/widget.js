@@ -15,7 +15,7 @@
   // Default configuration
   const DEFAULT_CONFIG = {
     clientId: "",
-    apiEndpoint: "https://api.shivai.com",
+    apiEndpoint: "https://shivai-calling-frontend-38ax.vercel.app/landing",
     theme: {
       primaryColor: "#000000",
       secondaryColor: "#ffffff",
@@ -46,13 +46,12 @@
         "ShivAI offers 24/7 voice support to handle your business calls efficiently and professionally.",
       placeholderText: "Type your message...",
       voiceGreeting: "Hello! I'm your AI Employee. How can I help?",
-      privacyPolicyUrl: "https://shivai.com/privacy",
+      privacyPolicyUrl: "https://shivai-calling-frontend-38ax.vercel.app/landing",
       companyName: "ShivAI Employee",
       subtitle: "AI-Powered Support",
     },
   };
 
-  // Utility functions
   function mergeDeep(target, source) {
     for (const key in source) {
       if (
@@ -3424,7 +3423,7 @@
         setTimeout(async () => {
           await this.addMessage(
             "bot",
-            "Hi! I'm Sarah. I can hear you now. How can I help you today? 😊"
+            "Hi! I'm ShivAI.😊"
           );
         }, 300);
 
