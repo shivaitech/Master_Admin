@@ -11,7 +11,7 @@ import MetricCard from './common/MetricCard';
 import TemplateChart from './common/TemplateChart';
 
 const AnalyticsOptimized = () => {
-  const { currentTheme } = useTheme();
+  const { currentTheme, theme } = useTheme();
 
   const metrics = [
     {
@@ -87,7 +87,7 @@ const AnalyticsOptimized = () => {
               </div>
               <h3 className={`text-lg font-semibold ${currentTheme.text} mb-1`}>Revenue Growth</h3>
               <p className={`${currentTheme.textSecondary} text-sm mb-2`}>+18% this month</p>
-              <div className={`w-full rounded-full h-2 ${currentTheme.theme === 'dark' ? 'bg-gray-700' : 'bg-gray-200'}`}>
+              <div className={`w-full rounded-full h-2 ${currentTheme.activeBg}`}>
                 <div className="bg-gradient-to-r from-green-500 to-emerald-500 h-2 rounded-full w-3/4"></div>
               </div>
             </div>
@@ -98,7 +98,7 @@ const AnalyticsOptimized = () => {
               </div>
               <h3 className={`text-lg font-semibold ${currentTheme.text} mb-1`}>Conversion Rate</h3>
               <p className={`${currentTheme.textSecondary} text-sm mb-2`}>68% success rate</p>
-              <div className={`w-full rounded-full h-2 ${currentTheme.theme === 'dark' ? 'bg-gray-700' : 'bg-gray-200'}`}>
+              <div className={`w-full rounded-full h-2 ${currentTheme.activeBg}`}>
                 <div className="bg-gradient-to-r from-blue-500 to-cyan-500 h-2 rounded-full w-4/5"></div>
               </div>
             </div>
@@ -109,7 +109,7 @@ const AnalyticsOptimized = () => {
               </div>
               <h3 className={`text-lg font-semibold ${currentTheme.text} mb-1`}>Satisfaction</h3>
               <p className={`${currentTheme.textSecondary} text-sm mb-2`}>4.8/5 average</p>
-              <div className={`w-full rounded-full h-2 ${currentTheme.theme === 'dark' ? 'bg-gray-700' : 'bg-gray-200'}`}>
+              <div className={`w-full rounded-full h-2 ${currentTheme.activeBg}`}>
                 <div className="bg-gradient-to-r from-purple-500 to-pink-500 h-2 rounded-full w-5/6"></div>
               </div>
             </div>

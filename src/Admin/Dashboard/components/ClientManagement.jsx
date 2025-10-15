@@ -57,7 +57,7 @@ const ClientManagement = () => {
   ];
 
   return (
-    <div className="space-y-4 md:space-y-6 lg:space-y-8 pt-12 lg:pt-0 px-2 sm:px-0">
+    <div className="space-y-4 md:space-y-6 lg:space-y-8  px-2 sm:px-0">
       {/* Client Stats Grid - Matching Dashboard Layout */}
       <div className="relative hidden">
         {/* Desktop Grid */}
@@ -426,9 +426,9 @@ const ClientManagement = () => {
                     className={`flex items-center justify-between p-4 rounded-xl border ${currentTheme.border} ${currentTheme.hover} shadow-lg hover:shadow-xl transition-all duration-300`}
                   >
                     <div className="flex items-center gap-4">
-                      <div className="relative">
-                        <div className="w-12 h-12 bg-purple-500 rounded-full flex items-center justify-center">
-                          <RiUserLine className="w-6 h-6 text-gray-600" />
+                        <div className="relative">
+                        <div className={`w-12 h-12 ${currentTheme.activeBg} rounded-full flex items-center justify-center`}>
+                          <RiUserLine className={`w-6 h-6 ${currentTheme.text}`} />
                         </div>
                         <div
                           className={`absolute -bottom-1 -right-1 w-4 h-4 rounded-full border-2 ${
@@ -452,20 +452,20 @@ const ClientManagement = () => {
                           <span
                             className={`px-2 py-0.5 rounded text-xs font-medium ${
                               user.role === "Admin"
-                                ? theme === "light"
-                                  ? "bg-red-100 text-red-700"
-                                  : "bg-red-500/20 text-red-400"
+                                ? theme === "dark"
+                                  ? "bg-red-500/20 text-red-400 border border-red-500/30"
+                                  : "bg-red-100 text-red-700"
                                 : user.role === "Manager"
-                                ? theme === "light"
-                                  ? "bg-blue-100 text-blue-700"
-                                  : "bg-blue-500/20 text-blue-400"
+                                ? theme === "dark"
+                                  ? "bg-blue-500/20 text-blue-400 border border-blue-500/30"
+                                  : "bg-blue-100 text-blue-700"
                                 : user.role === "Designer"
-                                ? theme === "light"
-                                  ? "bg-purple-100 text-purple-700"
-                                  : "bg-purple-500/20 text-purple-400"
-                                : theme === "light"
-                                ? "bg-gray-100 text-gray-700"
-                                : "bg-gray-500/20 text-gray-400"
+                                ? theme === "dark"
+                                  ? "bg-purple-500/20 text-purple-400 border border-purple-500/30"
+                                  : "bg-purple-100 text-purple-700"
+                                : theme === "dark"
+                                ? "bg-gray-500/20 text-gray-400 border border-gray-500/30"
+                                : "bg-gray-100 text-gray-700"
                             }`}
                           >
                             {user.role}
@@ -494,26 +494,26 @@ const ClientManagement = () => {
                       <span
                         className={`px-3 py-1 rounded-full text-xs font-medium ${
                           user.status === "active"
-                            ? theme === "light"
-                              ? "bg-green-100 text-green-700"
-                              : "bg-green-500/20 text-green-400"
+                            ? theme === "dark"
+                              ? "bg-green-500/20 text-green-400 border border-green-500/30"
+                              : "bg-green-100 text-green-700"
                             : user.status === "inactive"
-                            ? theme === "light"
-                              ? "bg-red-100 text-red-700"
-                              : "bg-red-500/20 text-red-400"
-                            : theme === "light"
-                            ? "bg-yellow-100 text-yellow-700"
-                            : "bg-yellow-500/20 text-yellow-400"
+                            ? theme === "dark"
+                              ? "bg-red-500/20 text-red-400 border border-red-500/30"
+                              : "bg-red-100 text-red-700"
+                            : theme === "dark"
+                            ? "bg-yellow-500/20 text-yellow-400 border border-yellow-500/30"
+                            : "bg-yellow-100 text-yellow-700"
                         }`}
                       >
                         {user.status}
                       </span>
                       <div className="flex items-center gap-2">
-                        <button className="p-2  rounded-lg transition-all duration-300 hover:bg-white cursor-pointer">
-                          <RiEyeLine className="w-4 h-4" />
+                        <button className={`p-2 rounded-lg ${currentTheme.hover} transition-all duration-300 cursor-pointer`}>
+                          <RiEyeLine className={`w-4 h-4 ${currentTheme.textSecondary}`} />
                         </button>
-                        <button className="p-2  rounded-lg transition-all duration-300 hover:bg-white cursor-pointer">
-                          <RiEditLine className="w-4 h-4" />
+                        <button className={`p-2 rounded-lg ${currentTheme.hover} transition-all duration-300 cursor-pointer`}>
+                          <RiEditLine className={`w-4 h-4 ${currentTheme.textSecondary}`} />
                         </button>
                       </div>
                     </div>

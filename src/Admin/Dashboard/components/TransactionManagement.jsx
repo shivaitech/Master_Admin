@@ -118,7 +118,7 @@ const TransactionManagement = () => {
                 <option>Failed</option>
                 <option>Refunded</option>
               </select>
-              <button className="flex items-center gap-2 px-4 py-2  rounded-lg transition-all duration-300 hover:bg-white cursor-pointer text-sm font-medium">
+              <button className={`flex items-center gap-2 px-4 py-2 rounded-lg ${currentTheme.hover} transition-all duration-300 cursor-pointer text-sm font-medium ${currentTheme.text}`}>
                 <RiAddLine className="w-4 h-4" />
                 Export Report
               </button>
@@ -179,12 +179,12 @@ const TransactionManagement = () => {
                 <div className="flex items-start justify-between mb-4">
                   <div className="flex items-center gap-4">
                     <div className="relative">
-                      <div className="w-14 h-14 bg-green-500 rounded-full flex items-center justify-center">
-                        <RiBankCardLine className="w-7 h-7 text-gray-600" />
+                      <div className={`w-14 h-14 ${currentTheme.activeBg} rounded-full flex items-center justify-center`}>
+                        <RiBankCardLine className={`w-7 h-7 ${currentTheme.text}`} />
                       </div>
                       <div
                         className={`absolute -bottom-1 -right-1 w-5 h-5 rounded-full border-2 ${
-                          theme === "light" ? "border-white" : "border-gray-900"
+                          theme === "dark" ? "border-gray-800" : "border-white"
                         } ${
                           transaction.status === "completed"
                             ? "bg-green-500"
@@ -204,16 +204,16 @@ const TransactionManagement = () => {
                         <span
                           className={`px-2 py-1 rounded-full text-xs font-medium ${
                             transaction.status === "completed"
-                              ? theme === "light"
-                                ? "bg-green-100 text-green-700"
-                                : "bg-green-500/20 text-green-400"
+                              ? theme === "dark"
+                                ? "bg-green-500/20 text-green-400 border border-green-500/30"
+                                : "bg-green-100 text-green-700"
                               : transaction.status === "pending"
-                              ? theme === "light"
-                                ? "bg-yellow-100 text-yellow-700"
-                                : "bg-yellow-500/20 text-yellow-400"
-                              : theme === "light"
-                              ? "bg-red-100 text-red-700"
-                              : "bg-red-500/20 text-red-400"
+                              ? theme === "dark"
+                                ? "bg-yellow-500/20 text-yellow-400 border border-yellow-500/30"
+                                : "bg-yellow-100 text-yellow-700"
+                              : theme === "dark"
+                              ? "bg-red-500/20 text-red-400 border border-red-500/30"
+                              : "bg-red-100 text-red-700"
                           }`}
                         >
                           {transaction.status}
@@ -244,19 +244,19 @@ const TransactionManagement = () => {
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
                   <div
                     className={`p-3 rounded-lg ${
-                      theme === "light" ? "bg-blue-50" : "bg-blue-500/10"
+                      theme === "dark" ? "bg-blue-500/10 border border-blue-500/20" : "bg-blue-50"
                     }`}
                   >
                     <div
                       className={`text-sm font-bold ${
-                        theme === "light" ? "text-blue-700" : "text-blue-400"
+                        theme === "dark" ? "text-blue-400" : "text-blue-700"
                       }`}
                     >
                       {transaction.method}
                     </div>
                     <div
                       className={`text-xs ${
-                        theme === "light" ? "text-blue-600" : "text-blue-500"
+                        theme === "dark" ? "text-blue-500" : "text-blue-600"
                       }`}
                     >
                       Payment Method
@@ -264,23 +264,23 @@ const TransactionManagement = () => {
                   </div>
                   <div
                     className={`p-3 rounded-lg ${
-                      theme === "light" ? "bg-purple-50" : "bg-purple-500/10"
+                      theme === "dark" ? "bg-purple-500/10 border border-purple-500/20" : "bg-purple-50"
                     }`}
                   >
                     <div
                       className={`text-sm font-bold ${
-                        theme === "light"
-                          ? "text-purple-700"
-                          : "text-purple-400"
+                        theme === "dark"
+                          ? "text-purple-400"
+                          : "text-purple-700"
                       }`}
                     >
                       {transaction.date.split(" ")[0]}
                     </div>
                     <div
                       className={`text-xs ${
-                        theme === "light"
-                          ? "text-purple-600"
-                          : "text-purple-500"
+                        theme === "dark"
+                          ? "text-purple-500"
+                          : "text-purple-600"
                       }`}
                     >
                       Transaction Date
@@ -288,19 +288,19 @@ const TransactionManagement = () => {
                   </div>
                   <div
                     className={`p-3 rounded-lg ${
-                      theme === "light" ? "bg-green-50" : "bg-green-500/10"
+                      theme === "dark" ? "bg-green-500/10 border border-green-500/20" : "bg-green-50"
                     }`}
                   >
                     <div
                       className={`text-sm font-bold ${
-                        theme === "light" ? "text-green-700" : "text-green-400"
+                        theme === "dark" ? "text-green-400" : "text-green-700"
                       }`}
                     >
                       {transaction.date.split(" ")[1]}
                     </div>
                     <div
                       className={`text-xs ${
-                        theme === "light" ? "text-green-600" : "text-green-500"
+                        theme === "dark" ? "text-green-500" : "text-green-600"
                       }`}
                     >
                       Time

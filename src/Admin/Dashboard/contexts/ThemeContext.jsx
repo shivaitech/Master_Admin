@@ -13,8 +13,10 @@ export const useTheme = () => {
 export const ThemeProvider = ({ children }) => {
   const [theme, setTheme] = useState('light'); 
 
+  console.log(theme);
+  
   const toggleTheme = () => {
-    setTheme(prev => prev === 'dark' ? 'light' : 'dark');
+    setTheme(prev => (prev === 'light' ? 'dark' : 'light'));
   };
 
   const themes = {
@@ -22,7 +24,7 @@ export const ThemeProvider = ({ children }) => {
       bg: 'bg-[#1a1a1a]',
       cardBg: 'bg-[#2a2a2a]',
       border: 'border-[#404040]',
-      text: 'text-[#f0f0f0]',
+      text: 'text-white',
       textSecondary: 'text-[#a0a0a0]',
       hover: 'hover:bg-[#404040]',
       sidebarBg: 'bg-[#2a2a2a]',
@@ -35,17 +37,17 @@ export const ThemeProvider = ({ children }) => {
       cardShadow: 'shadow-lg shadow-black/10'
     },
     light: {
-      bg: 'bg-[#F0F0F0]',
+      bg: 'bg-white',
       cardBg: 'bg-white',
       border: 'border-[#e0e0e0]',
       text: 'text-[#333333]',
       textSecondary: 'text-[#5A5A59]',
       hover: 'hover:bg-[#f8f8f8]',
       sidebarBg: 'bg-white',
-      topBarBg: 'bg-white/95',
+      topBarBg: 'bg-white',
       gradient: 'from-[#F0F0F0] to-white',
       searchBg: 'bg-[#f8f8f8]',
-      activeBg: 'bg-[#f0f0f0]',
+      activeBg: 'bg-[#e8e8e8]',
       activeBorder: 'border-[#333333]',
       shadow: 'shadow-md shadow-gray-200/50',
       cardShadow: 'shadow-md shadow-gray-200/30'

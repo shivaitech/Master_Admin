@@ -2,7 +2,7 @@ import React from 'react';
 import { useTheme } from '../../contexts/ThemeContext';
 
 const TemplateChart = ({ data, title }) => {
-  const { currentTheme } = useTheme();
+  const { currentTheme, theme } = useTheme();
   const maxValue = Math.max(...data.map(item => item.value));
 
   return (
@@ -15,7 +15,7 @@ const TemplateChart = ({ data, title }) => {
               <span className={`${currentTheme.text} font-medium`}>{item.name}</span>
               <span className={`${currentTheme.textSecondary} text-sm`}>{item.value} uses</span>
             </div>
-            <div className={`w-full bg-gray-200 rounded-full h-2 ${currentTheme.theme === 'dark' ? 'bg-gray-700' : 'bg-gray-200'}`}>
+            <div className={`w-full bg-gray-200 rounded-full h-2 ${theme === 'dark' ? 'bg-gray-700' : 'bg-gray-200'}`}>
               <div
                 className="bg-gradient-to-r from-blue-500 to-blue-600 h-2 rounded-full transition-all duration-500 ease-out"
                 style={{ width: `${(item.value / maxValue) * 100}%` }}

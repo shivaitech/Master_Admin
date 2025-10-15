@@ -177,7 +177,7 @@ const AdminDashboardContent = () => {
   const MobileTabNavigation = () => (
     <div
       className={`lg:hidden fixed top-0 left-0 mb-4 right-0 z-30 flex flex-col ${currentTheme.cardBg} backdrop-blur-md border-b ${currentTheme.border}`}
-      style={{ minHeight: "52px" }}
+      style={{ minHeight: "px" }}
     >
       {/* Top row with theme toggle and menu tools */}
       <div className="flex items-center justify-between px-4 py-2 border-current">
@@ -189,7 +189,7 @@ const AdminDashboardContent = () => {
             {isMobileMenuOpen ? (
               <RiCloseLine className={`w-4 h-4 ${currentTheme.text}`} />
             ) : (
-              <RiMenuLine className={`w-4 h-4 ${currentTheme.text}`} />
+              <RiMenuLine className={`w-5 h-5 ${currentTheme.text}`} />
             )}
           </div>
           <span className={`text-sm font-medium ${currentTheme.text}`}>
@@ -242,7 +242,7 @@ const AdminDashboardContent = () => {
   );
 
   const renderDashboard = () => (
-    <div className="space-y-4 md:space-y-6 lg:space-y-8 pt-12 lg:pt-0">
+    <div className="space-y-2 md:space-y-6 lg:space-y-8">
       {/* Stats Grid - Sliding Cards for Mobile */}
       <div className="relative">
         {/* Desktop Grid */}
@@ -383,7 +383,7 @@ const AdminDashboardContent = () => {
                 <h2
                   className={`text-lg md:text-xl font-bold ${currentTheme.text} flex items-center gap-2`}
                 >
-                  <RiTeamLine className="w-5 h-5 md:w-6 md:h-6 text-gray-500" />
+                  <RiTeamLine className={`w-5 h-5 md:w-6 md:h-6 ${currentTheme.textSecondary}`} />
                   Recent Client Activity
                 </h2>
                 <button
@@ -652,8 +652,8 @@ const AdminDashboardContent = () => {
                           <button className="p-1 hover:bg-blue-500/20 rounded transition-colors">
                             <RiEyeLine className="w-3 h-3 md:w-4 md:h-4 text-blue-500" />
                           </button>
-                          <button className="p-1 hover:bg-gray-500/20 rounded transition-colors hidden sm:block">
-                            <RiExternalLinkLine className="w-3 h-3 md:w-4 md:h-4 text-gray-500" />
+                          <button className={`p-1 ${currentTheme.hover} rounded transition-colors hidden sm:block`}>
+                            <RiExternalLinkLine className={`w-3 h-3 md:w-4 md:h-4 ${currentTheme.textSecondary}`} />
                           </button>
                         </div>
                       </div>
@@ -828,7 +828,7 @@ const AdminDashboardContent = () => {
                       <div
                         className={`w-8 h-8 md:w-10 md:h-10 rounded-lg bg-gradient-to-r ${action.color} flex items-center justify-center group-hover:scale-110 transition-transform flex-shrink-0`}
                       >
-                        <Icon className="w-4 h-4 md:w-5 md:h-5 text-gray-600" />
+                        <Icon className="w-4 h-4 md:w-5 md:h-5 text-white" />
                       </div>
                       <span
                         className={`${currentTheme.text} text-sm md:text-base font-medium truncate`}
@@ -908,7 +908,7 @@ const AdminDashboardContent = () => {
                       <div
                         className={`w-8 h-8 md:w-10 md:h-10 bg-gradient-to-r ${activity.color} rounded-full flex items-center justify-center flex-shrink-0`}
                       >
-                        <Icon className="w-4 h-4 md:w-5 md:h-5 text-gray-600" />
+                        <Icon className="w-4 h-4 md:w-5 md:h-5 text-white" />
                       </div>
                       <div className="flex-1 min-w-0">
                         <p
@@ -994,7 +994,7 @@ const AdminDashboardContent = () => {
                           <div
                             className={`w-8 h-8 bg-gradient-to-r ${activity.color} rounded-full flex items-center justify-center flex-shrink-0`}
                           >
-                            <Icon className="w-4 h-4 text-gray-600" />
+                            <Icon className="w-4 h-4 text-white" />
                           </div>
                           <div className="flex-1 min-w-0">
                             <p
@@ -1034,7 +1034,6 @@ const AdminDashboardContent = () => {
       </div>
     </div>
   );
- 
 
   const renderContent = () => {
     switch (activeSection) {
@@ -1104,14 +1103,16 @@ const AdminDashboardContent = () => {
 
       {/* Sidebar */}
       <div
-        className={`fixed left-0 top-0 h-full no-scrollbar bg-white dark:bg-[#EEEDEB] border-r border-gray-200 dark:border-gray-800 z-50 transform transition-all duration-300 ease-in-out ${
+        className={`fixed left-0 top-0 h-full no-scrollbar border-r-1 ${currentTheme.bg} ${
+          currentTheme.border
+        } z-50 transform transition-all duration-300 ease-in-out ${
           isMobileMenuOpen ? "translate-x-0" : "-translate-x-full"
         } lg:translate-x-0 ${isSidebarCollapsed ? "lg:w-16" : "lg:w-64"} w-64`}
       >
         <div className="flex flex-col h-full">
           {/* Header */}
-          <div className="p-6 border-b border-gray-200 dark:border-gray-800">
-            <div className="flex items-center justify-between mb-6">
+          <div className={`p-4 ${currentTheme.border} border-b`}>
+            <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-3">
                 <img
                   src={Shivlogo}
@@ -1121,49 +1122,55 @@ const AdminDashboardContent = () => {
                       ? "lg:opacity-0 lg:w-0"
                       : "lg:opacity-100"
                   }`}
+                  style={theme === "dark" ? { filter: "brightness(0) invert(1)" } : {}}
                 />
               </div>
               <button
                 onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
-                className={`p-2 relative -left-2 rounded-lg bg-[#EEEDEB] hover:bg-gray-100 dark:hover:bg-gray-800  transition-colors ${
-                  isSidebarCollapsed ? "lg:block" : "lg:hidden"
+                className={`p-2 relative -left-2 rounded-lg ${
+                  currentTheme.hover
+                } transition-colors ${
+                  isSidebarCollapsed ? "lg:block" : "lg:hidden  hidden"
                 }`}
               >
-                <RiCloseLine className="w-5 h-5 text-gray-600 dark:text-gray-400" />
+                <RiArrowRightSLine className={`w-5 h-5 ${currentTheme.text}`} />
               </button>
-              <div className="flex items-center gap-2">
-                <button
+
+              <div className="flex items-end  justify-end ">
+                <div
                   onClick={toggleTheme}
-                  className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                  className={`p-2 rounded-lg ${currentTheme.hover} transition-colors`}
                   title={`Switch to ${
                     theme === "dark" ? "light" : "dark"
                   } mode`}
                 >
                   {theme === "dark" ? (
-                    <RiSunLine className="w-5 h-5 text-gray-600 dark:text-gray-400" />
+                    <RiSunLine className={`w-5 h-5 ${currentTheme.text}`} />
                   ) : (
-                    <RiMoonLine className="w-5 h-5 text-gray-600 dark:text-gray-400" />
+                    <RiMoonLine className={`w-5 h-5 ${currentTheme.text}`} />
                   )}
-                </button>
-                <button
+                </div>
+                <div
                   onClick={() => setIsMobileMenuOpen(false)}
-                  className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 lg:hidden transition-colors"
+                  className={`p-2 rounded-lg ${currentTheme.hover} lg:hidden transition-colors`}
                 >
-                  <RiCloseLine className="w-5 h-5 text-gray-600 dark:text-gray-400" />
-                </button>
-                <button
+                  <RiCloseLine className={`w-5 h-5 ${currentTheme.text}`} />
+                </div>
+                <div
                   onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
-                  className="p-2 rounded-lg bg-[#EEEDEB] hover:bg-gray-100 dark:hover:bg-gray-800 hidden lg:flex transition-colors"
+                  className={`p-2 rounded-lg ${currentTheme.hover} hidden lg:flex transition-colors`}
                   title={
                     isSidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"
                   }
                 >
                   <RiArrowRightSLine
-                    className={`w-5 h-5 text-gray-600 dark:text-gray-400 transition-transform duration-300 ${
+                    className={`w-5 h-5 ${
+                      currentTheme.text
+                    } transition-transform duration-300 ${
                       isSidebarCollapsed ? "rotate-0" : "rotate-180"
                     }`}
                   />
-                </button>
+                </div>
               </div>
             </div>
 
@@ -1176,7 +1183,7 @@ const AdminDashboardContent = () => {
               }`}
             >
               <div
-                className={`relative ${currentTheme.searchBg} rounded-lg border ${currentTheme.border} focus-within:border-opacity-60 transition-all`}
+                className={`relative ${currentTheme.searchBg} rounded-lg ${currentTheme.border} focus-within:border-opacity-60 transition-all`}
               >
                 <RiSearchLine
                   className={`absolute left-3 top-1/2 hidden lg:block transform -translate-y-1/2 w-4 h-4 ${currentTheme.textSecondary}`}
@@ -1186,7 +1193,7 @@ const AdminDashboardContent = () => {
                   placeholder="Search..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className={`w-full pl-9 pr-3 py-1 md:py-3 bg-transparent ${currentTheme.text} placeholder-gray-400 focus:outline-none rounded-lg text-xs md:text-sm transition-all`}
+                  className={`w-full pl-9 pr-3 py-1 md:py-3 bg-transparent ${currentTheme.text} placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none rounded-lg text-[9px] md:text-sm transition-all`}
                 />
               </div>
             </div>
@@ -1208,14 +1215,14 @@ const AdminDashboardContent = () => {
                       : "gap-3 px-4 py-3"
                   } rounded-xl ${
                     isActive
-                      ? "bg-[#EEEDEB] dark:bg-white text-gray-600 dark:text-gray-900 font-medium"
-                      : "text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-gray-100"
+                      ? `${currentTheme.activeBg} ${currentTheme.text} font-medium`
+                      : `${currentTheme.textSecondary} ${currentTheme.hover}`
                   }`}
                   title={isSidebarCollapsed ? item.label : undefined}
                 >
                   <Icon
-                    className={`w-5 h-5 flex-shrink-0 transition-colors ${
-                      isActive ? "text-gray-600 dark:text-gray-900" : ""
+                    className={`w-6 h-6 flex-shrink-0 transition-colors ${
+                      isActive ? currentTheme.text : ""
                     }`}
                   />
                   <span
@@ -1228,38 +1235,44 @@ const AdminDashboardContent = () => {
                     {item.label}
                   </span>
                   {/* {item.badge && (
-                    <span className={`px-2 py-1 text-xs rounded-full ${
-                      isActive 
-                        ? "bg-white/20 dark:bg-black/20 text-gray-600 dark:text-gray-900" 
-                        : "bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-400"
-                    }`}>
-                      {item.badge}
-                    </span>
-                  )} */}
+              <span className={`px-2 py-1 text-xs rounded-full ${
+                isActive 
+              ? "bg-white/20 dark:bg-black/20 text-gray-600 dark:text-gray-900" 
+              : "bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-400"
+              }`}>
+                {item.badge}
+              </span>
+            )} */}
                 </button>
               );
             })}
           </nav>
 
           {/* User Info */}
-          <div className="p-4 border-t border-gray-200 dark:border-gray-800">
+          <div className={`p-4 ${currentTheme.border} border-t`}>
             {/* User Profile */}
             <div
               className={`${
                 isSidebarCollapsed
-                  ? "flex items-center justify-center p-3 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors cursor-pointer mb-3 group relative"
-                  : "flex items-center gap-3 p-3 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors cursor-pointer mb-3"
+                  ? `flex items-center justify-center p-3 rounded-xl ${currentTheme.hover} transition-colors cursor-pointer mb-3 group relative`
+                  : `flex items-center gap-3 p-3 rounded-xl ${currentTheme.hover} transition-colors cursor-pointer mb-3`
               }`}
             >
-              <div className="w-10 h-10 bg-gray-100 dark:bg-gray-800 rounded-full flex items-center justify-center flex-shrink-0">
-                <RiUserLine className="w-5 h-5 text-gray-600 dark:text-gray-400" />
+              <div
+                className={`w-10 h-10 ${currentTheme.bg} rounded-full flex items-center justify-center flex-shrink-0`}
+              >
+                <RiUserLine className={`w-5 h-5 ${currentTheme.text}`} />
               </div>
               {!isSidebarCollapsed && (
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-gray-900 dark:text-gray-600 truncate">
+                  <p
+                    className={`text-sm font-medium ${currentTheme.text} truncate`}
+                  >
                     Admin User
                   </p>
-                  <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
+                  <p
+                    className={`text-xs ${currentTheme.textSecondary} truncate`}
+                  >
                     admin@shivai.com
                   </p>
                 </div>
@@ -1278,9 +1291,9 @@ const AdminDashboardContent = () => {
               onClick={handleLogout}
               className={`${
                 isSidebarCollapsed
-                  ? "w-full flex items-center justify-center px-4 py-3 rounded-xl text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-gray-100 transition-all duration-200 group relative"
-                  : "w-full flex items-center gap-3 px-4 py-3 rounded-xl text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-gray-100 transition-all duration-200 group"
-              }`}
+                  ? "w-full flex items-center justify-center px-4 py-3 rounded-xl transition-all duration-200 group relative"
+                  : "w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 group"
+              } ${currentTheme.textSecondary} ${currentTheme.hover}`}
             >
               <RiLogoutBoxLine className="w-5 h-5 group-hover:scale-110 transition-transform" />
               {!isSidebarCollapsed && (
@@ -1298,7 +1311,6 @@ const AdminDashboardContent = () => {
         </div>
       </div>
 
-      {/* Mobile Tab Navigation */}
       <MobileTabNavigation />
       {/* Main Content Area */}
       <div
@@ -1306,19 +1318,19 @@ const AdminDashboardContent = () => {
           isSidebarCollapsed ? "lg:ml-16" : "lg:ml-64"
         }`}
       >
-        <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
+        <div className={`min-h-screen ${currentTheme.bg}`}>
           {/* Top Bar - Hidden on mobile, visible on desktop */}
-          <div className="hidden lg:block bg-white dark:bg-[#EEEDEB] border-b border-gray-200 dark:border-gray-800 px-6 py-4">
+          <div className={`hidden lg:block ${currentTheme.topBarBg} border-b ${currentTheme.border} px-6 py-4`}>
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-4">
-                <h1 className="text-2xl font-semibold text-gray-900 dark:text-gray-600 capitalize">
+                <div className={`text-2xl font-semibold ${theme === 'light' ? 'text-gray-800' : 'text-green-400'} capitalize`}>
                   {activeSection}
-                </h1>
+                </div>
               </div>
 
               <div className="flex items-center gap-4">
-                <button className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors relative">
-                  <RiNotificationLine className="w-5 h-5 text-gray-600 dark:text-gray-400" />
+                <button className={`p-2 ${currentTheme.hover} rounded-lg transition-colors relative`}>
+                  <RiNotificationLine className={`w-5 h-5 ${currentTheme.textSecondary}`} />
                   <span className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full"></span>
                 </button>
               </div>
@@ -1326,10 +1338,7 @@ const AdminDashboardContent = () => {
           </div>
 
           {/* Content */}
-          <div
-            className="p-2 sm:p-3 md:p-4 lg:p-6 bg-gray-50"
-            style={{ paddingTop: "8px" }}
-          >
+          <div className={`p-2 pt-16 lg:pt-6 md:p-4 lg:p-6 ${currentTheme.bg}`}>
             {renderContent()}
           </div>
         </div>

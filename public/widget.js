@@ -621,10 +621,13 @@
           );
           this.isWebSocketConnected = false;
 
-          // Update UI
+          // Update UI and show reconnect option
           if (this.callStatus && this.isCallActive) {
-            this.callStatus.textContent = "Voice service disconnected";
-            this.callStatus.style.color = "#f59e0b";
+            this.callStatus.textContent = "Call disconnected";
+            this.callStatus.style.color = "#ef4444";
+            
+            // Show reconnect button in header
+            this.showReconnectButton();
           }
           
           // Reject promise if connection closed before opening
@@ -646,12 +649,15 @@
             error: error.message || 'Unknown error'
           });
 
-          // Update UI with more helpful error message
-          if (this.callStatus) {
+          // Update UI with more helpful error message and show reconnect button
+          if (this.callStatus && this.isCallActive) {
             const errorMessage = connectionTime > 10000 ? 
-              "Connection timeout - continuing without voice" : "Voice service error";
+              "Connection timeout" : "Connection error";
             this.callStatus.textContent = errorMessage;
             this.callStatus.style.color = "#ef4444";
+            
+            // Show reconnect button
+            this.showReconnectButton();
           }
           
           // Reject the promise on error
@@ -3274,6 +3280,173 @@
       this.chatInterface.appendChild(this.footer);
     }
 
+    showReconnectButton() {
+      // Remove existing reconnect button if any
+      if (this.reconnectButton) {
+        this.reconnectButton.remove();
+        this.reconnectButton = null;
+      }
+
+      // Create reconnect button
+      this.reconnectButton = createElement("button", {
+        style: {
+          position: "absolute",
+          top: "16px",
+          left: "16px",
+          backgroundColor: "#ef4444",
+          color: "white",
+          border: "none",
+          borderRadius: "8px",
+          padding: "8px 12px",
+          fontSize: "14px",
+          fontWeight: "500",
+          cursor: "pointer",
+          display: "flex",
+          alignItems: "center",
+          gap: "6px",
+          boxShadow: "0 2px 8px rgba(0, 0, 0, 0.15)",
+          transition: "all 0.2s ease",
+          zIndex: "10",
+        },
+      });
+
+      // Add reconnect icon and text
+      const reconnectIcon = createElement("div", {
+        style: {
+          width: "16px",
+          height: "16px",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+        },
+      });
+      
+      reconnectIcon.innerHTML = `
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M3 7v6h6"/>
+          <path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13"/>
+        </svg>
+      `;
+
+      const reconnectText = document.createTextNode("Reconnect");
+      
+      this.reconnectButton.appendChild(reconnectIcon);
+      this.reconnectButton.appendChild(reconnectText);
+
+      // Add hover effects
+      this.reconnectButton.addEventListener("mouseenter", () => {
+        this.reconnectButton.style.backgroundColor = "#dc2626";
+        this.reconnectButton.style.transform = "scale(1.05)";
+      });
+
+      this.reconnectButton.addEventListener("mouseleave", () => {
+        this.reconnectButton.style.backgroundColor = "#ef4444";
+        this.reconnectButton.style.transform = "scale(1)";
+      });
+
+      // Add click handler for reconnection
+      this.reconnectButton.addEventListener("click", async () => {
+        console.log("🔄 User clicked reconnect button");
+        
+        // Disable button during reconnection
+        this.reconnectButton.style.opacity = "0.6";
+        this.reconnectButton.style.cursor = "not-allowed";
+        this.reconnectButton.disabled = true;
+        
+        // Update call status
+        if (this.callStatus) {
+          this.callStatus.textContent = "Reconnecting...";
+          this.callStatus.style.color = "#f59e0b";
+        }
+
+        try {
+          // Attempt to reconnect
+          await this.reconnectCall();
+          
+          // Remove reconnect button on successful reconnection
+          this.hideReconnectButton();
+          
+        } catch (error) {
+          console.error("❌ Reconnection failed:", error);
+          
+          // Re-enable button
+          this.reconnectButton.style.opacity = "1";
+          this.reconnectButton.style.cursor = "pointer";
+          this.reconnectButton.disabled = false;
+          
+          // Update status
+          if (this.callStatus) {
+            this.callStatus.textContent = "Reconnection failed - try again";
+            this.callStatus.style.color = "#ef4444";
+          }
+        }
+      });
+
+      // Add button to header if it exists
+      if (this.header) {
+        this.header.appendChild(this.reconnectButton);
+      }
+    }
+
+    hideReconnectButton() {
+      if (this.reconnectButton) {
+        this.reconnectButton.remove();
+        this.reconnectButton = null;
+      }
+    }
+
+    async reconnectCall() {
+      try {
+        console.log("🔄 Attempting to reconnect call...");
+        
+        // Clean up existing WebSocket connection
+        this.disconnectWebSocket();
+        
+        // Stop existing audio capture
+        this.stopAudioCapture();
+        
+        // Reset WebSocket connection state
+        this.isWebSocketConnected = false;
+        
+        // Use existing call ID if available, otherwise start new call
+        if (this.currentCallId && this.pythonServiceUrl) {
+          console.log("🔄 Reconnecting to existing call:", this.currentCallId);
+          
+          // Reconnect WebSocket with existing service URL
+          await this.connectToWebSocket(this.pythonServiceUrl);
+          
+          if (this.callStatus) {
+            this.callStatus.textContent = "Reconnected - Speak now!";
+            this.callStatus.style.color = "#10b981";
+          }
+          
+        } else {
+          console.log("🔄 Starting new call for reconnection...");
+          
+          // Start fresh call
+          const wasWarmedUp = this.connectionCache.has('backend-warmed');
+          const callData = await this.api.startCall(wasWarmedUp);
+          
+          this.currentCallId = callData.callId;
+          this.pythonServiceUrl = callData.pythonServiceUrl;
+          
+          // Connect to WebSocket
+          await this.connectToWebSocket(this.pythonServiceUrl);
+          
+          if (this.callStatus) {
+            this.callStatus.textContent = "New call started - Speak now!";
+            this.callStatus.style.color = "#10b981";
+          }
+        }
+        
+        console.log("✅ Call reconnected successfully");
+        
+      } catch (error) {
+        console.error("❌ Failed to reconnect call:", error);
+        throw error;
+      }
+    }
+
     initSpeechRecognition() {
       if (
         this.config.features.voiceEnabled &&
@@ -3604,6 +3777,9 @@
         this.isCallActive = true;
         this.callStartTime = new Date(callData.startTime);
         
+        // Hide reconnect button since call is now active
+        this.hideReconnectButton();
+        
         // Adjust modal height for call interface
         this.adjustModalHeight();
         
@@ -3737,6 +3913,9 @@
         // Keep hasStarted = true to maintain the unified interface
         this.callDuration = 0;
         
+        // Hide reconnect button since call is properly ended
+        this.hideReconnectButton();
+        
         // Adjust modal height when call ends
         this.adjustModalHeight();
         this.callStartTime = null;
@@ -3773,6 +3952,9 @@
         // Keep hasStarted = true to maintain the unified interface
         this.currentCallId = null;
         this.stopAudioCapture();
+        
+        // Hide reconnect button
+        this.hideReconnectButton();
 
         if (this.callStatus) {
           this.callStatus.textContent = "Call ended";

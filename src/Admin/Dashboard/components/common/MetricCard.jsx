@@ -2,7 +2,7 @@ import React from 'react';
 import { useTheme } from '../../contexts/ThemeContext';
 
 const MetricCard = ({ metric, index }) => {
-  const { currentTheme } = useTheme();
+  const { currentTheme, theme } = useTheme();
 
   return (
     <div className="relative group">

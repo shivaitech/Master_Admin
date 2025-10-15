@@ -28,7 +28,7 @@ import {
 } from "lucide-react";
 
 const AIEmployeeDetail = ({ employee, onBack }) => {
-  const { currentTheme } = useTheme();
+  const { currentTheme, theme } = useTheme();
   const [activeTab, setActiveTab] = useState("sessions");
   const [searchTerm, setSearchTerm] = useState("");
   const [filterDate, setFilterDate] = useState("all");

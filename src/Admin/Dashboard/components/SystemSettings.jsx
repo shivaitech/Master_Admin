@@ -159,7 +159,7 @@ const SystemSettings = () => {
             <button
               onClick={() => handleInputChange("twoFactorAuth", !settings.twoFactorAuth)}
               className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                settings.twoFactorAuth ? "bg-blue-600" : "bg-gray-200"
+                settings.twoFactorAuth ? "bg-blue-600" : theme === 'dark' ? "bg-gray-600" : "bg-gray-200"
               }`}
             >
               <span
@@ -213,7 +213,7 @@ const SystemSettings = () => {
             <button
               onClick={() => handleInputChange("auditLogging", !settings.auditLogging)}
               className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                settings.auditLogging ? "bg-blue-600" : "bg-gray-200"
+                settings.auditLogging ? "bg-blue-600" : theme === 'dark' ? "bg-gray-600" : "bg-gray-200"
               }`}
             >
               <span
@@ -250,7 +250,7 @@ const SystemSettings = () => {
                 <button
                   onClick={() => handleInputChange(item.key, !settings[item.key])}
                   className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                    settings[item.key] ? "bg-blue-600" : "bg-gray-200"
+                    settings[item.key] ? "bg-blue-600" : theme === 'dark' ? "bg-gray-600" : "bg-gray-200"
                   }`}
                 >
                   <span
@@ -311,7 +311,7 @@ const SystemSettings = () => {
             <button
               onClick={() => handleInputChange("autoScaling", !settings.autoScaling)}
               className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                settings.autoScaling ? "bg-blue-600" : "bg-gray-200"
+                settings.autoScaling ? "bg-blue-600" : theme === 'dark' ? "bg-gray-600" : "bg-gray-200"
               }`}
             >
               <span
@@ -367,7 +367,7 @@ const SystemSettings = () => {
             <button
               onClick={() => handleInputChange("ssoEnabled", !settings.ssoEnabled)}
               className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                settings.ssoEnabled ? "bg-blue-600" : "bg-gray-200"
+                settings.ssoEnabled ? "bg-blue-600" : theme === 'dark' ? "bg-gray-600" : "bg-gray-200"
               }`}
             >
               <span
@@ -449,7 +449,7 @@ const SystemSettings = () => {
   };
 
   return (
-    <div className="space-y-4 md:space-y-6 pt-12 lg:pt-0">
+    <div className="space-y-4  pt-0 lg:pt-0">
       {/* Settings Header */}
       <div
         className={`${

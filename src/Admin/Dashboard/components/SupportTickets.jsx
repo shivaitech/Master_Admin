@@ -17,7 +17,7 @@ const SupportTickets = () => {
   const { theme, currentTheme } = useTheme();
 
   return (
-    <div className="space-y-4 md:space-y-6 pt-16 lg:pt-0">
+    <div className="space-y-4  pt-0 lg:pt-0">
       {/* Support Stats */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         {[
@@ -119,12 +119,7 @@ const SupportTickets = () => {
                 <option>Closed</option>
               </select>
               <button
-                className="flex items-center gap-2 px-4 py-2 text-gray-600 rounded-lg font-medium transition-all duration-200 hover:shadow-lg"
-                style={{
-                  background: "linear-gradient(0deg, #0a0a0a 0%, #000 100%)",
-                  boxShadow:
-                    "0 4px 6px rgba(0, 0, 0, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.1)",
-                }}
+                className={`flex items-center gap-2 px-4 py-2 ${currentTheme.text} rounded-lg font-medium transition-all duration-200 hover:shadow-lg ${currentTheme.activeBg} ${currentTheme.hover}`}
               >
                 <RiAddLine className="w-4 h-4" />
                 New Ticket
@@ -195,7 +190,7 @@ const SupportTickets = () => {
                             : "bg-gradient-to-r from-blue-500 to-cyan-500"
                         }`}
                       >
-                        <RiQuestionLine className="w-7 h-7 text-gray-600" />
+                        <RiQuestionLine className="w-7 h-7 text-white" />
                       </div>
                       <div
                         className={`absolute -bottom-1 -right-1 w-5 h-5 rounded-full border-2 ${
@@ -221,16 +216,16 @@ const SupportTickets = () => {
                         <span
                           className={`px-2 py-1 rounded-full text-xs font-medium ${
                             ticket.priority === "high"
-                              ? theme === "light"
-                                ? "bg-red-100 text-red-700"
-                                : "bg-red-500/20 text-red-400"
+                              ? theme === "dark"
+                                ? "bg-red-500/20 text-red-400 border border-red-500/30"
+                                : "bg-red-100 text-red-700"
                               : ticket.priority === "medium"
-                              ? theme === "light"
-                                ? "bg-yellow-100 text-yellow-700"
-                                : "bg-yellow-500/20 text-yellow-400"
-                              : theme === "light"
-                              ? "bg-blue-100 text-blue-700"
-                              : "bg-blue-500/20 text-blue-400"
+                              ? theme === "dark"
+                                ? "bg-yellow-500/20 text-yellow-400 border border-yellow-500/30"
+                                : "bg-yellow-100 text-yellow-700"
+                              : theme === "dark"
+                              ? "bg-blue-500/20 text-blue-400 border border-blue-500/30"
+                              : "bg-blue-100 text-blue-700"
                           }`}
                         >
                           {ticket.priority}
@@ -260,19 +255,19 @@ const SupportTickets = () => {
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
                   <div
                     className={`p-3 rounded-lg ${
-                      theme === "light" ? "bg-blue-50" : "bg-blue-500/10"
+                      theme === "dark" ? "bg-blue-500/10 border border-blue-500/20" : "bg-blue-50"
                     }`}
                   >
                     <div
                       className={`text-sm font-bold ${
-                        theme === "light" ? "text-blue-700" : "text-blue-400"
+                        theme === "dark" ? "text-blue-400" : "text-blue-700"
                       }`}
                     >
                       {ticket.assignee}
                     </div>
                     <div
                       className={`text-xs ${
-                        theme === "light" ? "text-blue-600" : "text-blue-500"
+                        theme === "dark" ? "text-blue-500" : "text-blue-600"
                       }`}
                     >
                       Assigned To
@@ -280,23 +275,23 @@ const SupportTickets = () => {
                   </div>
                   <div
                     className={`p-3 rounded-lg ${
-                      theme === "light" ? "bg-purple-50" : "bg-purple-500/10"
+                      theme === "dark" ? "bg-purple-500/10 border border-purple-500/20" : "bg-purple-50"
                     }`}
                   >
                     <div
                       className={`text-sm font-bold ${
-                        theme === "light"
-                          ? "text-purple-700"
-                          : "text-purple-400"
+                        theme === "dark"
+                          ? "text-purple-400"
+                          : "text-purple-700"
                       }`}
                     >
                       {ticket.created.split(" ")[0]}
                     </div>
                     <div
                       className={`text-xs ${
-                        theme === "light"
-                          ? "text-purple-600"
-                          : "text-purple-500"
+                        theme === "dark"
+                          ? "text-purple-500"
+                          : "text-purple-600"
                       }`}
                     >
                       Created Date
@@ -305,31 +300,31 @@ const SupportTickets = () => {
                   <div
                     className={`p-3 rounded-lg ${
                       ticket.status === "open"
-                        ? theme === "light"
-                          ? "bg-red-50"
-                          : "bg-red-500/10"
+                        ? theme === "dark"
+                          ? "bg-red-500/10 border border-red-500/20"
+                          : "bg-red-50"
                         : ticket.status === "in_progress"
-                        ? theme === "light"
-                          ? "bg-yellow-50"
-                          : "bg-yellow-500/10"
-                        : theme === "light"
-                        ? "bg-green-50"
-                        : "bg-green-500/10"
+                        ? theme === "dark"
+                          ? "bg-yellow-500/10 border border-yellow-500/20"
+                          : "bg-yellow-50"
+                        : theme === "dark"
+                        ? "bg-green-500/10 border border-green-500/20"
+                        : "bg-green-50"
                     }`}
                   >
                     <div
                       className={`text-sm font-bold ${
                         ticket.status === "open"
-                          ? theme === "light"
-                            ? "text-red-700"
-                            : "text-red-400"
+                          ? theme === "dark"
+                            ? "text-red-400"
+                            : "text-red-700"
                           : ticket.status === "in_progress"
-                          ? theme === "light"
-                            ? "text-yellow-700"
-                            : "text-yellow-400"
-                          : theme === "light"
-                          ? "text-green-700"
-                          : "text-green-400"
+                          ? theme === "dark"
+                            ? "text-yellow-400"
+                            : "text-yellow-700"
+                          : theme === "dark"
+                          ? "text-green-400"
+                          : "text-green-700"
                       }`}
                     >
                       {ticket.status.replace("_", " ")}
@@ -337,16 +332,16 @@ const SupportTickets = () => {
                     <div
                       className={`text-xs ${
                         ticket.status === "open"
-                          ? theme === "light"
-                            ? "text-red-600"
-                            : "text-red-500"
+                          ? theme === "dark"
+                            ? "text-red-500"
+                            : "text-red-600"
                           : ticket.status === "in_progress"
-                          ? theme === "light"
-                            ? "text-yellow-600"
-                            : "text-yellow-500"
-                          : theme === "light"
-                          ? "text-green-600"
-                          : "text-green-500"
+                          ? theme === "dark"
+                            ? "text-yellow-500"
+                            : "text-yellow-600"
+                          : theme === "dark"
+                          ? "text-green-500"
+                          : "text-green-600"
                       }`}
                     >
                       Status

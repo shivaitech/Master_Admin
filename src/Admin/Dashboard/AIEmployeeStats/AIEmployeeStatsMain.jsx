@@ -37,7 +37,7 @@ import {
 } from "lucide-react";
 
 const AIEmployeeStatsMain = ({ onViewEmployee }) => {
-  const { currentTheme } = useTheme();
+  const { theme, currentTheme } = useTheme();
   const [searchTerm, setSearchTerm] = useState("");
   const [filterDate, setFilterDate] = useState("all");
   const [filterType, setFilterType] = useState("all");
@@ -56,7 +56,7 @@ const AIEmployeeStatsMain = ({ onViewEmployee }) => {
   const [viewMode, setViewMode] = useState("list"); // "list" or "grid"
 
   // Employee selection state
-  const [selectedEmployee, setSelectedEmployee] = useState("");
+  const [selectedEmployee, setSelectedEmployee] = useState("emp1"); // Pre-select Demo Employee
   const [employees] = useState([
     { id: "emp1", name: "Demo Employee" },
     { id: "emp2", name: "AI Assistant 2" },
@@ -100,7 +100,7 @@ const AIEmployeeStatsMain = ({ onViewEmployee }) => {
   const [employee, setEmployee] = useState({
     id: 1,
     name: "Demo Employee",
-    client: "ShivAI",
+    client: "Demo Employee", // Updated to match selected employee
     status: "active",
     lastUpdate: "2024-01-15 14:30:00",
     totalSessions: 0,
@@ -335,7 +335,15 @@ const AIEmployeeStatsMain = ({ onViewEmployee }) => {
   };
 
   const getStatusBadge = (status) => {
-    const colors = {
+    const colors = theme === 'dark' ? {
+      completed: "bg-green-500/20 text-green-400 border border-green-500/30",
+      escalated: "bg-yellow-500/20 text-yellow-400 border border-yellow-500/30",
+      failed: "bg-red-500/20 text-red-400 border border-red-500/30",
+      ongoing: "bg-blue-500/20 text-blue-400 border border-blue-500/30",
+      active: "bg-green-500/20 text-green-400 border border-green-500/30",
+      inactive: "bg-red-500/20 text-red-400 border border-red-500/30",
+      maintenance: "bg-yellow-500/20 text-yellow-400 border border-yellow-500/30",
+    } : {
       completed: "bg-green-100 text-green-800",
       escalated: "bg-yellow-100 text-yellow-800",
       failed: "bg-red-100 text-red-800",
@@ -354,7 +362,11 @@ const AIEmployeeStatsMain = ({ onViewEmployee }) => {
   };
 
   const getSentimentBadge = (sentiment) => {
-    const colors = {
+    const colors = theme === 'dark' ? {
+      positive: "bg-green-500/20 text-green-400 border border-green-500/30",
+      neutral: "bg-gray-500/20 text-gray-400 border border-gray-500/30",
+      negative: "bg-red-500/20 text-red-400 border border-red-500/30",
+    } : {
       positive: "bg-green-100 text-green-800",
       neutral: "bg-gray-100 text-gray-800",
       negative: "bg-red-100 text-red-800",
@@ -431,14 +443,53 @@ const AIEmployeeStatsMain = ({ onViewEmployee }) => {
   };
 
   return (
-    <div className="space-y-3 md:space-y-4 lg:space-y-6 pt-16 lg:pt-0 px-2 sm:px-0">
+    <div className="space-y-3 md:space-y-4 lg:space-y-6  px-2 sm:px-0">
      
 
       {/* Employee Stats - Sliding Cards for Mobile */}
       <div className="relative">
         
 
-        {/* Desktop Grid */}
+        {/* Employee Selector - Desktop Only - Enhanced UI */}
+        <div className="hidden lg:flex items-center mb-4">
+          <div className="flex items-center gap-3">
+          
+          </div>
+          
+          <div className="relative">
+            <select
+              id="employee-select"
+              value={selectedEmployee}
+              onChange={e => {
+                setSelectedEmployee(e.target.value);
+                const emp = employees.find(emp => emp.id === e.target.value);
+                if (emp) {
+                  setEmployee(prev => ({
+                    ...prev,
+                    name: emp.name,
+                    client: emp.name,
+                  }));
+                }
+              }}
+              className={`
+                appearance-none px-4 py-2 pr-10 rounded-lg border-2 border-gray-300
+                bg-white ${currentTheme.text} font-medium
+                focus:outline-none focus:ring-1 focus:ring-black focus:border-blue-500
+                hover:border-gray-400 transition-all duration-200
+                shadow-sm min-w-[200px] cursor-pointer
+              `}
+            >
+              {employees.map(emp => (
+                <option key={emp.id} value={emp.id} className="py-2">
+                  {emp.name}
+                </option>
+              ))}
+            </select>
+            <ChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400 pointer-events-none" />
+          </div>
+          
+         
+        </div>
         <div className="hidden lg:grid lg:grid-cols-4 gap-4">
           <div className="group">
             <div
@@ -588,7 +639,7 @@ const AIEmployeeStatsMain = ({ onViewEmployee }) => {
               <p
                 className={`text-sm font-medium ${currentTheme.text} mb-1 leading-tight`}
               >
-                Client
+                Internal AI Employees
               </p>
               <p
                 className={`text-xs ${currentTheme.textSecondary} leading-tight`}
@@ -599,7 +650,6 @@ const AIEmployeeStatsMain = ({ onViewEmployee }) => {
           </div>
         </div>
 
-        {/* Mobile/Tablet Sliding Cards */}
         <div className="lg:hidden overflow-x-auto scrollbar-hide">
           <div
             className="flex gap-2 md:gap-3 pb-2 px-1"
@@ -861,7 +911,7 @@ const AIEmployeeStatsMain = ({ onViewEmployee }) => {
                   // List View - Mobile Optimized
                   <div
                     key={session.id}
-                    className={`${currentTheme.cardBg} border ${currentTheme.border} rounded-lg p-3 sm:p-4 hover:shadow-md transition-all duration-200`}
+                    className={`${currentTheme.cardBg} border ${currentTheme.border} rounded-lg p-3 sm:p-4 hover:shadow-md transition-all duration-200 bg-gradient-to-r from-gray-50 to-white-50`}
                   >
                     {/* Header Row - Mobile Optimized */}
                     <div className="flex items-start sm:items-center justify-between mb-3">
@@ -882,7 +932,7 @@ const AIEmployeeStatsMain = ({ onViewEmployee }) => {
                       </div>
                       <button
                         onClick={() => handleViewSession(session)}
-                        className="p-2 text-gray-700 rounded-lg bg-gray-100 hover:bg-gray-200 transition-all duration-200 flex-shrink-0 ml-2"
+                        className={`p-2 ${currentTheme.textSecondary} rounded-lg ${currentTheme.activeBg} ${currentTheme.hover} transition-all duration-200 flex-shrink-0 ml-2`}
                         title="View Session"
                       >
                         {loadingTranscript ? (
@@ -975,7 +1025,7 @@ const AIEmployeeStatsMain = ({ onViewEmployee }) => {
                         {session.tags.map((tag, index) => (
                           <span
                             key={index}
-                            className="px-2 py-1 bg-gray-100 text-gray-700 text-xs rounded-full"
+                            className={`px-2 py-1 ${theme === 'dark' ? 'bg-gray-500/20 text-gray-400 border border-gray-500/30' : 'bg-gray-100 text-gray-700'} text-xs rounded-full`}
                           >
                             {tag}
                           </span>
@@ -1005,7 +1055,7 @@ const AIEmployeeStatsMain = ({ onViewEmployee }) => {
                       </div>
                       <button
                         onClick={() => handleViewSession(session)}
-                        className="p-1.5 text-gray-900 rounded-lg bg-[#EEEDEB] transition-all duration-200 hover:shadow-lg flex-shrink-0"
+                        className={`p-1.5 ${currentTheme.textSecondary} rounded-lg ${currentTheme.activeBg} ${currentTheme.hover} transition-all duration-200 hover:shadow-lg flex-shrink-0`}
                         title="View Session"
                       >
                         {loadingTranscript ? (
@@ -1091,7 +1141,7 @@ const AIEmployeeStatsMain = ({ onViewEmployee }) => {
                         {session.tags.slice(0, 2).map((tag, index) => (
                           <span
                             key={index}
-                            className="px-2 py-1 bg-gray-100 text-gray-700 text-xs rounded-full"
+                            className={`px-2 py-1 ${theme === 'dark' ? 'bg-gray-500/20 text-gray-400 border border-gray-500/30' : 'bg-gray-100 text-gray-700'} text-xs rounded-full`}
                           >
                             {tag}
                           </span>
@@ -1137,27 +1187,27 @@ const AIEmployeeStatsMain = ({ onViewEmployee }) => {
         {/* Transcript Modal - Mobile Optimized */}
         {selectedSession && (
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-2 sm:p-4 backdrop-blur-sm">
-            <div className="bg-[#f6f5f4] rounded-lg sm:rounded-xl w-full max-w-4xl  max-h-[95vh] sm:max-h-[85vh] overflow-hidden shadow-2xl">
+            <div className={`${currentTheme.cardBg} rounded-lg sm:rounded-xl w-full max-w-4xl  max-h-[95vh] sm:max-h-[85vh] overflow-hidden shadow-2xl`}>
               {/* Header - Mobile Optimized */}
-              <div className="flex items-center justify-between p-3 sm:p-4 lg:p-6 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white">
+              <div className={`flex items-center justify-between p-3 sm:p-4 lg:p-6 border-b ${currentTheme.border} ${currentTheme.cardBg}`}>
                 <div className="flex items-center gap-2 sm:gap-3 lg:gap-4 min-w-0 flex-1">
-                  <div className="w-8 h-8 sm:w-10 sm:h-10 lg:w-12 lg:h-12 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
-                    <FileText className="w-4 h-4 sm:w-5 sm:h-5 lg:w-6 lg:h-6 text-blue-600" />
+                  <div className={`w-8 h-8 sm:w-10 sm:h-10 lg:w-12 lg:h-12 ${currentTheme.activeBg} rounded-full flex items-center justify-center flex-shrink-0`}>
+                    <FileText className={`w-4 h-4 sm:w-5 sm:h-5 lg:w-6 lg:h-6 ${currentTheme.text}`} />
                   </div>
                   <div className="min-w-0 flex-1">
-                    <h3 className="text-sm sm:text-lg lg:text-xl font-bold text-gray-900 truncate">
+                    <h3 className={`text-sm sm:text-lg lg:text-xl font-bold ${currentTheme.text} truncate`}>
                       Session Transcript
                     </h3>
                     <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2 mt-0.5 sm:mt-1">
-                      <span className="text-xs sm:text-sm font-medium text-gray-600 truncate">
+                      <span className={`text-xs sm:text-sm font-medium ${currentTheme.textSecondary} truncate`}>
                         ID: {selectedSession.sessionId}
                       </span>
-                      <span className="hidden sm:inline text-gray-400">•</span>
-                      <span className="text-xs sm:text-sm text-gray-600 truncate">
+                      <span className={`hidden sm:inline ${currentTheme.textSecondary}`}>•</span>
+                      <span className={`text-xs sm:text-sm ${currentTheme.textSecondary} truncate`}>
                         {selectedSession.clientName}
                       </span>
-                      <span className="hidden sm:inline text-gray-400">•</span>
-                      <span className="text-xs sm:text-sm text-gray-600">
+                      <span className={`hidden sm:inline ${currentTheme.textSecondary}`}>•</span>
+                      <span className={`text-xs sm:text-sm ${currentTheme.textSecondary}`}>
                         {selectedSession.duration}
                       </span>
                     </div>
@@ -1165,9 +1215,8 @@ const AIEmployeeStatsMain = ({ onViewEmployee }) => {
                 </div>
                 <button
                   onClick={() => setSelectedSession(null)}
-                  className="p-1.5 sm:p-2 text-white rounded-lg transition-all duration-200 hover:shadow-lg flex-shrink-0"
+                  className={`p-1.5 sm:p-2 ${currentTheme.textSecondary} rounded-lg ${currentTheme.hover} transition-all duration-200 hover:shadow-lg flex-shrink-0`}
                   title="Close"
-                  style={{ backgroundColor: '#EEEDEB' }}
                 >
                   <XCircle className="w-4 h-4 sm:w-5 sm:h-5" />
                 </button>
@@ -1185,7 +1234,7 @@ const AIEmployeeStatsMain = ({ onViewEmployee }) => {
                 selectedSession.transcripts.length > 0 ? (
                   <div className="space-y-3 sm:space-y-4 lg:space-y-6">
                     <div className="text-center">
-                      <p className="text-xs sm:text-sm text-gray-500 mb-3 sm:mb-4">
+                      <p className={`text-xs sm:text-sm ${currentTheme.textSecondary} mb-3 sm:mb-4`}>
                         Conversation started at{" "}
                         {formatDate(selectedSession.startTime)}
                       </p>
@@ -1226,7 +1275,7 @@ const AIEmployeeStatsMain = ({ onViewEmployee }) => {
                           <div
                             className={`rounded-lg sm:rounded-xl lg:rounded-2xl px-2 py-2 sm:px-3 sm:py-2 lg:px-4 lg:py-3 shadow-sm flex-1 min-w-0 ${
                               message.speaker === "ai"
-                                ? "bg-white border border-gray-200 text-gray-800"
+                                ? `${currentTheme.cardBg} border ${currentTheme.border} ${currentTheme.text}`
                                 : "bg-gradient-to-br from-blue-500 to-blue-600 text-white"
                             }`}
                           >
@@ -1266,27 +1315,27 @@ const AIEmployeeStatsMain = ({ onViewEmployee }) => {
                       </div>
                     ))}
 
-                    <div className="text-center pt-3 sm:pt-4 border-t border-gray-100">
-                      <p className="text-xs sm:text-sm text-gray-500">
+                    <div className={`text-center pt-3 sm:pt-4 border-t ${currentTheme.border}`}>
+                      <p className={`text-xs sm:text-sm ${currentTheme.textSecondary}`}>
                         Session ended • Resolution: {selectedSession.resolution}
                       </p>
                     </div>
                   </div>
                 ) : (
                   <div className="flex flex-col items-center justify-center py-12 text-center">
-                    <div className="w-16 h-16 sm:w-20 sm:h-20 bg-gray-100 rounded-full flex items-center justify-center mb-4">
-                      <MessageSquare className="w-8 h-8 sm:w-10 sm:h-10 text-gray-400" />
+                    <div className={`w-16 h-16 sm:w-20 sm:h-20 ${currentTheme.activeBg} rounded-full flex items-center justify-center mb-4`}>
+                      <MessageSquare className={`w-8 h-8 sm:w-10 sm:h-10 ${currentTheme.textSecondary}`} />
                     </div>
-                    <h4 className="text-lg sm:text-xl font-semibold text-gray-900 mb-2">
+                    <h4 className={`text-lg sm:text-xl font-semibold ${currentTheme.text} mb-2`}>
                       No Messages Found
                     </h4>
-                    <p className="text-sm sm:text-base text-gray-500 max-w-md">
+                    <p className={`text-sm sm:text-base ${currentTheme.textSecondary} max-w-md`}>
                       This session doesn't have any transcript messages
                       available. The conversation might not have been recorded
                       or the data might not be available yet.
                     </p>
-                    <div className="mt-4 p-3 bg-blue-50 rounded-lg">
-                      <p className="text-xs sm:text-sm text-blue-600">
+                    <div className={`mt-4 p-3 ${currentTheme.activeBg} rounded-lg`}>
+                      <p className={`text-xs sm:text-sm ${currentTheme.text}`}>
                         Session ID: {selectedSession.sessionId}
                       </p>
                     </div>
@@ -1296,15 +1345,15 @@ const AIEmployeeStatsMain = ({ onViewEmployee }) => {
 
               {/* Tags */}
               {selectedSession.tags && selectedSession.tags.length > 0 && (
-                <div className="px-6 py-3 bg-gray-50 border-t border-gray-100">
-                  <p className="text-xs text-gray-500 uppercase tracking-wide mb-2">
+                <div className={`px-6 py-3 ${currentTheme.activeBg} border-t ${currentTheme.border}`}>
+                  <p className={`text-xs ${currentTheme.textSecondary} uppercase tracking-wide mb-2`}>
                     Tags
                   </p>
                   <div className="flex flex-wrap gap-2">
                     {selectedSession.tags.map((tag, index) => (
                       <span
                         key={index}
-                        className="px-3 py-1 bg-blue-100 text-blue-700 text-xs font-medium rounded-full"
+                        className={`px-3 py-1 ${theme === 'dark' ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30' : 'bg-blue-100 text-blue-700'} text-xs font-medium rounded-full`}
                       >
                         #{tag}
                       </span>
@@ -1314,8 +1363,8 @@ const AIEmployeeStatsMain = ({ onViewEmployee }) => {
               )}
 
               {/* Footer Actions */}
-              <div className="px-6 py-4 border-t border-gray-100 bg-white flex items-center justify-between">
-                <div className="flex items-center gap-2 text-sm text-gray-500">
+              <div className={`px-6 py-4 border-t ${currentTheme.border} ${currentTheme.cardBg} flex items-center justify-between`}>
+                <div className={`flex items-center gap-2 text-sm ${currentTheme.textSecondary}`}>
                   <Clock className="w-4 h-4" />
                   <span>Updated: {formatDate(selectedSession.startTime)}</span>
                 </div>
