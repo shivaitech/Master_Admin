@@ -1338,7 +1338,7 @@ const AdminDashboardContent = () => {
           </div>
 
           {/* Content */}
-          <div className={`p-2 pt-16 lg:pt-6 md:p-4 lg:p-6 ${currentTheme.bg}`}>
+          <div className={`p-2 pt-16  md:pt-16 lg:pt-6 md:p-4 lg:p-6 ${currentTheme.bg}`}>
             {renderContent()}
           </div>
         </div>

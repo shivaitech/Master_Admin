@@ -295,6 +295,7 @@
       this.currentAudio = null; // currently playing Audio element
       this.currentBufferSource = null; // WebAudio buffer source
       this.currentAiTranscript = ""; // build up streamed AI text
+      this.currentStreamingMessage = null; // currently streaming AI message element
       this.userInteracted = false; // Track user interaction for iOS audio
       this.audioStartTime = null; // Track when audio playback started
 
@@ -521,6 +522,11 @@
             this.callStatus.style.color = "#10b981";
           }
 
+          // Hide reconnect UI when we get a successful connection
+          try {
+            this.hideReconnectButton();
+          } catch (_) {}
+
           // Send initial handshake with call ID
           this.sendWebSocketMessage({
             type: "handshake",
@@ -629,6 +635,13 @@
             // Show reconnect button in header
             this.showReconnectButton();
           }
+          // Stop call timer when WS closes
+          try {
+            if (this.callInterval) {
+              clearInterval(this.callInterval);
+              this.callInterval = null;
+            }
+          } catch (_) {}
           
           // Reject promise if connection closed before opening
           if (this.webSocket.readyState !== WebSocket.OPEN) {
@@ -659,6 +672,13 @@
             // Show reconnect button
             this.showReconnectButton();
           }
+          // Stop call timer on error
+          try {
+            if (this.callInterval) {
+              clearInterval(this.callInterval);
+              this.callInterval = null;
+            }
+          } catch (_) {}
           
           // Reject the promise on error
           reject(error);
@@ -684,6 +704,10 @@
       switch (data.type) {
         case "handshake_response":
           console.log("🤝 Handshake confirmed with Python service");
+          
+          // Hide chat connecting status - live conversation is about to begin
+          this.hideChatConnectingStatus();
+          
           // Start audio capture immediately when backend is ready
           this.hasStartedCapture = true; // Mark to prevent fallback timeout
           this.startAudioCapture().catch((err) => {
@@ -722,14 +746,15 @@
 
         case "user_transcript":
           console.log("🗣️ User transcript:", data.text);
-          this.handleTranscription(data.text);
+          this.handleUserTranscript(data.text);
           break;
         case "ai_transcript":
           console.log("🤖 AI transcript complete:", data.text);
-          // Optionally display the final AI text somewhere
+          this.handleAITranscriptComplete(data.text);
           break;
         case "ai_text_delta":
-          this.currentAiTranscript += data.text || "";
+          console.log("🤖 AI text delta:", data.text);
+          this.handleAITextDelta(data.text);
           break;
 
         case "speech_started":
@@ -1147,15 +1172,31 @@
             transform: translateY(-50%) translateX(10px) scale(0.8);
           }
         }
+
+        @keyframes streamingPulse {
+          0%, 100% {
+            opacity: 0.3;
+            transform: scale(0.8);
+          }
+          50% {
+            opacity: 1;
+            transform: scale(1);
+          }
+        }
+        
+        .streaming-message {
+          animation: slideIn 0.3s ease-out;
+        }
+        
+        .streaming-dots {
+          animation: pulse 2s infinite;
+        }
         
         .shivai-message-bubble {
           cursor: pointer;
         }
         
-        @keyframes typingCursor {
-          0%, 50% { opacity: 1; }
-          51%, 100% { opacity: 0; }
-        }
+
         
         @keyframes typingBounce {
           0%, 80%, 100% {
@@ -1622,11 +1663,11 @@
           "📞 Call in progress...",
           "🎤 I'm listening!",
           "🗣️ Speak freely",
-          "💬 Having a conversation with Sarah"
+          "💬 Having a conversation with ShivAI Employee"
         ];
       } else if (state === 'connected') {
         this.liveMessages = [
-          "✅ Connected to Sarah",
+          "✅ Connected to ShivAI Employee",
           "🎯 Ready to help!",
           "💡 Ask me anything",
           "🚀 Let's get started"
@@ -1635,7 +1676,7 @@
         // Default idle messages
         this.liveMessages = [
           "👋 Hi there! Need help?",
-          "🤖 I'm Sarah, your AI assistant",
+          "🤖 I'm ShivAI Employee, your AI assistant",
           "📞 Want to talk? Click for voice call!",
           "💬 I'm here to help you",
           "🚀 Getting quick answers is my thing",
@@ -1704,32 +1745,13 @@
       let i = 0;
       messageEl.textContent = ''; // Start with empty text
       
-      // Add typing cursor effect
-      const cursor = createElement("span", {
-        style: {
-          opacity: "1",
-          animation: "typingCursor 1s infinite",
-          marginLeft: "2px",
-        }
-      }, ['|']);
-      
-      messageEl.appendChild(cursor);
-      
       const typeInterval = setInterval(() => {
         if (i < message.length) {
-          // Remove cursor, add character, then re-add cursor
-          messageEl.removeChild(cursor);
           messageEl.textContent = message.substring(0, i + 1);
-          messageEl.appendChild(cursor);
           i++;
         } else {
-          // Remove cursor when typing is done
+          // Typing is done
           clearInterval(typeInterval);
-          setTimeout(() => {
-            if (messageEl.contains(cursor)) {
-              messageEl.removeChild(cursor);
-            }
-          }, 500); // Keep cursor for a bit then remove
         }
       }, 60); // Slightly slower typing for better effect
     }
@@ -1796,7 +1818,7 @@
         { text: "Setting up voice pipeline...", color: "#f59e0b", delay: 200 },
         { text: "Configuring audio streams...", color: "#f59e0b", delay: 200 },
         { text: "Almost ready to talk...", color: "#10b981", delay: 200 },
-        { text: "Connected! Sarah is listening 🎤", color: "#10b981", delay: 0 }
+        { text: "Connected! ShivAI Employee is listening 🎤", color: "#10b981", delay: 0 }
       ];
 
       for (const state of states) {
@@ -2597,9 +2619,9 @@
           justifyContent: "center",
           color: "#6b7280",
           transition: "all 0.2s ease",
-          padding: "4px",
-          width: "20px",
-          height: "20px",
+          // padding: "4px",
+          width: "24px",
+          height: "24px",
           position: "absolute",
           left: "16px",
         },
@@ -3185,7 +3207,7 @@
         style: {
           // borderTop: "1px solid #e5e7eb",
           background: "#fff",
-          padding: "8px 16px",
+          padding: "10px 16px",
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
@@ -3249,7 +3271,7 @@
                 </svg>`;
               const svg = wrapper.querySelector('svg');
               if (svg) {
-                svg.style.height = '11px';
+                svg.style.height = '12px';
                 svg.style.width = 'auto';
                 svg.setAttribute('focusable', 'false');
                 svg.setAttribute('role', 'img');
@@ -3420,6 +3442,11 @@
             this.callStatus.style.color = "#10b981";
           }
           
+          // Restart call timer after reconnection
+          if (this.isWebSocketConnected && this.isCallActive) {
+            this.startCallTimer();
+          }
+          
         } else {
           console.log("🔄 Starting new call for reconnection...");
           
@@ -3436,6 +3463,11 @@
           if (this.callStatus) {
             this.callStatus.textContent = "New call started - Speak now!";
             this.callStatus.style.color = "#10b981";
+          }
+          
+          // Start call timer for new call
+          if (this.isWebSocketConnected && this.isCallActive) {
+            this.startCallTimer();
           }
         }
         
@@ -3723,18 +3755,106 @@
     }
 
     async startChat() {
-      // Don't set hasStarted = true yet, keep in welcome screen
-      // this.hasStarted = true;
-      // this.updateUI();
+      // Clear any existing messages for fresh live transcript
+      this.messages = [];
+      if (this.messagesContainer) {
+        this.messagesContainer.innerHTML = '';
+      }
 
-      // Add initial greeting message when call actually starts
-      if (this.config.features.autoGreeting && !this.hasGreeted) {
-        await this.addMessage(
-          "bot",
-          "Hi! I'm Sarah, your AI Employee. How can I help you today? 😊",
-          { skipTyping: true }
-        );
-        this.hasGreeted = true;
+      // Show connecting status for chat interface
+      this.showChatConnectingStatus();
+      
+      // Don't add dummy greeting - let the real AI conversation begin
+      // The first message will come from live transcript when AI speaks
+    }
+
+    showChatConnectingStatus() {
+      // Add a temporary connecting message that will be replaced by live transcript
+      const connectingElement = createElement("div", {
+        id: "chat-connecting-status",
+        class: "shivai-widget-message",
+        style: {
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          justifyContent: "center",
+          padding: "20px",
+          textAlign: "center",
+          color: "#6b7280",
+          fontSize: "14px",
+        },
+      });
+
+      const statusIcon = createElement("div", {
+        style: {
+          width: "32px",
+          height: "32px",
+          marginBottom: "12px",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          color: "#10b981",
+        },
+      });
+
+      statusIcon.innerHTML = `
+        <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24">
+          <path fill="none" stroke="currentColor" stroke-linejoin="round" stroke-width="2" d="M15 19c1.2-3.678 2.526-5.005 6-6c-3.474-.995-4.8-2.322-6-6c-1.2 3.678-2.526 5.005-6 6c3.474.995 4.8 2.322 6 6Zm-8-9c.6-1.84 1.263-2.503 3-3c-1.737-.497-2.4-1.16-3-3c-.6 1.84-1.263 2.503-3 3c1.737.497 2.4 1.16 3 3Zm1.5 10c.3-.92.631-1.251 1.5-1.5c-.869-.249-1.2-.58-1.5-1.5c-.3.92-.631 1.251-1.5 1.5c.869.249 1.2.58 1.5 1.5Z"/>
+        </svg>
+      `;
+
+      const statusText = createElement("div", {
+        style: {
+          fontWeight: "500",
+          marginBottom: "8px",
+        },
+      }, ["ShivAI Employee is connecting..."]);
+
+      const statusDescription = createElement("div", {
+        style: {
+          fontSize: "12px",
+          opacity: "0.7",
+        },
+      }, ["Live conversation will appear here"]);
+
+      // Add pulsing dots
+      const loadingDots = createElement("div", {
+        style: {
+          display: "flex",
+          gap: "4px",
+          marginTop: "12px",
+          justifyContent: "center",
+        },
+      });
+
+      for (let i = 0; i < 3; i++) {
+        const dot = createElement("div", {
+          style: {
+            width: "6px",
+            height: "6px",
+            borderRadius: "50%",
+            backgroundColor: "#10b981",
+            animation: `loadingDot 1.4s ease-in-out infinite both`,
+            animationDelay: `${i * 0.16}s`,
+          },
+        });
+        loadingDots.appendChild(dot);
+      }
+
+      connectingElement.appendChild(statusIcon);
+      connectingElement.appendChild(statusText);
+      connectingElement.appendChild(statusDescription);
+      connectingElement.appendChild(loadingDots);
+
+      if (this.messagesContainer) {
+        this.messagesContainer.appendChild(connectingElement);
+      }
+    }
+
+    hideChatConnectingStatus() {
+      const connectingStatus = document.getElementById("chat-connecting-status");
+      if (connectingStatus) {
+        connectingStatus.remove();
       }
     }
 
@@ -3797,6 +3917,12 @@
             if (diagnostics.lastSuccessfulConnection) {
               console.log(`🎯 Connection established in ${diagnostics.lastSuccessfulConnection.time}ms`);
             }
+            // Start call timer now that websocket is connected
+            try {
+              if (this.isCallActive && this.isWebSocketConnected) {
+                this.startCallTimer();
+              }
+            } catch (_) {}
             
           } catch (wsError) {
             console.warn("WebSocket connection failed, continuing in text mode:", wsError);
@@ -3816,30 +3942,23 @@
 
         await new Promise(resolve => setTimeout(resolve, 200));
 
-        // Now transition to call interface
-        this.hasStarted = true;
-        this.hideConnectingStatus();
-        this.updateModeUI();
-        this.updateUI();
-        this.startCallTimer();
-        this.updateStartButton();
+  // Now transition to call interface
+  this.hasStarted = true;
+  this.hideConnectingStatus();
+  this.updateModeUI();
+  this.updateUI();
+  // Only start call timer when websocket connection is confirmed
+  // connectToWebSocket will call startCallTimer after successful open
+  this.updateStartButton();
 
         // Update call status in the interface
         if (this.callStatus) {
-          this.callStatus.textContent = "Connected! Sarah is listening 🎤";
+          this.callStatus.textContent = "Connected! ShivAI Employee is listening 🎤";
           this.callStatus.style.color = "#10b981";
         }
 
         // Update live messages for calling state
         this.updateLiveMessagesForState('calling');
-
-        // Add initial AI greeting to chat
-        setTimeout(async () => {
-          await this.addMessage(
-            "bot",
-            "Hi! I'm ShivAI.😊"
-          );
-        }, 300);
 
         console.log(
           "📞 Call interface activated with Call ID:",
@@ -3880,15 +3999,51 @@
         this.playSound('call-end');
 
         if (this.currentCallId) {
-          // Update UI to show ending state
+          // Update UI to show ending state with loader
           if (this.callStatus) {
-            this.callStatus.textContent = "Ending call...";
+            this.callStatus.textContent = "Disconnecting...";
             this.callStatus.style.color = "#f59e0b";
+          }
+          
+          // Show a brief disconnecting message in chat (optional visual feedback)
+          const disconnectingMsg = createElement("div", {
+            id: "disconnecting-status",
+            class: "shivai-widget-message",
+            style: {
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              padding: "12px",
+              fontSize: "14px",
+              color: "#f59e0b",
+              fontWeight: "500",
+            },
+          });
+          
+          const loaderIcon = createElement("div", {
+            style: {
+              marginBottom: "8px",
+              animation: "pulse 1.5s infinite",
+            },
+          });
+          loaderIcon.innerHTML = "⏳";
+          
+          disconnectingMsg.appendChild(loaderIcon);
+          disconnectingMsg.appendChild(document.createTextNode("Ending call..."));
+          
+          if (this.messagesContainer) {
+            this.messagesContainer.appendChild(disconnectingMsg);
+            this.messagesContainer.scrollTop = this.messagesContainer.scrollHeight;
           }
 
           // Call the new end-call API
           const endData = await this.api.endCall(this.currentCallId);
           console.log("✅ Call ended successfully:", endData);
+
+          // Remove disconnecting message
+          if (disconnectingMsg && disconnectingMsg.parentNode) {
+            disconnectingMsg.remove();
+          }
 
           // Log call duration from API response
           if (endData.duration) {
@@ -3946,6 +4101,12 @@
         console.log("📞 Call ended - returned to main interface");
       } catch (error) {
         console.error("❌ Failed to end call properly:", error);
+        
+        // Remove disconnecting message if present
+        const disconnectingMsg = document.getElementById("disconnecting-status");
+        if (disconnectingMsg) {
+          disconnectingMsg.remove();
+        }
 
         // Still reset the UI even if API call fails
         this.isCallActive = false;
@@ -4011,8 +4172,8 @@
         console.log("Showing unified interface");
         this.unifiedMode.style.display = "flex";
         
-        // Update timer container visibility
-        this.callTimerContainer.style.display = this.isCallActive ? "flex" : "none";
+        // Update timer container visibility - only show when websocket is connected
+        this.callTimerContainer.style.display = (this.isCallActive && this.isWebSocketConnected) ? "flex" : "none";
         
         // Update header call controls visibility
         if (this.headerCallControls) {
@@ -4036,6 +4197,19 @@
         // Update call timer
         if (this.callTimer) {
           this.updateCallTimer();
+        }
+        
+        // Show/hide reconnect button based on connection state
+        if (this.isCallActive && !this.isWebSocketConnected) {
+          // Call active but not connected - show reconnect option
+          if (!this.reconnectButton) {
+            this.showReconnectButton();
+          }
+        } else {
+          // Either no call or connected - hide reconnect
+          if (this.reconnectButton) {
+            this.hideReconnectButton();
+          }
         }
       }
       
@@ -4728,21 +4902,207 @@
       });
     }
 
-    handleTranscription(text) {
-      // Handle speech-to-text transcription from user
+    handleUserTranscript(text) {
       try {
-        console.log("📝 Processing transcription:", text);
-
+        console.log("🗣️ User transcript:", text);
+        
         if (text && text.trim()) {
-          // You can display the transcription in the UI or process it
-          console.log("🗣️ User said:", text);
-
-          // Optionally show the transcription in the call interface
-          // This could be expanded to show live transcription
+          // Add user message to chat interface in real-time
+          this.addLiveMessage("user", text, {
+            timestamp: new Date(),
+            isLive: true
+          });
         }
       } catch (error) {
-        console.error("❌ Error handling transcription:", error);
+        console.error("❌ Error handling user transcript:", error);
       }
+    }
+
+    handleAITranscriptComplete(text) {
+      try {
+        console.log("🤖 AI transcript complete:", text);
+        
+        // If we have a streaming message, just finalize it (don't create duplicate)
+        if (this.currentStreamingMessage) {
+          // Update final content if different
+          if (text && text.trim() && text !== this.currentAiTranscript) {
+            this.updateStreamingMessage(this.currentStreamingMessage, text);
+          }
+          
+          // Remove streaming indicator (dots) from the finalized message
+          const streamingDots = this.currentStreamingMessage.querySelector('.streaming-dots');
+          if (streamingDots) {
+            streamingDots.remove();
+          }
+          
+          // Mark as complete by removing streaming class
+          this.currentStreamingMessage.classList.remove('streaming-message');
+        } else if (text && text.trim()) {
+          // Only add as new message if we weren't streaming (fallback)
+          this.addLiveMessage("bot", text, {
+            timestamp: new Date(),
+            isLive: true,
+            isComplete: true
+          });
+        }
+        
+        // Reset streaming text
+        this.currentAiTranscript = "";
+        this.currentStreamingMessage = null;
+      } catch (error) {
+        console.error("❌ Error handling AI transcript:", error);
+      }
+    }
+
+    handleAITextDelta(deltaText) {
+      try {
+        if (deltaText) {
+          this.currentAiTranscript += deltaText;
+          
+          // Update streaming message or create new one
+          if (!this.currentStreamingMessage) {
+            this.currentStreamingMessage = this.addStreamingMessage("bot", this.currentAiTranscript);
+          } else {
+            this.updateStreamingMessage(this.currentStreamingMessage, this.currentAiTranscript);
+          }
+        }
+      } catch (error) {
+        console.error("❌ Error handling AI text delta:", error);
+      }
+    }
+
+    addLiveMessage(type, content, options = {}) {
+      // Skip typing animation for live messages to make them feel real-time
+      const finalOptions = {
+        ...options,
+        skipTyping: true,
+        isLive: true
+      };
+      
+      this.addMessage(type, content, finalOptions);
+    }
+
+    addStreamingMessage(type, content) {
+      const messageId = this.generateId();
+      const message = { 
+        id: messageId, 
+        type, 
+        content, 
+        timestamp: new Date(),
+        isStreaming: true
+      };
+
+      this.messages.push(message);
+      const messageElement = this.createStreamingMessageElement(message);
+      this.messagesContainer.appendChild(messageElement);
+
+      // Scroll to bottom
+      this.messagesContainer.scrollTop = this.messagesContainer.scrollHeight;
+
+      return messageElement;
+    }
+
+    updateStreamingMessage(messageElement, newContent) {
+      const contentElement = messageElement.querySelector('.message-content');
+      if (contentElement) {
+        contentElement.textContent = newContent;
+        
+        // Scroll to bottom to follow the streaming text
+        this.messagesContainer.scrollTop = this.messagesContainer.scrollHeight;
+      }
+    }
+
+    createStreamingMessageElement(message) {
+      const messageDiv = createElement("div", {
+        class: "shivai-widget-message streaming-message",
+        style: {
+          display: "flex",
+          flexDirection: "column",
+          alignItems: message.type === "user" ? "flex-end" : "flex-start",
+          marginBottom: "16px",
+        },
+      });
+
+      // Sender info with streaming indicator
+      const senderInfo = createElement("div", {
+        style: {
+          display: "flex",
+          alignItems: "center",
+          gap: "6px",
+          marginBottom: "4px",
+          fontSize: "12px",
+          color: "#6b7280",
+        },
+      });
+
+      // Avatar/Icon
+      const avatar = createElement("div", {
+        style: {
+          width: "20px",
+          height: "20px",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          color: message.type === "user" ? "#3b82f6" : "#10b981",
+        },
+      });
+
+      if (message.type === "user") {
+        avatar.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>`;
+        senderInfo.appendChild(avatar);
+        senderInfo.appendChild(document.createTextNode("You"));
+      } else {
+        // AI with streaming indicator
+        avatar.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-linejoin="round" stroke-width="2" d="M15 19c1.2-3.678 2.526-5.005 6-6c-3.474-.995-4.8-2.322-6-6c-1.2 3.678-2.526 5.005-6 6c3.474.995 4.8 2.322 6 6Zm-8-9c.6-1.84 1.263-2.503 3-3c-1.737-.497-2.4-1.16-3-3c-.6 1.84-1.263 2.503-3 3c1.737.497 2.4 1.16 3 3Zm1.5 10c.3-.92.631-1.251 1.5-1.5c-.869-.249-1.2-.58-1.5-1.5c-.3.92-.631 1.251-1.5 1.5c.869.249 1.2.58 1.5 1.5Z"/></svg>`;
+        senderInfo.appendChild(avatar);
+        senderInfo.appendChild(document.createTextNode("ShivAI Employee"));
+        
+        // Add streaming dots
+        const streamingDots = createElement("div", {
+          class: "streaming-dots",
+          style: {
+            display: "flex",
+            gap: "2px",
+            marginLeft: "4px",
+          },
+        });
+
+        for (let i = 0; i < 3; i++) {
+          const dot = createElement("div", {
+            style: {
+              width: "4px",
+              height: "4px",
+              borderRadius: "50%",
+              backgroundColor: "#10b981",
+              animation: `streamingPulse 1.5s ease-in-out infinite`,
+              animationDelay: `${i * 0.2}s`,
+            },
+          });
+          streamingDots.appendChild(dot);
+        }
+        senderInfo.appendChild(streamingDots);
+      }
+
+      // Message bubble
+      const messageBubble = createElement("div", {
+        class: "message-content",
+        style: {
+          backgroundColor: message.type === "user" ? "#3b82f6" : "#f3f4f6",
+          color: message.type === "user" ? "#ffffff" : "#374151",
+          padding: "12px 16px",
+          borderRadius: message.type === "user" ? "18px 18px 4px 18px" : "18px 18px 18px 4px",
+          maxWidth: "80%",
+          wordWrap: "break-word",
+          position: "relative",
+        },
+      });
+
+      messageBubble.textContent = message.content;
+
+      messageDiv.appendChild(senderInfo);
+      messageDiv.appendChild(messageBubble);
+
+      return messageDiv;
     }
 
     showErrorMessage(message) {

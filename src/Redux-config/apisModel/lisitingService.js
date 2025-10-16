@@ -11,7 +11,7 @@ const getAllVendor = async (payload) => {
 };
 
 const getAllSessionDemo = async (payload) => {
-  const data = await apiService.get("v1/sessions", payload);
+  const data = await apiService.get(`v1/sessions?${payload}`);
   return data;
 };
 
