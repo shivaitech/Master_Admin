@@ -226,6 +226,35 @@
         if (!callId) {
           throw new Error("Call ID is required to end call");
         }
+        // Show loading spinner inside end call button
+        this.isLoading = true;
+        if (this.callStatus) {
+          this.callStatus.textContent = "Disconnecting...";
+          this.callStatus.style.color = "#6366f1";
+        }
+        // Ensure loading indicator exists and show it
+        if (!this.loadingIndicator) {
+          // Create a simple loading spinner if not present
+          this.loadingIndicator = document.createElement("div");
+          this.loadingIndicator.className = "shivai-loading-dots";
+          for (let i = 0; i < 3; i++) {
+            const dot = document.createElement("div");
+            dot.className = "shivai-loading-dot";
+            this.loadingIndicator.appendChild(dot);
+          }
+          // Insert into chat interface or main container
+          if (this.chatInterface) {
+            this.chatInterface.appendChild(this.loadingIndicator);
+          } else {
+            document.body.appendChild(this.loadingIndicator);
+          }
+        }
+        if (this.endCallButtonLoader) {
+          this.endCallButtonLoader.style.display = "block";
+        }
+        if (this.endCallButton) {
+          this.endCallButton.disabled = true;
+        }
 
         const response = await fetch(
           `https://shivai-com-backend.onrender.com/api/v1/calls/end-call`,
@@ -246,6 +275,15 @@
 
         const data = await response.json();
         if (data.success && data.data) {
+          // Hide loading spinner inside end call button
+          this.isLoading = false;
+          if (this.loadingIndicator) {
+            this.loadingIndicator.style.display = "none";
+          }
+          if (this.callStatus) {
+            this.callStatus.textContent = "Call ended";
+            this.callStatus.style.color = "#ef4444";
+          }
           return {
             callId: data.data.callId,
             status: data.data.status,
@@ -253,9 +291,26 @@
             endTime: data.data.endTime,
             duration: data.data.duration,
           };
+          if (this.endCallButtonLoader) {
+            this.endCallButtonLoader.style.display = "none";
+          }
+          if (this.endCallButton) {
+            this.endCallButton.disabled = false;
+          }
         }
         throw new Error(data.message || "Failed to end call");
       } catch (error) {
+        this.isLoading = false;
+        if (this.endCallButtonLoader) {
+          this.endCallButtonLoader.style.display = "none";
+        }
+        if (this.endCallButton) {
+          this.endCallButton.disabled = false;
+        }
+        if (this.callStatus) {
+          this.callStatus.textContent = "Error disconnecting";
+          this.callStatus.style.color = "#ef4444";
+        }
         console.error("ShivAI End Call API Error:", error);
         throw error;
       }
@@ -295,7 +350,6 @@
       this.currentAudio = null; // currently playing Audio element
       this.currentBufferSource = null; // WebAudio buffer source
       this.currentAiTranscript = ""; // build up streamed AI text
-      this.currentStreamingMessage = null; // currently streaming AI message element
       this.userInteracted = false; // Track user interaction for iOS audio
       this.audioStartTime = null; // Track when audio playback started
 
@@ -522,11 +576,6 @@
             this.callStatus.style.color = "#10b981";
           }
 
-          // Hide reconnect UI when we get a successful connection
-          try {
-            this.hideReconnectButton();
-          } catch (_) {}
-
           // Send initial handshake with call ID
           this.sendWebSocketMessage({
             type: "handshake",
@@ -627,21 +676,11 @@
           );
           this.isWebSocketConnected = false;
 
-          // Update UI and show reconnect option
+          // Update UI
           if (this.callStatus && this.isCallActive) {
-            this.callStatus.textContent = "Call disconnected";
-            this.callStatus.style.color = "#ef4444";
-            
-            // Show reconnect button in header
-            this.showReconnectButton();
+            this.callStatus.textContent = "Voice service disconnected";
+            this.callStatus.style.color = "#f59e0b";
           }
-          // Stop call timer when WS closes
-          try {
-            if (this.callInterval) {
-              clearInterval(this.callInterval);
-              this.callInterval = null;
-            }
-          } catch (_) {}
           
           // Reject promise if connection closed before opening
           if (this.webSocket.readyState !== WebSocket.OPEN) {
@@ -662,23 +701,13 @@
             error: error.message || 'Unknown error'
           });
 
-          // Update UI with more helpful error message and show reconnect button
-          if (this.callStatus && this.isCallActive) {
+          // Update UI with more helpful error message
+          if (this.callStatus) {
             const errorMessage = connectionTime > 10000 ? 
-              "Connection timeout" : "Connection error";
+              "Connection timeout - continuing without voice" : "Voice service error";
             this.callStatus.textContent = errorMessage;
             this.callStatus.style.color = "#ef4444";
-            
-            // Show reconnect button
-            this.showReconnectButton();
           }
-          // Stop call timer on error
-          try {
-            if (this.callInterval) {
-              clearInterval(this.callInterval);
-              this.callInterval = null;
-            }
-          } catch (_) {}
           
           // Reject the promise on error
           reject(error);
@@ -704,10 +733,6 @@
       switch (data.type) {
         case "handshake_response":
           console.log("🤝 Handshake confirmed with Python service");
-          
-          // Hide chat connecting status - live conversation is about to begin
-          this.hideChatConnectingStatus();
-          
           // Start audio capture immediately when backend is ready
           this.hasStartedCapture = true; // Mark to prevent fallback timeout
           this.startAudioCapture().catch((err) => {
@@ -746,15 +771,14 @@
 
         case "user_transcript":
           console.log("🗣️ User transcript:", data.text);
-          this.handleUserTranscript(data.text);
+          this.handleTranscription(data.text);
           break;
         case "ai_transcript":
           console.log("🤖 AI transcript complete:", data.text);
-          this.handleAITranscriptComplete(data.text);
+          // Optionally display the final AI text somewhere
           break;
         case "ai_text_delta":
-          console.log("🤖 AI text delta:", data.text);
-          this.handleAITextDelta(data.text);
+          this.currentAiTranscript += data.text || "";
           break;
 
         case "speech_started":
@@ -1172,31 +1196,15 @@
             transform: translateY(-50%) translateX(10px) scale(0.8);
           }
         }
-
-        @keyframes streamingPulse {
-          0%, 100% {
-            opacity: 0.3;
-            transform: scale(0.8);
-          }
-          50% {
-            opacity: 1;
-            transform: scale(1);
-          }
-        }
-        
-        .streaming-message {
-          animation: slideIn 0.3s ease-out;
-        }
-        
-        .streaming-dots {
-          animation: pulse 2s infinite;
-        }
         
         .shivai-message-bubble {
           cursor: pointer;
         }
         
-
+        @keyframes typingCursor {
+          0%, 50% { opacity: 1; }
+          51%, 100% { opacity: 0; }
+        }
         
         @keyframes typingBounce {
           0%, 80%, 100% {
@@ -1745,13 +1753,32 @@
       let i = 0;
       messageEl.textContent = ''; // Start with empty text
       
+      // Add typing cursor effect
+      const cursor = createElement("span", {
+        style: {
+          opacity: "1",
+          animation: "typingCursor 1s infinite",
+          marginLeft: "2px",
+        }
+      }, ['']);
+      
+      messageEl.appendChild(cursor);
+      
       const typeInterval = setInterval(() => {
         if (i < message.length) {
+          // Remove cursor, add character, then re-add cursor
+          messageEl.removeChild(cursor);
           messageEl.textContent = message.substring(0, i + 1);
+          messageEl.appendChild(cursor);
           i++;
         } else {
-          // Typing is done
+          // Remove cursor when typing is done
           clearInterval(typeInterval);
+          setTimeout(() => {
+            if (messageEl.contains(cursor)) {
+              messageEl.removeChild(cursor);
+            }
+          }, 500); // Keep cursor for a bit then remove
         }
       }, 60); // Slightly slower typing for better effect
     }
@@ -1818,7 +1845,7 @@
         { text: "Setting up voice pipeline...", color: "#f59e0b", delay: 200 },
         { text: "Configuring audio streams...", color: "#f59e0b", delay: 200 },
         { text: "Almost ready to talk...", color: "#10b981", delay: 200 },
-        { text: "Connected! ShivAI Employee is listening 🎤", color: "#10b981", delay: 0 }
+  { text: "Connected! ShivAI Employee is listening 🎤", color: "#10b981", delay: 0 }
       ];
 
       for (const state of states) {
@@ -1889,7 +1916,7 @@
         </svg>`;
 
       senderInfo.appendChild(aiAvatar);
-      senderInfo.appendChild(document.createTextNode("AI Employee is responding..."));
+  senderInfo.appendChild(document.createTextNode("ShivAI Employee is responding..."));
 
       const messageBubble = createElement("div", {
         style: {
@@ -2164,7 +2191,7 @@
       });
 
       const privacyContent = document.createTextNode(
-        "By using this service you agree to our"
+        "By using this service you agree to our "
       );
 
       const privacyLink = createElement(
@@ -2619,7 +2646,7 @@
           justifyContent: "center",
           color: "#6b7280",
           transition: "all 0.2s ease",
-          // padding: "4px",
+          padding: "4px",
           width: "24px",
           height: "24px",
           position: "absolute",
@@ -3302,183 +3329,6 @@
       this.chatInterface.appendChild(this.footer);
     }
 
-    showReconnectButton() {
-      // Remove existing reconnect button if any
-      if (this.reconnectButton) {
-        this.reconnectButton.remove();
-        this.reconnectButton = null;
-      }
-
-      // Create reconnect button
-      this.reconnectButton = createElement("button", {
-        style: {
-          position: "absolute",
-          top: "16px",
-          left: "16px",
-          backgroundColor: "#ef4444",
-          color: "white",
-          border: "none",
-          borderRadius: "8px",
-          padding: "8px 12px",
-          fontSize: "14px",
-          fontWeight: "500",
-          cursor: "pointer",
-          display: "flex",
-          alignItems: "center",
-          gap: "6px",
-          boxShadow: "0 2px 8px rgba(0, 0, 0, 0.15)",
-          transition: "all 0.2s ease",
-          zIndex: "10",
-        },
-      });
-
-      // Add reconnect icon and text
-      const reconnectIcon = createElement("div", {
-        style: {
-          width: "16px",
-          height: "16px",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-        },
-      });
-      
-      reconnectIcon.innerHTML = `
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M3 7v6h6"/>
-          <path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13"/>
-        </svg>
-      `;
-
-      const reconnectText = document.createTextNode("Reconnect");
-      
-      this.reconnectButton.appendChild(reconnectIcon);
-      this.reconnectButton.appendChild(reconnectText);
-
-      // Add hover effects
-      this.reconnectButton.addEventListener("mouseenter", () => {
-        this.reconnectButton.style.backgroundColor = "#dc2626";
-        this.reconnectButton.style.transform = "scale(1.05)";
-      });
-
-      this.reconnectButton.addEventListener("mouseleave", () => {
-        this.reconnectButton.style.backgroundColor = "#ef4444";
-        this.reconnectButton.style.transform = "scale(1)";
-      });
-
-      // Add click handler for reconnection
-      this.reconnectButton.addEventListener("click", async () => {
-        console.log("🔄 User clicked reconnect button");
-        
-        // Disable button during reconnection
-        this.reconnectButton.style.opacity = "0.6";
-        this.reconnectButton.style.cursor = "not-allowed";
-        this.reconnectButton.disabled = true;
-        
-        // Update call status
-        if (this.callStatus) {
-          this.callStatus.textContent = "Reconnecting...";
-          this.callStatus.style.color = "#f59e0b";
-        }
-
-        try {
-          // Attempt to reconnect
-          await this.reconnectCall();
-          
-          // Remove reconnect button on successful reconnection
-          this.hideReconnectButton();
-          
-        } catch (error) {
-          console.error("❌ Reconnection failed:", error);
-          
-          // Re-enable button
-          this.reconnectButton.style.opacity = "1";
-          this.reconnectButton.style.cursor = "pointer";
-          this.reconnectButton.disabled = false;
-          
-          // Update status
-          if (this.callStatus) {
-            this.callStatus.textContent = "Reconnection failed - try again";
-            this.callStatus.style.color = "#ef4444";
-          }
-        }
-      });
-
-      // Add button to header if it exists
-      if (this.header) {
-        this.header.appendChild(this.reconnectButton);
-      }
-    }
-
-    hideReconnectButton() {
-      if (this.reconnectButton) {
-        this.reconnectButton.remove();
-        this.reconnectButton = null;
-      }
-    }
-
-    async reconnectCall() {
-      try {
-        console.log("🔄 Attempting to reconnect call...");
-        
-        // Clean up existing WebSocket connection
-        this.disconnectWebSocket();
-        
-        // Stop existing audio capture
-        this.stopAudioCapture();
-        
-        // Reset WebSocket connection state
-        this.isWebSocketConnected = false;
-        
-        // Use existing call ID if available, otherwise start new call
-        if (this.currentCallId && this.pythonServiceUrl) {
-          console.log("🔄 Reconnecting to existing call:", this.currentCallId);
-          
-          // Reconnect WebSocket with existing service URL
-          await this.connectToWebSocket(this.pythonServiceUrl);
-          
-          if (this.callStatus) {
-            this.callStatus.textContent = "Reconnected - Speak now!";
-            this.callStatus.style.color = "#10b981";
-          }
-          
-          // Restart call timer after reconnection
-          if (this.isWebSocketConnected && this.isCallActive) {
-            this.startCallTimer();
-          }
-          
-        } else {
-          console.log("🔄 Starting new call for reconnection...");
-          
-          // Start fresh call
-          const wasWarmedUp = this.connectionCache.has('backend-warmed');
-          const callData = await this.api.startCall(wasWarmedUp);
-          
-          this.currentCallId = callData.callId;
-          this.pythonServiceUrl = callData.pythonServiceUrl;
-          
-          // Connect to WebSocket
-          await this.connectToWebSocket(this.pythonServiceUrl);
-          
-          if (this.callStatus) {
-            this.callStatus.textContent = "New call started - Speak now!";
-            this.callStatus.style.color = "#10b981";
-          }
-          
-          // Start call timer for new call
-          if (this.isWebSocketConnected && this.isCallActive) {
-            this.startCallTimer();
-          }
-        }
-        
-        console.log("✅ Call reconnected successfully");
-        
-      } catch (error) {
-        console.error("❌ Failed to reconnect call:", error);
-        throw error;
-      }
-    }
-
     initSpeechRecognition() {
       if (
         this.config.features.voiceEnabled &&
@@ -3755,106 +3605,18 @@
     }
 
     async startChat() {
-      // Clear any existing messages for fresh live transcript
-      this.messages = [];
-      if (this.messagesContainer) {
-        this.messagesContainer.innerHTML = '';
-      }
+      // Don't set hasStarted = true yet, keep in welcome screen
+      // this.hasStarted = true;
+      // this.updateUI();
 
-      // Show connecting status for chat interface
-      this.showChatConnectingStatus();
-      
-      // Don't add dummy greeting - let the real AI conversation begin
-      // The first message will come from live transcript when AI speaks
-    }
-
-    showChatConnectingStatus() {
-      // Add a temporary connecting message that will be replaced by live transcript
-      const connectingElement = createElement("div", {
-        id: "chat-connecting-status",
-        class: "shivai-widget-message",
-        style: {
-          display: "flex",
-          flexDirection: "column",
-          alignItems: "center",
-          justifyContent: "center",
-          padding: "20px",
-          textAlign: "center",
-          color: "#6b7280",
-          fontSize: "14px",
-        },
-      });
-
-      const statusIcon = createElement("div", {
-        style: {
-          width: "32px",
-          height: "32px",
-          marginBottom: "12px",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          color: "#10b981",
-        },
-      });
-
-      statusIcon.innerHTML = `
-        <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24">
-          <path fill="none" stroke="currentColor" stroke-linejoin="round" stroke-width="2" d="M15 19c1.2-3.678 2.526-5.005 6-6c-3.474-.995-4.8-2.322-6-6c-1.2 3.678-2.526 5.005-6 6c3.474.995 4.8 2.322 6 6Zm-8-9c.6-1.84 1.263-2.503 3-3c-1.737-.497-2.4-1.16-3-3c-.6 1.84-1.263 2.503-3 3c1.737.497 2.4 1.16 3 3Zm1.5 10c.3-.92.631-1.251 1.5-1.5c-.869-.249-1.2-.58-1.5-1.5c-.3.92-.631 1.251-1.5 1.5c.869.249 1.2.58 1.5 1.5Z"/>
-        </svg>
-      `;
-
-      const statusText = createElement("div", {
-        style: {
-          fontWeight: "500",
-          marginBottom: "8px",
-        },
-      }, ["ShivAI Employee is connecting..."]);
-
-      const statusDescription = createElement("div", {
-        style: {
-          fontSize: "12px",
-          opacity: "0.7",
-        },
-      }, ["Live conversation will appear here"]);
-
-      // Add pulsing dots
-      const loadingDots = createElement("div", {
-        style: {
-          display: "flex",
-          gap: "4px",
-          marginTop: "12px",
-          justifyContent: "center",
-        },
-      });
-
-      for (let i = 0; i < 3; i++) {
-        const dot = createElement("div", {
-          style: {
-            width: "6px",
-            height: "6px",
-            borderRadius: "50%",
-            backgroundColor: "#10b981",
-            animation: `loadingDot 1.4s ease-in-out infinite both`,
-            animationDelay: `${i * 0.16}s`,
-          },
-        });
-        loadingDots.appendChild(dot);
-      }
-
-      connectingElement.appendChild(statusIcon);
-      connectingElement.appendChild(statusText);
-      connectingElement.appendChild(statusDescription);
-      connectingElement.appendChild(loadingDots);
-
-      if (this.messagesContainer) {
-        this.messagesContainer.appendChild(connectingElement);
-      }
-    }
-
-    hideChatConnectingStatus() {
-      const connectingStatus = document.getElementById("chat-connecting-status");
-      if (connectingStatus) {
-        connectingStatus.remove();
+      // Add initial greeting message when call actually starts
+      if (this.config.features.autoGreeting && !this.hasGreeted) {
+        await this.addMessage(
+          "bot",
+          "Hi! I'm ShivAI Employee. How can I help you today? 😊",
+          { skipTyping: true }
+        );
+        this.hasGreeted = true;
       }
     }
 
@@ -3897,9 +3659,6 @@
         this.isCallActive = true;
         this.callStartTime = new Date(callData.startTime);
         
-        // Hide reconnect button since call is now active
-        this.hideReconnectButton();
-        
         // Adjust modal height for call interface
         this.adjustModalHeight();
         
@@ -3917,12 +3676,6 @@
             if (diagnostics.lastSuccessfulConnection) {
               console.log(`🎯 Connection established in ${diagnostics.lastSuccessfulConnection.time}ms`);
             }
-            // Start call timer now that websocket is connected
-            try {
-              if (this.isCallActive && this.isWebSocketConnected) {
-                this.startCallTimer();
-              }
-            } catch (_) {}
             
           } catch (wsError) {
             console.warn("WebSocket connection failed, continuing in text mode:", wsError);
@@ -3942,14 +3695,16 @@
 
         await new Promise(resolve => setTimeout(resolve, 200));
 
-  // Now transition to call interface
-  this.hasStarted = true;
-  this.hideConnectingStatus();
-  this.updateModeUI();
-  this.updateUI();
-  // Only start call timer when websocket connection is confirmed
-  // connectToWebSocket will call startCallTimer after successful open
-  this.updateStartButton();
+        // Now transition to call interface
+        this.hasStarted = true;
+        this.hideConnectingStatus();
+        this.updateModeUI();
+        this.updateUI();
+        // Only start timer if socket is connected and chat is open
+        if (this.isWebSocketConnected && this.isOpen) {
+          this.startCallTimer();
+        }
+        this.updateStartButton();
 
         // Update call status in the interface
         if (this.callStatus) {
@@ -3959,6 +3714,14 @@
 
         // Update live messages for calling state
         this.updateLiveMessagesForState('calling');
+
+        // Add initial AI greeting to chat
+        setTimeout(async () => {
+          await this.addMessage(
+            "bot",
+            "Hi! I'm ShivAI.😊"
+          );
+        }, 300);
 
         console.log(
           "📞 Call interface activated with Call ID:",
@@ -3999,51 +3762,15 @@
         this.playSound('call-end');
 
         if (this.currentCallId) {
-          // Update UI to show ending state with loader
+          // Update UI to show ending state
           if (this.callStatus) {
-            this.callStatus.textContent = "Disconnecting...";
+            this.callStatus.textContent = "Ending call...";
             this.callStatus.style.color = "#f59e0b";
-          }
-          
-          // Show a brief disconnecting message in chat (optional visual feedback)
-          const disconnectingMsg = createElement("div", {
-            id: "disconnecting-status",
-            class: "shivai-widget-message",
-            style: {
-              display: "flex",
-              flexDirection: "column",
-              alignItems: "center",
-              padding: "12px",
-              fontSize: "14px",
-              color: "#f59e0b",
-              fontWeight: "500",
-            },
-          });
-          
-          const loaderIcon = createElement("div", {
-            style: {
-              marginBottom: "8px",
-              animation: "pulse 1.5s infinite",
-            },
-          });
-          loaderIcon.innerHTML = "⏳";
-          
-          disconnectingMsg.appendChild(loaderIcon);
-          disconnectingMsg.appendChild(document.createTextNode("Ending call..."));
-          
-          if (this.messagesContainer) {
-            this.messagesContainer.appendChild(disconnectingMsg);
-            this.messagesContainer.scrollTop = this.messagesContainer.scrollHeight;
           }
 
           // Call the new end-call API
           const endData = await this.api.endCall(this.currentCallId);
           console.log("✅ Call ended successfully:", endData);
-
-          // Remove disconnecting message
-          if (disconnectingMsg && disconnectingMsg.parentNode) {
-            disconnectingMsg.remove();
-          }
 
           // Log call duration from API response
           if (endData.duration) {
@@ -4067,9 +3794,6 @@
         this.isCallActive = false;
         // Keep hasStarted = true to maintain the unified interface
         this.callDuration = 0;
-        
-        // Hide reconnect button since call is properly ended
-        this.hideReconnectButton();
         
         // Adjust modal height when call ends
         this.adjustModalHeight();
@@ -4101,21 +3825,12 @@
         console.log("📞 Call ended - returned to main interface");
       } catch (error) {
         console.error("❌ Failed to end call properly:", error);
-        
-        // Remove disconnecting message if present
-        const disconnectingMsg = document.getElementById("disconnecting-status");
-        if (disconnectingMsg) {
-          disconnectingMsg.remove();
-        }
 
         // Still reset the UI even if API call fails
         this.isCallActive = false;
         // Keep hasStarted = true to maintain the unified interface
         this.currentCallId = null;
         this.stopAudioCapture();
-        
-        // Hide reconnect button
-        this.hideReconnectButton();
 
         if (this.callStatus) {
           this.callStatus.textContent = "Call ended";
@@ -4128,6 +3843,8 @@
     }
 
     startCallTimer() {
+      // Only start timer if socket is connected and chat is open
+      if (!this.isWebSocketConnected || !this.isOpen) return;
       this.callInterval = setInterval(() => {
         if (this.isCallActive) {
           const elapsed = Math.floor((Date.now() - this.callStartTime) / 1000);
@@ -4172,8 +3889,8 @@
         console.log("Showing unified interface");
         this.unifiedMode.style.display = "flex";
         
-        // Update timer container visibility - only show when websocket is connected
-        this.callTimerContainer.style.display = (this.isCallActive && this.isWebSocketConnected) ? "flex" : "none";
+        // Update timer container visibility
+        this.callTimerContainer.style.display = this.isCallActive ? "flex" : "none";
         
         // Update header call controls visibility
         if (this.headerCallControls) {
@@ -4197,19 +3914,6 @@
         // Update call timer
         if (this.callTimer) {
           this.updateCallTimer();
-        }
-        
-        // Show/hide reconnect button based on connection state
-        if (this.isCallActive && !this.isWebSocketConnected) {
-          // Call active but not connected - show reconnect option
-          if (!this.reconnectButton) {
-            this.showReconnectButton();
-          }
-        } else {
-          // Either no call or connected - hide reconnect
-          if (this.reconnectButton) {
-            this.hideReconnectButton();
-          }
         }
       }
       
@@ -4902,207 +4606,21 @@
       });
     }
 
-    handleUserTranscript(text) {
+    handleTranscription(text) {
+      // Handle speech-to-text transcription from user
       try {
-        console.log("🗣️ User transcript:", text);
-        
+        console.log("📝 Processing transcription:", text);
+
         if (text && text.trim()) {
-          // Add user message to chat interface in real-time
-          this.addLiveMessage("user", text, {
-            timestamp: new Date(),
-            isLive: true
-          });
+          // You can display the transcription in the UI or process it
+          console.log("🗣️ User said:", text);
+
+          // Optionally show the transcription in the call interface
+          // This could be expanded to show live transcription
         }
       } catch (error) {
-        console.error("❌ Error handling user transcript:", error);
+        console.error("❌ Error handling transcription:", error);
       }
-    }
-
-    handleAITranscriptComplete(text) {
-      try {
-        console.log("🤖 AI transcript complete:", text);
-        
-        // If we have a streaming message, just finalize it (don't create duplicate)
-        if (this.currentStreamingMessage) {
-          // Update final content if different
-          if (text && text.trim() && text !== this.currentAiTranscript) {
-            this.updateStreamingMessage(this.currentStreamingMessage, text);
-          }
-          
-          // Remove streaming indicator (dots) from the finalized message
-          const streamingDots = this.currentStreamingMessage.querySelector('.streaming-dots');
-          if (streamingDots) {
-            streamingDots.remove();
-          }
-          
-          // Mark as complete by removing streaming class
-          this.currentStreamingMessage.classList.remove('streaming-message');
-        } else if (text && text.trim()) {
-          // Only add as new message if we weren't streaming (fallback)
-          this.addLiveMessage("bot", text, {
-            timestamp: new Date(),
-            isLive: true,
-            isComplete: true
-          });
-        }
-        
-        // Reset streaming text
-        this.currentAiTranscript = "";
-        this.currentStreamingMessage = null;
-      } catch (error) {
-        console.error("❌ Error handling AI transcript:", error);
-      }
-    }
-
-    handleAITextDelta(deltaText) {
-      try {
-        if (deltaText) {
-          this.currentAiTranscript += deltaText;
-          
-          // Update streaming message or create new one
-          if (!this.currentStreamingMessage) {
-            this.currentStreamingMessage = this.addStreamingMessage("bot", this.currentAiTranscript);
-          } else {
-            this.updateStreamingMessage(this.currentStreamingMessage, this.currentAiTranscript);
-          }
-        }
-      } catch (error) {
-        console.error("❌ Error handling AI text delta:", error);
-      }
-    }
-
-    addLiveMessage(type, content, options = {}) {
-      // Skip typing animation for live messages to make them feel real-time
-      const finalOptions = {
-        ...options,
-        skipTyping: true,
-        isLive: true
-      };
-      
-      this.addMessage(type, content, finalOptions);
-    }
-
-    addStreamingMessage(type, content) {
-      const messageId = this.generateId();
-      const message = { 
-        id: messageId, 
-        type, 
-        content, 
-        timestamp: new Date(),
-        isStreaming: true
-      };
-
-      this.messages.push(message);
-      const messageElement = this.createStreamingMessageElement(message);
-      this.messagesContainer.appendChild(messageElement);
-
-      // Scroll to bottom
-      this.messagesContainer.scrollTop = this.messagesContainer.scrollHeight;
-
-      return messageElement;
-    }
-
-    updateStreamingMessage(messageElement, newContent) {
-      const contentElement = messageElement.querySelector('.message-content');
-      if (contentElement) {
-        contentElement.textContent = newContent;
-        
-        // Scroll to bottom to follow the streaming text
-        this.messagesContainer.scrollTop = this.messagesContainer.scrollHeight;
-      }
-    }
-
-    createStreamingMessageElement(message) {
-      const messageDiv = createElement("div", {
-        class: "shivai-widget-message streaming-message",
-        style: {
-          display: "flex",
-          flexDirection: "column",
-          alignItems: message.type === "user" ? "flex-end" : "flex-start",
-          marginBottom: "16px",
-        },
-      });
-
-      // Sender info with streaming indicator
-      const senderInfo = createElement("div", {
-        style: {
-          display: "flex",
-          alignItems: "center",
-          gap: "6px",
-          marginBottom: "4px",
-          fontSize: "12px",
-          color: "#6b7280",
-        },
-      });
-
-      // Avatar/Icon
-      const avatar = createElement("div", {
-        style: {
-          width: "20px",
-          height: "20px",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          color: message.type === "user" ? "#3b82f6" : "#10b981",
-        },
-      });
-
-      if (message.type === "user") {
-        avatar.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>`;
-        senderInfo.appendChild(avatar);
-        senderInfo.appendChild(document.createTextNode("You"));
-      } else {
-        // AI with streaming indicator
-        avatar.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-linejoin="round" stroke-width="2" d="M15 19c1.2-3.678 2.526-5.005 6-6c-3.474-.995-4.8-2.322-6-6c-1.2 3.678-2.526 5.005-6 6c3.474.995 4.8 2.322 6 6Zm-8-9c.6-1.84 1.263-2.503 3-3c-1.737-.497-2.4-1.16-3-3c-.6 1.84-1.263 2.503-3 3c1.737.497 2.4 1.16 3 3Zm1.5 10c.3-.92.631-1.251 1.5-1.5c-.869-.249-1.2-.58-1.5-1.5c-.3.92-.631 1.251-1.5 1.5c.869.249 1.2.58 1.5 1.5Z"/></svg>`;
-        senderInfo.appendChild(avatar);
-        senderInfo.appendChild(document.createTextNode("ShivAI Employee"));
-        
-        // Add streaming dots
-        const streamingDots = createElement("div", {
-          class: "streaming-dots",
-          style: {
-            display: "flex",
-            gap: "2px",
-            marginLeft: "4px",
-          },
-        });
-
-        for (let i = 0; i < 3; i++) {
-          const dot = createElement("div", {
-            style: {
-              width: "4px",
-              height: "4px",
-              borderRadius: "50%",
-              backgroundColor: "#10b981",
-              animation: `streamingPulse 1.5s ease-in-out infinite`,
-              animationDelay: `${i * 0.2}s`,
-            },
-          });
-          streamingDots.appendChild(dot);
-        }
-        senderInfo.appendChild(streamingDots);
-      }
-
-      // Message bubble
-      const messageBubble = createElement("div", {
-        class: "message-content",
-        style: {
-          backgroundColor: message.type === "user" ? "#3b82f6" : "#f3f4f6",
-          color: message.type === "user" ? "#ffffff" : "#374151",
-          padding: "12px 16px",
-          borderRadius: message.type === "user" ? "18px 18px 4px 18px" : "18px 18px 18px 4px",
-          maxWidth: "80%",
-          wordWrap: "break-word",
-          position: "relative",
-        },
-      });
-
-      messageBubble.textContent = message.content;
-
-      messageDiv.appendChild(senderInfo);
-      messageDiv.appendChild(messageBubble);
-
-      return messageDiv;
     }
 
     showErrorMessage(message) {
