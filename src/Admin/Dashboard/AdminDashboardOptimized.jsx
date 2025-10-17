@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   RiHome4Line,
   RiTeamLine,
@@ -63,6 +63,8 @@ import {
   MessageSquare,
   UserCheck,
 } from "lucide-react";
+import lisitingService from "../../Redux-config/apisModel/lisitingService";
+import toast from "react-hot-toast";
 
 const AdminDashboardContent = () => {
   const [activeSection, setActiveSection] = useState("dashboard");
@@ -71,7 +73,7 @@ const AdminDashboardContent = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const { theme, toggleTheme, currentTheme } = useTheme();
   const navigate = useNavigate();
-
+  const [adminInfo, setAdminInfo] = useState({ name: "", email: "" });
   const navItems = [
     {
       id: "dashboard",
@@ -127,6 +129,39 @@ const AdminDashboardContent = () => {
       section: "settings",
     },
   ];
+
+   useEffect(() => {
+    const getAdmin = async () => {
+      const user = await fetchUser();
+      if (user && user.name && user.email) {
+        setAdminInfo({ name: user.name, email: user.email });
+      }
+    };
+    getAdmin();
+  }, []);
+
+  console.log(adminInfo);
+  
+  // Fetch user info (admin)
+  const fetchUser = async () => {
+    try {
+      const response = await lisitingService.getUser();
+      console.log(response);
+      
+      if (response?.data?.statusCode === 200) {
+        const { name, email } = response.data.data?.user;
+        return { name: name || "Admin User", email: email || "admin@shivai.com" };
+      }
+      return { name: "Admin User", email: "admin@shivai.com" };
+    } catch (err) {
+      console.error("Error fetching admin info:", err);
+      if(err?.response?.data?.statusCode === 401 && err.response.data.message === "Access token is required") {
+        toast.error("Session expired. Please log in again.");
+        navigate("/");
+      }
+      return { name: "Admin User", email: "admin@shivai.com" };
+    }
+  };
 
   const handleNavClick = (section) => {
     setActiveSection(section);
@@ -1273,7 +1308,7 @@ const AdminDashboardContent = () => {
                   <p
                     className={`text-xs ${currentTheme.textSecondary} truncate`}
                   >
-                    admin@shivai.com
+                    {adminInfo.email}
                   </p>
                 </div>
               )}

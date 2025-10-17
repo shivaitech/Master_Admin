@@ -684,7 +684,7 @@ const AIEmployeeStatsMain = ({ onViewEmployee }) => {
               <h3
                 className={`text-2xl font-semibold ${currentTheme.text} mb-1`}
               >
-                {employee.totalSessions}
+                {totalItems}
               </h3>
               <p
                 className={`text-sm font-medium ${currentTheme.text} mb-1 leading-tight`}
@@ -847,7 +847,7 @@ const AIEmployeeStatsMain = ({ onViewEmployee }) => {
                 <h3
                   className={`text-lg sm:text-xl md:text-2xl font-semibold ${currentTheme.text} mb-0.5 sm:mb-1`}
                 >
-                  {employee.totalSessions}
+                  {totalItems}
                 </h3>
                 <p
                   className={`text-xs sm:text-xs md:text-sm font-medium ${currentTheme.text} mb-0.5 leading-tight`}
