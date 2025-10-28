@@ -14,10 +14,7 @@
   let audioWorkletNode = null;
   let isConnected = false;
   let isMuted = false;
-  let audioQueue = [];
-  let isPlaying = false;
   let currentAssistantTranscript = "";
-  let currentAudioSource = null;
   let currentUserTranscript = "";
   let lastUserMessageDiv = null;
   let visualizerInterval = null;
@@ -1879,13 +1876,8 @@
           console.log("🎤 [USER] Speech started");
           updateStatus("🎤 Listening...", "listening");
 
-          // INTERRUPT: Stop AI audio when user starts speaking
-          if (currentAudioSource) {
-            currentAudioSource.stop();
-            currentAudioSource = null;
-          }
-          audioQueue = []; // Clear queue
-          isPlaying = false;
+          // PERFECT INTERRUPT: Stop AI audio when user starts speaking
+          stopAllScheduledAudio({ preserveStatus: true });
 
           // Reset user transcript tracking
           currentUserTranscript = "";
@@ -1942,24 +1934,14 @@
           }
           currentAssistantTranscript = "";
         } else if (eventType === "response.audio.delta") {
-          // Queue audio for playback with validation
-          if (data.delta) {
-            try {
-              const audioData = base64ToArrayBuffer(data.delta);
-              if (audioData && audioData.byteLength > 0) {
-                console.log("🔊 [AI AUDIO] Received audio chunk:", audioData.byteLength, "bytes");
-                audioQueue.push(audioData);
-                if (!isPlaying) {
-                  playAudioQueue();
-                }
-              }
-            } catch (error) {
-              console.error("Error processing audio delta:", error);
-            }
-          }
+          // Perfect audio scheduling
+          console.log("🔊 [AI AUDIO] Received audio chunk");
+          scheduleAudioChunk(base64ToArrayBuffer(data.delta));
         } else if (eventType === "response.done") {
           console.log("✅ [AI] Response complete");
-          updateStatus("🟢 Connected - Speak naturally!", "connected");
+          if (!assistantSpeaking) {
+            updateStatus("🟢 Connected - Speak naturally!", "connected");
+          }
         } else if (eventType === "error") {
           console.error("❌ [ERROR] from server:", data);
           updateStatus("❌ Error occurred", "disconnected");
@@ -2022,19 +2004,9 @@
       }
     }
 
-    // Stop current audio
-    if (currentAudioSource) {
-      currentAudioSource.stop();
-      currentAudioSource = null;
-    }
-    audioQueue = [];
-    isPlaying = false;
-
-    // Teardown playback processor
+    // Perfect audio cleanup
+    stopAllScheduledAudio();
     teardownPlaybackProcessor();
-    playbackBufferQueue = [];
-    playbackBufferOffset = 0;
-    assistantSpeaking = false;
 
     // Stop audio streaming
     if (audioWorkletNode) {
@@ -2093,48 +2065,24 @@
     console.log("Conversation stopped");
   }
 
-  // Start audio streaming
+  // Start audio streaming - Perfect version with clean audio processing
   function startAudioStreaming() {
     const source = audioContext.createMediaStreamSource(mediaStream);
     const processor = audioContext.createScriptProcessor(4096, 1, 1);
-    let audioChunkCount = 0; // Track chunks for logging
 
     processor.onaudioprocess = (e) => {
       if (!isConnected || !ws || ws.readyState !== WebSocket.OPEN) return;
 
       const inputData = e.inputBuffer.getChannelData(0);
-      
-      // Calculate RMS (volume level) for noise gate and interruption detection
-      let sum = 0;
-      for (let i = 0; i < inputData.length; i++) {
-        sum += inputData[i] * inputData[i];
-      }
-      const rms = Math.sqrt(sum / inputData.length);
-      
-      // Noise gate threshold for echo prevention
-      const noiseGateThreshold = assistantSpeaking ? 0.08 : 0.02;
-      
-      // Only apply noise gate when AI is speaking (to prevent echo)
-      // Always send audio when AI is not speaking (let backend handle VAD)
-      const shouldSendAudio = !assistantSpeaking || rms >= noiseGateThreshold;
-      
-      if (shouldSendAudio) {
-        audioChunkCount++;
-        const pcm16 = convertFloat32ToPCM16(inputData);
-        const base64Audio = arrayBufferToBase64(pcm16);
+      const pcm16 = convertFloat32ToPCM16(inputData);
+      const base64Audio = arrayBufferToBase64(pcm16);
 
-        // Log every 50th chunk to avoid spam (approximately every 5 seconds)
-        if (audioChunkCount % 50 === 0) {
-          console.log(`🎤 [USER AUDIO] Sent ${audioChunkCount} chunks, RMS: ${rms.toFixed(4)}, AI Speaking: ${assistantSpeaking}`);
-        }
-
-        ws.send(
-          JSON.stringify({
-            type: "audio",
-            audio: base64Audio,
-          })
-        );
-      }
+      ws.send(
+        JSON.stringify({
+          type: "audio",
+          audio: base64Audio,
+        })
+      );
     };
 
     source.connect(processor);
@@ -2192,7 +2140,7 @@
   function handlePlaybackProcess(event) {
     const output = event.outputBuffer.getChannelData(0);
     let offset = 0;
-    const volumeGain = 4.0; // Boost volume by 4x (max volume)
+    const volumeGain = 5.0; // Boost volume by 4x (max volume)
 
     while (offset < output.length) {
       if (playbackBufferQueue.length === 0) {
@@ -2224,43 +2172,44 @@
     }
   }
 
-  // Process and queue audio for smooth playback
-  async function playAudioQueue() {
-    if (audioQueue.length === 0) {
+  // Perfect audio scheduling system
+  function scheduleAudioChunk(pcmBuffer) {
+    if (!audioContext) {
       return;
     }
 
-    const pcm16Data = audioQueue.shift();
-
-    try {
-      // Convert PCM16 to Int16Array for direct playback
-      const pcm16 = new Int16Array(pcm16Data);
-
-      // Convert Int16 to Float32 for Web Audio API
-      const float32 = new Float32Array(pcm16.length);
-      for (let i = 0; i < pcm16.length; i++) {
-        float32[i] = pcm16[i] / 32768.0; // Normalize to -1.0 to 1.0
-      }
-
-      // Add to playback buffer queue
-      playbackBufferQueue.push(float32);
-
-      // Set speaking state
-      if (!assistantSpeaking) {
-        setAssistantSpeaking(true);
-      }
-
-      // Process remaining queue
-      if (audioQueue.length > 0) {
-        playAudioQueue();
-      }
-    } catch (error) {
-      console.error("Error processing audio:", error);
-      // Continue with next chunk
-      if (audioQueue.length > 0) {
-        playAudioQueue();
-      }
+    if (!playbackProcessor) {
+      setupPlaybackProcessor();
     }
+
+    const float32 = pcm16ToFloat32(pcmBuffer);
+    if (float32.length === 0) {
+      return;
+    }
+
+    const wasBufferEmpty = playbackBufferQueue.length === 0;
+    playbackBufferQueue.push(float32);
+    if (wasBufferEmpty) {
+      setAssistantSpeaking(true);
+    }
+  }
+
+  // Perfect PCM16 to Float32 conversion
+  function pcm16ToFloat32(pcmBuffer) {
+    const pcm16 = new Int16Array(pcmBuffer);
+    const float32 = new Float32Array(pcm16.length);
+    for (let i = 0; i < pcm16.length; i++) {
+      float32[i] = pcm16[i] / 0x8000;
+    }
+    return float32;
+  }
+
+  // Perfect audio interruption system
+  function stopAllScheduledAudio(options = {}) {
+    const preserveStatus = options.preserveStatus === true;
+    playbackBufferQueue = [];
+    playbackBufferOffset = 0;
+    setAssistantSpeaking(false, preserveStatus);
   }
 
   // Convert Float32Array to PCM16
