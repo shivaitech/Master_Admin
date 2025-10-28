@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { useTheme } from "../contexts/ThemeContext";
 import listingService from "../../../Redux-config/apisModel/lisitingService";
 import {
@@ -40,22 +40,17 @@ const AIEmployeeStatsMain = ({ onViewEmployee }) => {
   const { theme, currentTheme } = useTheme();
   const [searchTerm, setSearchTerm] = useState(""); // For input value only
   const [searchQuery, setSearchQuery] = useState(""); // For API calls
-  const [filterDate, setFilterDate] = useState("all");
-  const [filterType, setFilterType] = useState("all");
   const [selectedSession, setSelectedSession] = useState(null);
   const [sessions, setSessions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [loadingTranscript, setLoadingTranscript] = useState(false);
   const [error, setError] = useState(null);
 
-  // Pagination state - now managed by API
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(10); // Standard page size
   const [totalItems, setTotalItems] = useState(0);
   const [totalPages, setTotalPages] = useState(0);
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
-  // View state
   const [viewMode, setViewMode] = useState("list"); // "list" or "grid"
 
   // API Filter states
@@ -69,14 +64,9 @@ const AIEmployeeStatsMain = ({ onViewEmployee }) => {
   // Employee selection state
   const [selectedEmployee, setSelectedEmployee] = useState("emp1"); // Pre-select Demo Employee
   const [employees] = useState([
-    { id: "emp1", name: "Demo Employee" },
-    { id: "emp2", name: "ShivAI Widget Employee" },
+    { id: "emp1", name: "Shivai Widget" },
+    { id: "emp2", name: "Demo Employee" },
   ]);
-
-  // Load sessions on component mount and when filters change
-  useEffect(() => {
-    fetchSessions();
-  }, [currentPage, deviceTypeFilter, dateRange, searchQuery]); // Added searchQuery
 
   // Debounced search effect - separate from API calls
   useEffect(() => {
@@ -141,12 +131,12 @@ const AIEmployeeStatsMain = ({ onViewEmployee }) => {
   });
 
   // API Functions
-  const fetchSessions = async () => {
+  const fetchSessions = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
 
-      // Build API query parameters
+      // Build API query parameters - same for both APIs
       const queryParams = new URLSearchParams({
         page: currentPage.toString(),
         limit: itemsPerPage.toString(),
@@ -170,11 +160,18 @@ const AIEmployeeStatsMain = ({ onViewEmployee }) => {
         queryParams.append("q", searchQuery.trim());
       }
 
-      console.log("Fetching sessions with params:", queryParams.toString());
+      console.log(`Fetching sessions for ${selectedEmployee === "emp1" ? "Demo Employee" : "ShivAI Widget Employee"} with params:`, queryParams.toString());
       let payload = queryParams.toString();
 
-      // Make API call with filters
-      const response = await listingService.getAllSessionDemo(payload);
+      // Call different API based on selected employee - but with same filters and pagination
+      let response;
+      if (selectedEmployee === "emp1") {
+        // Demo Employee - call getAgentSessions with filters
+        response = await listingService.getAgentSessions(payload);
+      } else {
+        // ShivAI Widget Employee - call getAllSessionDemo with filters
+        response = await listingService.getAllSessionDemo(payload);
+      }
       console.log("API Raw Response:", response);
 
       // Extract data - handle nested structure
@@ -311,7 +308,12 @@ const AIEmployeeStatsMain = ({ onViewEmployee }) => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [currentPage, itemsPerPage, deviceTypeFilter, dateRange, searchQuery, selectedEmployee]);
+
+  // Load sessions on component mount and when filters change
+  useEffect(() => {
+    fetchSessions();
+  }, [fetchSessions]);
 
   const fetchTranscripts = async (sessionId) => {
     try {
@@ -622,11 +624,9 @@ const AIEmployeeStatsMain = ({ onViewEmployee }) => {
     <div className="space-y-3 md:space-y-4 lg:space-y-6  px-2 sm:px-0">
       {/* Employee Stats - Sliding Cards for Mobile */}
       <div className="relative">
-        {/* Employee Selector - Desktop Only - Enhanced UI */}
-        <div className="hidden lg:flex items-center mb-4">
-          <div className="flex items-center gap-3"></div>
-
-          <div className="relative">
+        {/* Employee Selector - Mobile Responsive - Enhanced UI */}
+        <div className="flex items-center justify-start mb-4 px-2 sm:px-0">
+          <div className="relative w-full sm:w-auto">
             <select
               id="employee-select"
               value={selectedEmployee}
@@ -640,13 +640,18 @@ const AIEmployeeStatsMain = ({ onViewEmployee }) => {
                     client: emp.name,
                   }));
                 }
+                // Reset pagination when switching employees
+                setCurrentPage(1);
+                // Clear any existing sessions while loading new ones
+                setSessions([]);
               }}
               className={`
-                appearance-none px-4 py-2 pr-10 rounded-lg border-2 border-gray-300
-                bg-white ${currentTheme.text} font-medium
+                appearance-none px-3 py-2 pr-8 sm:px-4 sm:py-2 sm:pr-10 
+                rounded-lg border-2 border-gray-300
+                bg-white ${currentTheme.text} font-medium text-sm sm:text-base
                 focus:outline-none focus:ring-1 focus:ring-black focus:border-blue-500
                 hover:border-gray-400 transition-all duration-200
-                shadow-sm min-w-[200px] cursor-pointer
+                shadow-sm w-full sm:min-w-[200px] cursor-pointer
               `}
             >
               {employees.map((emp) => (
@@ -655,7 +660,7 @@ const AIEmployeeStatsMain = ({ onViewEmployee }) => {
                 </option>
               ))}
             </select>
-            <ChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400 pointer-events-none" />
+            <ChevronDown className="absolute right-2 sm:right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 sm:w-5 sm:h-5 text-gray-400 pointer-events-none" />
           </div>
         </div>
         <div className="hidden lg:grid lg:grid-cols-4 gap-4">

@@ -2140,7 +2140,7 @@
   function handlePlaybackProcess(event) {
     const output = event.outputBuffer.getChannelData(0);
     let offset = 0;
-    const volumeGain = 5.0; // Boost volume by 4x (max volume)
+    const volumeGain = 4.0; // Boost volume by 4x (max volume)
 
     while (offset < output.length) {
       if (playbackBufferQueue.length === 0) {
