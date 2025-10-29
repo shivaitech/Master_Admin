@@ -1856,7 +1856,7 @@
         const configMessage = {
           type: "config",
           language: selectedLanguage,
-          agent_id: "agent-102-102-shivaiCalling", // Use callId as agent_id
+          agent_id: "id123", // Use callId as agent_id
         };
         console.log("📤 [WEBSOCKET] Sending config:", configMessage);
         ws.send(JSON.stringify(configMessage));

@@ -45,7 +45,6 @@ const AIEmployeeStatsMain = ({ onViewEmployee }) => {
   const [loading, setLoading] = useState(true);
   const [loadingTranscript, setLoadingTranscript] = useState(false);
   const [error, setError] = useState(null);
-
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(10); // Standard page size
   const [totalItems, setTotalItems] = useState(0);
@@ -316,6 +315,8 @@ const AIEmployeeStatsMain = ({ onViewEmployee }) => {
   }, [fetchSessions]);
 
   const fetchTranscripts = async (sessionId) => {
+    console.log("Fetching transcripts for session:", sessionId);
+    
     try {
       setLoadingTranscript(true);
       const response = await listingService.getSessionTranscript(sessionId);
@@ -544,7 +545,7 @@ const AIEmployeeStatsMain = ({ onViewEmployee }) => {
 
   const handleViewSession = async (session) => {
     // Load transcripts for the session
-    const transcripts = await fetchTranscripts(session.sessionId);
+    const transcripts = await fetchTranscripts(session.sessionId || session.id);
     const sessionWithTranscripts = {
       ...session,
       transcripts: transcripts,

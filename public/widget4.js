@@ -27,6 +27,12 @@
   let playbackBufferQueue = [];
   let playbackBufferOffset = 0;
   let assistantSpeaking = false;
+  let masterGainNode = null; // Master volume control
+
+  // Sound effects system
+  let soundContext = null;
+  let soundsEnabled = true;
+  let userInteracted = false;
 
   // Bubble message variables
   let messageBubble = null;
@@ -62,6 +68,216 @@
   function initWidget() {
     createWidgetUI();
     setupEventListeners();
+    initSoundContext();
+  }
+
+  // Initialize sound context for call sounds
+  function initSoundContext() {
+    if (!soundsEnabled) return;
+    
+    try {
+      soundContext = new (window.AudioContext || window.webkitAudioContext)();
+      
+      // iOS Safari requires user interaction to unlock audio context
+      if (soundContext.state === 'suspended') {
+        const unlockAudio = () => {
+          // Mark user interaction for iOS
+          userInteracted = true;
+          
+          // Resume sound context
+          soundContext.resume().then(() => {
+            console.log('🔊 Sound context resumed');
+          }).catch(err => {
+            console.warn('Failed to resume sound context:', err);
+          });
+          
+          // Also resume voice audio context if available (iOS fix)
+          if (audioContext && audioContext.state === 'suspended') {
+            audioContext.resume().then(() => {
+              console.log('🎤 Voice audio context resumed');
+            }).catch(err => {
+              console.warn('Failed to resume voice audio context:', err);
+            });
+          }
+          
+          // Clean up listeners after first user interaction
+          document.removeEventListener('touchstart', unlockAudio);
+          document.removeEventListener('click', unlockAudio);
+        };
+        document.addEventListener('touchstart', unlockAudio);
+        document.addEventListener('click', unlockAudio);
+      }
+    } catch (error) {
+      console.warn("Could not initialize audio context for sound effects:", error);
+      soundsEnabled = false;
+    }
+  }
+
+  // Play call sound effects
+  function playSound(type) {
+    if (!soundsEnabled || !soundContext) {
+      initSoundContext();
+      if (!soundContext) return;
+    }
+
+    try {
+      switch (type) {
+        case 'connecting':
+          playConnectingSound();
+          break;
+        case 'dialling':
+          playDiallingSound();
+          break;
+        case 'call-start':
+          playCallStartSound();
+          break;
+        case 'call-end':
+          playCallEndSound();
+          break;
+        default:
+          console.warn('Unknown sound type:', type);
+      }
+    } catch (error) {
+      console.warn('Error playing sound:', error);
+    }
+  }
+
+  // Generate connecting sound - ascending tone sequence
+  function playConnectingSound() {
+    const frequencies = [440, 554, 659]; // A, C#, E notes
+    let delay = 0;
+
+    frequencies.forEach((freq, index) => {
+      setTimeout(() => {
+        generateTone(freq, 0.15, 0.3); // frequency, duration, volume
+      }, delay);
+      delay += 120;
+    });
+  }
+
+  // Generate dialling sound - repeating dial tone pattern
+  function playDiallingSound() {
+    const dialTone = 440; // Standard dial tone frequency
+    let iterations = 0;
+    const maxIterations = 3; // Repeat 3 times
+    
+    const playDialTone = () => {
+      if (iterations < maxIterations) {
+        // Play two short beeps with a pause
+        generateTone(dialTone, 0.2, 0.4);
+        setTimeout(() => {
+          generateTone(dialTone, 0.2, 0.4);
+        }, 250);
+        
+        iterations++;
+        
+        // Schedule next iteration
+        setTimeout(playDialTone, 800);
+      }
+    };
+    
+    playDialTone();
+  }
+
+  // Generate call start sound - pleasant ascending chord
+  function playCallStartSound() {
+    const frequencies = [261.63, 329.63, 392.00]; // C, E, G major chord
+    
+    frequencies.forEach((freq, index) => {
+      setTimeout(() => {
+        generateTone(freq, 0.3, 0.25);
+      }, index * 50);
+    });
+  }
+
+  // Generate call end sound - descending tone
+  function playCallEndSound() {
+    const frequencies = [392.00, 329.63, 261.63]; // G, E, C descending
+    let delay = 0;
+
+    frequencies.forEach((freq, index) => {
+      setTimeout(() => {
+        generateTone(freq, 0.2, 0.2);
+      }, delay);
+      delay += 100;
+    });
+  }
+
+  // Get user's IP address
+  async function getClientIP() {
+    try {
+      // Method 1: Try ipapi.co (includes geolocation)
+      try {
+        const response = await fetch('https://ipapi.co/json/', {
+          method: 'GET'
+        });
+        if (response.ok) {
+          const data = await response.json();
+          console.log("🌐 [IP] Retrieved via ipapi.co:", data.ip);
+          return data.ip;
+        }
+      } catch (e) {
+        console.warn("🌐 [IP] ipapi.co failed:", e.message);
+      }
+
+      // Method 2: Try ipify as fallback
+      try {
+        const response = await fetch('https://api.ipify.org?format=json', {
+          method: 'GET'
+        });
+        if (response.ok) {
+          const data = await response.json();
+          console.log("🌐 [IP] Retrieved via ipify:", data.ip);
+          return data.ip;
+        }
+      } catch (e) {
+        console.warn("🌐 [IP] ipify failed:", e.message);
+      }
+
+      // Method 3: Try ipinfo.io as another fallback
+      try {
+        const response = await fetch('https://ipinfo.io/json', {
+          method: 'GET'
+        });
+        if (response.ok) {
+          const data = await response.json();
+          console.log("🌐 [IP] Retrieved via ipinfo.io:", data.ip);
+          return data.ip;
+        }
+      } catch (e) {
+        console.warn("🌐 [IP] ipinfo.io failed:", e.message);
+      }
+
+      return null;
+    } catch (error) {
+      console.error("🌐 [IP] All IP detection methods failed:", error);
+      return null;
+    }
+  }
+
+  // Generate tone using Web Audio API
+  function generateTone(frequency, duration, volume = 0.1) {
+    if (!soundContext) return;
+
+    const oscillator = soundContext.createOscillator();
+    const gainNode = soundContext.createGain();
+
+    // Connect oscillator to gain to speakers
+    oscillator.connect(gainNode);
+    gainNode.connect(soundContext.destination);
+
+    // Configure oscillator
+    oscillator.frequency.setValueAtTime(frequency, soundContext.currentTime);
+    oscillator.type = 'sine'; // Smooth, pleasant tone
+
+    // Configure gain envelope (fade in/out to avoid clicks)
+    gainNode.gain.setValueAtTime(0, soundContext.currentTime);
+    gainNode.gain.linearRampToValueAtTime(volume, soundContext.currentTime + 0.01);
+    gainNode.gain.exponentialRampToValueAtTime(0.001, soundContext.currentTime + duration);
+
+    // Start and stop the oscillator
+    oscillator.start(soundContext.currentTime);
+    oscillator.stop(soundContext.currentTime + duration);
   }
 
   // Create widget UI elements
@@ -143,7 +359,7 @@
       </div>
       <div class="call-body">
       <div class="language-section">
-      <label class="language-label">Select preferred language:</label>
+      <label class="language-label">Select your preferred language:</label>
       <select id="shivai-language" class="language-select-styled">
       <option value="ar">🇸🇦 Arabic</option>
       <option value="zh">🇨🇳 Chinese</option>
@@ -620,7 +836,7 @@
 
       .shivai-widget {
       position: fixed;
-      bottom: 90px;
+      bottom: 60px;
       right: 20px;
       width: 360px;
       max-height: 550px;
@@ -656,6 +872,7 @@
       display: flex;
       flex-direction: column;
       width: 100%;
+      background: white;
       }
 
       .landing-view .widget-header {
@@ -864,10 +1081,9 @@
       }
 
       .language-label {
-      font-size: 9px;
-      font-weight: 600;
-      color: #6b7280;
-      text-transform: uppercase;
+      font-size: 11px;
+      font-weight: 400;
+      color: #000;
       letter-spacing: 0.5px;
       margin: 0;
       }
@@ -1384,7 +1600,7 @@
       .shivai-widget {
         width: calc(100vw - 40px);
         right: 20px;
-        bottom: 80px;
+        bottom: 4%;
         max-height: 500px;
       }
       }
@@ -1393,7 +1609,7 @@
       .shivai-widget {
         width: calc(100vw - 24px);
         right: 12px;
-        bottom: 70px;
+        bottom: 3%;
         max-height: 450px;
       }
 
@@ -1534,6 +1750,25 @@
       e.stopPropagation();
     }
     
+    // iOS: Unlock audio contexts on user interaction
+    if (isIOS()) {
+      try {
+        if (soundContext && soundContext.state === 'suspended') {
+          await soundContext.resume();
+        }
+        // Create a dummy audio buffer and play it to unlock iOS audio
+        if (soundContext) {
+          const buffer = soundContext.createBuffer(1, 1, 22050);
+          const source = soundContext.createBufferSource();
+          source.buffer = buffer;
+          source.connect(soundContext.destination);
+          source.start();
+        }
+      } catch (e) {
+        console.warn("🍎 [iOS] Audio unlock failed:", e);
+      }
+    }
+    
     // Prevent button spam during connection
     if (isConnecting) {
       return;
@@ -1544,6 +1779,9 @@
     } else {
       isConnecting = true;
       connectBtn.disabled = true; // Disable button during connection
+      
+      // Play connecting sound
+      playSound('connecting');
       
       try {
         // Show hang-up button immediately
@@ -1731,6 +1969,7 @@
   async function startConversation() {
     try {
       updateStatus("Initializing...", "connecting");
+      playSound('dialling');
 
       // Get selected language
       const selectedLanguage = languageSelect.value;
@@ -1745,6 +1984,7 @@
 
       // Get microphone access with iOS/mobile compatibility
       updateStatus("Requesting microphone...", "connecting");
+      playSound('dialling');
       
       try {
         mediaStream = await navigator.mediaDevices.getUserMedia({
@@ -1818,15 +2058,37 @@
       // Store callId for later use
       window.currentCallId = callId;
 
-      // STEP 3: Initialize audio context
-      audioContext = new (window.AudioContext || window.webkitAudioContext)({
+      // STEP 3: Initialize audio context with iOS-specific settings
+      const audioContextOptions = {
         sampleRate: 24000,
         latencyHint: "interactive", // Optimize for low latency
-      });
+      };
+      
+      // iOS-specific audio context settings for better volume
+      if (isIOS()) {
+        audioContextOptions.latencyHint = "playback"; // Better for iOS audio volume
+        console.log("🍎 [iOS] Using iOS-optimized audio settings with 20x amplification and soft clipping");
+      } else {
+        console.log("🤖 [Android] Using standard audio settings with 12x amplification");
+      }
+      
+      audioContext = new (window.AudioContext || window.webkitAudioContext)(audioContextOptions);
 
       // Resume audio context if suspended (browser autoplay policy)
       if (audioContext.state === "suspended") {
         await audioContext.resume();
+        
+        // iOS: Additional resume attempts with delay
+        if (isIOS() && audioContext.state === "suspended") {
+          setTimeout(async () => {
+            try {
+              await audioContext.resume();
+              console.log("🍎 [iOS] Audio context resumed after delay");
+            } catch (e) {
+              console.warn("🍎 [iOS] Failed to resume audio context:", e);
+            }
+          }, 100);
+        }
       }
 
       // Setup playback processor for smooth audio
@@ -1835,11 +2097,14 @@
       // Connect to Python WebSocket service
       ws = new WebSocket("wss://openai-shell.onrender.com/ws");
 
-      ws.onopen = () => {
+      ws.onopen = async () => {
         console.log("🟢 [WEBSOCKET] Connected to server");
         isConnected = true;
         clearLoadingStatus(); // Stop loading animation
         updateStatus("Connected", "connected");
+        
+        // Play call start sound
+        playSound('call-start');
         connectBtn.innerHTML =
           '<svg width="26" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z" transform="rotate(135 12 12)"></path></svg>';
         connectBtn.classList.add("connected");
@@ -1852,14 +2117,21 @@
         startCallTimer();
         console.log("Connected to server");
 
+        // Get client IP address
+        const clientIp = await getClientIP();
+        
+        // Get agent ID from input if available
+        const agentIdInput = document.getElementById('agent-id-input');
+
         // Send configuration to WebSocket server
-        const configMessage = {
-          type: "config",
+        ws.send(JSON.stringify({
+          type: 'config',
           language: selectedLanguage,
-          agent_id: "agent-102-102-shivaiCalling", // Use callId as agent_id
-        };
-        console.log("📤 [WEBSOCKET] Sending config:", configMessage);
-        ws.send(JSON.stringify(configMessage));
+          agent_id: "id123",
+          client_ip: clientIp || null
+        }));
+        
+        console.log("📤 [WEBSOCKET] Sent config with IP:", clientIp || "unavailable");
 
         // Start continuous audio streaming
         console.log("🎤 [AUDIO] Starting audio streaming");
@@ -1974,6 +2246,10 @@
   async function stopConversation() {
     isConnected = false;
     stopCallTimer();
+    
+    // Play disconnect sound
+    // Play call end sound
+    playSound('call-end');
 
     // Call end-call API if we have a callId
     if (window.currentCallId) {
@@ -2119,13 +2395,21 @@
   function setupPlaybackProcessor() {
     if (!audioContext) {
       return;
-    }
+    } 
     teardownPlaybackProcessor();
     playbackBufferQueue = [];
     playbackBufferOffset = 0;
+    
+    // Create master gain node - keep at 1.0 for iOS to avoid double amplification
+    // We'll handle iOS volume boost through sample amplification only
+    masterGainNode = audioContext.createGain();
+    const masterGainValue = 1.0; // Same for both iOS and Android
+    masterGainNode.gain.setValueAtTime(masterGainValue, audioContext.currentTime);
+    masterGainNode.connect(audioContext.destination);
+    
     playbackProcessor = audioContext.createScriptProcessor(1024, 1, 1);
     playbackProcessor.onaudioprocess = handlePlaybackProcess;
-    playbackProcessor.connect(audioContext.destination);
+    playbackProcessor.connect(masterGainNode); // Connect through master gain
   }
 
   // Teardown playback processor
@@ -2136,11 +2420,38 @@
     }
   }
 
+  // Detect iOS device
+  function isIOS() {
+    return /iPad|iPhone|iPod/.test(navigator.userAgent) || 
+           (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  }
+
+  // Advanced soft clipping function to prevent audio tearing on iOS
+  function softClip(sample) {
+    const abs = Math.abs(sample);
+    if (abs <= 0.8) {
+      // Clean range - no processing needed
+      return sample;
+    } else if (abs <= 1.0) {
+      // Gentle compression in the near-clipping range
+      const sign = sample >= 0 ? 1 : -1;
+      const compressed = 0.8 + (abs - 0.8) * 0.5; // Gentle compression
+      return sign * compressed;
+    } else {
+      // Soft limiting for values above 1.0
+      const sign = sample >= 0 ? 1 : -1;
+      return sign * (0.9 + 0.1 * Math.tanh((abs - 1.0) * 2.0)); // Smooth limiting
+    }
+  }
+
   // Handle continuous playback process
   function handlePlaybackProcess(event) {
     const output = event.outputBuffer.getChannelData(0);
     let offset = 0;
-    const volumeGain = 4.0; // Boost volume by 4x (max volume)
+  
+    // iOS requires higher amplification but not too aggressive to avoid tearing
+    // Reduced from 20x to 15x to prevent audio artifacts while maintaining volume
+    const volumeGain = isIOS() ? 15.0 : 12.0; // 15x for iOS, 12x for Android/others
 
     while (offset < output.length) {
       if (playbackBufferQueue.length === 0) {
@@ -2157,9 +2468,16 @@
       const remaining = currentBuffer.length - playbackBufferOffset;
       const samplesToCopy = Math.min(remaining, output.length - offset);
 
-      // Copy samples with volume boost
+      // Copy samples with volume boost and iOS-specific soft clipping
       for (let i = 0; i < samplesToCopy; i++) {
-        output[offset + i] = Math.max(-1, Math.min(1, currentBuffer[playbackBufferOffset + i] * volumeGain));
+        const amplifiedSample = currentBuffer[playbackBufferOffset + i] * volumeGain;
+        if (isIOS()) {
+          // Use soft clipping for iOS to handle higher amplification smoothly
+          output[offset + i] = softClip(amplifiedSample);
+        } else {
+          // Use hard clipping for Android/others
+          output[offset + i] = Math.max(-1, Math.min(1, amplifiedSample));
+        }
       }
 
       offset += samplesToCopy;
