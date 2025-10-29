@@ -21,6 +21,8 @@
   let isWidgetOpen = false;
   let isConnecting = false; // Track if connection is in progress
   let loadingInterval = null; // Track loading animation interval
+  let hasReceivedFirstAIResponse = false; // Track first AI response to clear loading
+  let shouldAutoUnmute = false; // Flag to auto-unmute after AI first response
 
   // Playback processor variables for smooth audio
   let playbackProcessor = null;
@@ -1815,17 +1817,16 @@
     }
   }
 
-  // Handle mute button click
-  function handleMuteClick(e) {
-    e.stopPropagation();
-    if (!isConnected || !mediaStream) return;
-
-    isMuted = !isMuted;
-
-    // Mute/unmute the microphone tracks
-    mediaStream.getAudioTracks().forEach((track) => {
-      track.enabled = !isMuted;
-    });
+  // Update mute button UI based on current mute state
+  function updateMuteButton() {
+    if (!muteBtn) return;
+    
+    // Update microphone tracks if available
+    if (mediaStream) {
+      mediaStream.getAudioTracks().forEach((track) => {
+        track.enabled = !isMuted;
+      });
+    }
 
     // Update button UI
     if (isMuted) {
@@ -1839,6 +1840,15 @@
       muteBtn.innerHTML =
         '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path><line x1="12" y1="19" x2="12" y2="23"></line><line x1="8" y1="23" x2="16" y2="23"></line></svg>';
     }
+  }
+
+  // Handle mute button click
+  function handleMuteClick(e) {
+    e.stopPropagation();
+    if (!isConnected || !mediaStream) return;
+
+    isMuted = !isMuted;
+    updateMuteButton();
   }
 
   // Update status
@@ -1880,6 +1890,18 @@
     if (callTimerElement) {
       callTimerElement.style.display = "block";
     }
+    
+    // Show UI controls when timer starts (when AI actually begins responding)
+    if (muteBtn) {
+      muteBtn.style.display = "flex";
+    }
+    
+    // Update connect button to show end call when timer starts
+    connectBtn.innerHTML =
+      '<svg width="26" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z" transform="rotate(135 12 12)"></path></svg>';
+    connectBtn.classList.add("connected");
+    connectBtn.title = "End Call";
+    
     callTimerInterval = setInterval(updateCallTimer, 1000);
     updateCallTimer();
   }
@@ -1907,6 +1929,45 @@
       2,
       "0"
     )}:${String(seconds).padStart(2, "0")}`;
+  }
+
+  // Progressive connection states with sounds from widget2
+  async function showProgressiveConnectionStates() {
+    // Check connection state for optimization 
+    const wasWarmedUp = false; // Could be enhanced with caching later
+    const hasPreloadedAudio = audioContext !== null;
+    
+    // Optimize delays to match AI response time (3-4 seconds total)
+    // Total time should be ~2.5-3s to allow AI warmup time
+    const baseDelay = wasWarmedUp ? 100 : 200;
+    
+    const states = [
+      { text: "Connecting to AI servers...", desc: wasWarmedUp ? "Using cached connection" : "Establishing secure connection", delay: baseDelay + 200, sound: true }, // 400ms
+      { text: "Setting up voice pipeline...", desc: hasPreloadedAudio ? "Audio pipeline ready" : "Configuring audio processing", delay: hasPreloadedAudio ? 150 : baseDelay + 100, sound: false }, // 300ms
+      { text: "Configuring audio streams...", desc: "Optimizing voice quality", delay: baseDelay + 300, sound: true }, // 500ms
+      { text: "Almost ready to talk...", desc: "Finalizing setup", delay: 400, sound: false }, // 400ms
+      { text: "Connection established! 🎉", desc: "AI is warming up, ready in moments...", delay: 600, sound: false } // 600ms - Total ~2.2s
+    ];
+
+    for (const state of states) {
+      // Update status with main text
+      updateStatus(state.text, "connecting");
+      
+      // Show description in loading status if available
+      if (state.desc) {
+        showLoadingStatus(state.desc);
+      }
+      
+      // Play sound if specified
+      if (state.sound) {
+        playSound('connecting'); // Use connecting sound for better audio experience
+      }
+      
+      // Wait for specified delay
+      if (state.delay > 0) {
+        await new Promise(resolve => setTimeout(resolve, state.delay));
+      }
+    }
   }
 
   // Add message to transcript
@@ -1968,8 +2029,12 @@
   // Start conversation
   async function startConversation() {
     try {
-      updateStatus("Initializing...", "connecting");
-      playSound('dialling');
+      // Reset flags for new conversation
+      hasReceivedFirstAIResponse = false;
+      shouldAutoUnmute = true; // Will auto-unmute after AI first response
+      
+      // Show progressive connection states with sounds
+      await showProgressiveConnectionStates();
 
       // Get selected language
       const selectedLanguage = languageSelect.value;
@@ -1984,7 +2049,6 @@
 
       // Get microphone access with iOS/mobile compatibility
       updateStatus("Requesting microphone...", "connecting");
-      playSound('dialling');
       
       try {
         mediaStream = await navigator.mediaDevices.getUserMedia({
@@ -1997,6 +2061,14 @@
           },
         });
         console.log("Microphone access granted");
+        
+        // Mute microphone initially - will be unmuted after AI first response
+        if (shouldAutoUnmute) {
+          mediaStream.getAudioTracks().forEach((track) => {
+            track.enabled = false;
+          });
+          console.log("🔇 Microphone muted initially");
+        }
       } catch (micError) {
         console.error("Error accessing microphone:", micError);
         
@@ -2007,6 +2079,14 @@
             audio: true,
           });
           console.log("Microphone access granted with fallback settings");
+          
+          // Mute microphone initially - will be unmuted after AI first response
+          if (shouldAutoUnmute) {
+            mediaStream.getAudioTracks().forEach((track) => {
+              track.enabled = false;
+            });
+            console.log("🔇 Microphone muted initially (fallback)");
+          }
         } catch (fallbackError) {
           console.error("Fallback microphone access failed:", fallbackError);
           updateStatus("❌ Microphone access denied", "disconnected");
@@ -2026,7 +2106,7 @@
 
       // STEP 2: Now call the API (after mic permission granted)
       statusDiv.className = "call-info-status connecting";
-      showLoadingStatus("Connecting to server");
+      updateStatus("Connecting to backend...", "connecting");
       const startCallResponse = await fetch(
         "https://shivai-com-backend.onrender.com/api/v1/calls/start-call",
         {
@@ -2100,21 +2180,22 @@
       ws.onopen = async () => {
         console.log("🟢 [WEBSOCKET] Connected to server");
         isConnected = true;
-        clearLoadingStatus(); // Stop loading animation
-        updateStatus("Connected", "connected");
+        
+        // Keep loading until AI first response - show waiting for AI
+        updateStatus("Waiting for AI response...", "connecting");
+        showLoadingStatus("AI is preparing to speak...");
         
         // Play call start sound
         playSound('call-start');
-        connectBtn.innerHTML =
-          '<svg width="26" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z" transform="rotate(135 12 12)"></path></svg>';
-        connectBtn.classList.add("connected");
-        connectBtn.title = "End Call";
+        
+        // Hide UI elements initially - will show when timer starts (when AI responds)
         if (muteBtn) {
-          muteBtn.style.display = "flex";
-          isMuted = false;
+          muteBtn.style.display = "none";
+          // Start muted internally but don't show muted UI - will auto-unmute after AI first response
+          isMuted = true;
+          console.log("🔇 Starting with microphone muted internally - will auto-unmute after AI responds");
         }
         languageSelect.disabled = true;
-        startCallTimer();
         console.log("Connected to server");
 
         // Get client IP address
@@ -2198,6 +2279,31 @@
           // AI transcript delta - accumulate
           console.log("📝 [AI DELTA]:", data.delta);
           currentAssistantTranscript += data.delta;
+          
+          // Clear loading on first AI response
+          if (!hasReceivedFirstAIResponse && data.delta && data.delta.trim()) {
+            hasReceivedFirstAIResponse = true;
+            clearLoadingStatus();
+            updateStatus("🤖 AI Speaking...", "speaking");
+            startCallTimer(); // Start timer only when AI begins responding
+            
+            // Auto-unmute microphone after 2.5 seconds to let AI finish initial greeting
+            if (shouldAutoUnmute && isMuted) {
+              setTimeout(() => {
+                if (isMuted && mediaStream) {
+                  isMuted = false;
+                  mediaStream.getAudioTracks().forEach((track) => {
+                    track.enabled = true;
+                  });
+                  console.log("🎤 Auto-unmuted microphone after AI response");
+                  updateStatus("🎤 Ready to listen", "connected");
+                }
+                shouldAutoUnmute = false; // Prevent multiple auto-unmutes
+              }, 2500);
+            }
+            
+            console.log("🎉 First AI response received - loading cleared, timer started");
+          }
         } else if (eventType === "response.audio_transcript.done") {
           // AI transcript completed
           if (currentAssistantTranscript && currentAssistantTranscript.trim()) {
@@ -2209,6 +2315,31 @@
           // Perfect audio scheduling
           console.log("🔊 [AI AUDIO] Received audio chunk");
           scheduleAudioChunk(base64ToArrayBuffer(data.delta));
+          
+          // Clear loading on first AI audio response
+          if (!hasReceivedFirstAIResponse) {
+            hasReceivedFirstAIResponse = true;
+            clearLoadingStatus();
+            updateStatus("🤖 AI Speaking...", "speaking");
+            startCallTimer(); // Start timer only when AI begins responding
+            
+            // Auto-unmute microphone after 2.5 seconds to let AI finish initial greeting
+            if (shouldAutoUnmute && isMuted) {
+              setTimeout(() => {
+                if (isMuted && mediaStream) {
+                  isMuted = false;
+                  mediaStream.getAudioTracks().forEach((track) => {
+                    track.enabled = true;
+                  });
+                  console.log("🎤 Auto-unmuted microphone after AI response");
+                  updateStatus("🎤 Ready to listen", "connected");
+                }
+                shouldAutoUnmute = false; // Prevent multiple auto-unmutes
+              }, 2500);
+            }
+            
+            console.log("🎉 First AI audio received - loading cleared, timer started");
+          }
         } else if (eventType === "response.done") {
           console.log("✅ [AI] Response complete");
           if (!assistantSpeaking) {
