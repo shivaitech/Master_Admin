@@ -319,45 +319,102 @@ const AIEmployeeStatsMain = ({ onViewEmployee }) => {
     
     try {
       setLoadingTranscript(true);
-      const response = await listingService.getSessionTranscript(sessionId);
-      console.log("response:", response);
+      
+      // Use different API based on selected employee
+      let response;
+      if (selectedEmployee === "emp1") {
+        // For Demo Employee (Shivai Widget) - use getAgentSessionsTranscript
+        response = await listingService.getAgentSessionsTranscript(sessionId);
+        console.log("getAgentSessionsTranscript response:", response);
+      } else {
+        // For other employees - use getSessionTranscript
+        response = await listingService.getSessionTranscript(sessionId);
+        console.log("getSessionTranscript response:", response);
+      }
 
-      if (response?.data?.statusCode === 200) {
+      if (response?.data?.statusCode === 200 || response?.data?.success) {
         // Handle different response formats
-        let transcripts = [];
+        let allTranscripts = [];
 
-        // Try different possible data structures
-        if (
-          response.data.data?.transcripts &&
-          Array.isArray(response.data.data.transcripts)
-        ) {
-          transcripts = response.data.data.transcripts;
+        if (selectedEmployee === "emp1") {
+          // Handle getAgentSessionsTranscript response format
+          const responseData = response.data?.data?.session || response.data;
+          console.log("Agent Sessions Response Data:", responseData);
+          
+          // Try different possible structures based on the API response
+          let agentTranscripts = [];
+          let userTranscripts = [];
+          
+          // Extract agent transcripts - map "agent" speaker to "ai" for UI compatibility
+          if (responseData.transcripts && Array.isArray(responseData.transcripts)) {
+            agentTranscripts = responseData.transcripts.map(t => ({
+              ...t,
+              speaker: "ai" // Always set to "ai" for agent messages (UI expects "ai")
+            }));
+          }
+          
+          // Extract user transcripts  
+          if (responseData.user_transcripts && Array.isArray(responseData.user_transcripts)) {
+            userTranscripts = responseData.user_transcripts.map(t => ({
+              ...t,
+              speaker: "user" // Always set to "user" for user messages
+            }));
+          }
+          
+          // Combine both arrays
+          allTranscripts = [...agentTranscripts, ...userTranscripts];
+          
+          // Sort by timestamp to maintain conversation order
+          allTranscripts.sort((a, b) => {
+            const timeA = new Date(a.timestamp || a.created_at || 0);
+            const timeB = new Date(b.timestamp || b.created_at || 0);
+            return timeA - timeB;
+          });
+          
+        } else {
+          // Handle getSessionTranscript response format (existing logic)
+          if (response.data.data?.transcripts && Array.isArray(response.data.data.transcripts)) {
+            allTranscripts = response.data.data.transcripts;
+          }
         }
 
-        console.log("Transcripts:", transcripts);
+        console.log("All Transcripts (combined):", allTranscripts);
+        
         // Transform transcript format to match our component only if we have valid data
-        if (transcripts && transcripts.length > 0) {
-          return transcripts
-            .map((transcript) => ({
-              timestamp:
-                transcript.timestamp ||
-                transcript.created_at ||
-                transcript.time ||
-                new Date().toISOString(),
-              speaker:
-                transcript.speaker ||
-                transcript.role ||
-                transcript.sender ||
-                transcript.type ||
-                "user",
-              message:
-                transcript.message ||
-                transcript.content ||
-                transcript.text ||
-                transcript.msg ||
-                "",
-            }))
-            .filter((t) => t.message.trim() !== ""); // Filter out empty messages
+        if (allTranscripts && allTranscripts.length > 0) {
+          return allTranscripts
+            .map((transcript) => {
+              // Determine speaker - for agent sessions, we've already set the correct speaker
+              let speaker = transcript.speaker;
+              
+              // For non-agent sessions, handle various speaker field formats
+              if (selectedEmployee !== "emp1") {
+                speaker = transcript.speaker || transcript.role || transcript.sender || transcript.type || "user"; 
+                
+                // Map common speaker variations to our expected format
+                if (speaker === "agent" || speaker === "assistant" || speaker === "bot") {
+                  speaker = "ai";
+                } else if (speaker !== "ai") {
+                  speaker = "user";
+                }
+              }
+              
+              return {
+                timestamp:
+                  transcript.timestamp ||
+                  transcript.created_at ||
+                  transcript.time ||
+                  new Date().toISOString(),
+                speaker: speaker,
+                message:
+                  transcript.message ||
+                  transcript.content ||
+                  transcript.text ||
+                  transcript.msg ||
+                  "",
+              };
+            })
+            .filter((t) => t.message && t.message.trim() !== ""); // Filter out empty messages
         }
       }
 

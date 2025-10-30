@@ -22,10 +22,15 @@ const getAgentSessions = async (queryParams = '') => {
   const data = await apiService.get(url);
   return data;
 }
+const getAgentSessionsTranscript = async (sessionId) => {
+  const data = await apiService.get(`v1/agent-sessions/${sessionId}`);
+  return data;
+}
 export default {
   getUser,
   getAllSessionDemo,
   getSessionById,
   getSessionTranscript,
-  getAgentSessions
+  getAgentSessions,
+  getAgentSessionsTranscript
 };
