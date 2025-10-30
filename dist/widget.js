@@ -76,41 +76,50 @@
   // Initialize sound context for call sounds
   function initSoundContext() {
     if (!soundsEnabled) return;
-    
+
     try {
       soundContext = new (window.AudioContext || window.webkitAudioContext)();
-      
+
       // iOS Safari requires user interaction to unlock audio context
-      if (soundContext.state === 'suspended') {
+      if (soundContext.state === "suspended") {
         const unlockAudio = () => {
           // Mark user interaction for iOS
           userInteracted = true;
-          
+
           // Resume sound context
-          soundContext.resume().then(() => {
-            console.log('🔊 Sound context resumed');
-          }).catch(err => {
-            console.warn('Failed to resume sound context:', err);
-          });
-          
-          // Also resume voice audio context if available (iOS fix)
-          if (audioContext && audioContext.state === 'suspended') {
-            audioContext.resume().then(() => {
-              console.log('🎤 Voice audio context resumed');
-            }).catch(err => {
-              console.warn('Failed to resume voice audio context:', err);
+          soundContext
+            .resume()
+            .then(() => {
+              console.log("🔊 Sound context resumed");
+            })
+            .catch((err) => {
+              console.warn("Failed to resume sound context:", err);
             });
+
+          // Also resume voice audio context if available (iOS fix)
+          if (audioContext && audioContext.state === "suspended") {
+            audioContext
+              .resume()
+              .then(() => {
+                console.log("🎤 Voice audio context resumed");
+              })
+              .catch((err) => {
+                console.warn("Failed to resume voice audio context:", err);
+              });
           }
-          
+
           // Clean up listeners after first user interaction
-          document.removeEventListener('touchstart', unlockAudio);
-          document.removeEventListener('click', unlockAudio);
+          document.removeEventListener("touchstart", unlockAudio);
+          document.removeEventListener("click", unlockAudio);
         };
-        document.addEventListener('touchstart', unlockAudio);
-        document.addEventListener('click', unlockAudio);
+        document.addEventListener("touchstart", unlockAudio);
+        document.addEventListener("click", unlockAudio);
       }
     } catch (error) {
-      console.warn("Could not initialize audio context for sound effects:", error);
+      console.warn(
+        "Could not initialize audio context for sound effects:",
+        error
+      );
       soundsEnabled = false;
     }
   }
@@ -124,23 +133,23 @@
 
     try {
       switch (type) {
-        case 'connecting':
+        case "connecting":
           playConnectingSound();
           break;
-        case 'dialling':
+        case "dialling":
           playDiallingSound();
           break;
-        case 'call-start':
+        case "call-start":
           playCallStartSound();
           break;
-        case 'call-end':
+        case "call-end":
           playCallEndSound();
           break;
         default:
-          console.warn('Unknown sound type:', type);
+          console.warn("Unknown sound type:", type);
       }
     } catch (error) {
-      console.warn('Error playing sound:', error);
+      console.warn("Error playing sound:", error);
     }
   }
 
@@ -162,7 +171,7 @@
     const dialTone = 440; // Standard dial tone frequency
     let iterations = 0;
     const maxIterations = 3; // Repeat 3 times
-    
+
     const playDialTone = () => {
       if (iterations < maxIterations) {
         // Play two short beeps with a pause
@@ -170,21 +179,21 @@
         setTimeout(() => {
           generateTone(dialTone, 0.2, 0.4);
         }, 250);
-        
+
         iterations++;
-        
+
         // Schedule next iteration
         setTimeout(playDialTone, 800);
       }
     };
-    
+
     playDialTone();
   }
 
   // Generate call start sound - pleasant ascending chord
   function playCallStartSound() {
-    const frequencies = [261.63, 329.63, 392.00]; // C, E, G major chord
-    
+    const frequencies = [261.63, 329.63, 392.0]; // C, E, G major chord
+
     frequencies.forEach((freq, index) => {
       setTimeout(() => {
         generateTone(freq, 0.3, 0.25);
@@ -194,7 +203,7 @@
 
   // Generate call end sound - descending tone
   function playCallEndSound() {
-    const frequencies = [392.00, 329.63, 261.63]; // G, E, C descending
+    const frequencies = [392.0, 329.63, 261.63]; // G, E, C descending
     let delay = 0;
 
     frequencies.forEach((freq, index) => {
@@ -210,8 +219,8 @@
     try {
       // Method 1: Try ipapi.co (includes geolocation)
       try {
-        const response = await fetch('https://ipapi.co/json/', {
-          method: 'GET'
+        const response = await fetch("https://ipapi.co/json/", {
+          method: "GET",
         });
         if (response.ok) {
           const data = await response.json();
@@ -224,8 +233,8 @@
 
       // Method 2: Try ipify as fallback
       try {
-        const response = await fetch('https://api.ipify.org?format=json', {
-          method: 'GET'
+        const response = await fetch("https://api.ipify.org?format=json", {
+          method: "GET",
         });
         if (response.ok) {
           const data = await response.json();
@@ -238,8 +247,8 @@
 
       // Method 3: Try ipinfo.io as another fallback
       try {
-        const response = await fetch('https://ipinfo.io/json', {
-          method: 'GET'
+        const response = await fetch("https://ipinfo.io/json", {
+          method: "GET",
         });
         if (response.ok) {
           const data = await response.json();
@@ -270,12 +279,18 @@
 
     // Configure oscillator
     oscillator.frequency.setValueAtTime(frequency, soundContext.currentTime);
-    oscillator.type = 'sine'; // Smooth, pleasant tone
+    oscillator.type = "sine"; // Smooth, pleasant tone
 
     // Configure gain envelope (fade in/out to avoid clicks)
     gainNode.gain.setValueAtTime(0, soundContext.currentTime);
-    gainNode.gain.linearRampToValueAtTime(volume, soundContext.currentTime + 0.01);
-    gainNode.gain.exponentialRampToValueAtTime(0.001, soundContext.currentTime + duration);
+    gainNode.gain.linearRampToValueAtTime(
+      volume,
+      soundContext.currentTime + 0.01
+    );
+    gainNode.gain.exponentialRampToValueAtTime(
+      0.001,
+      soundContext.currentTime + duration
+    );
 
     // Start and stop the oscillator
     oscillator.start(soundContext.currentTime);
@@ -335,8 +350,24 @@
         </button>
         <div class="privacy-text">By using this service you agree to our <span class="privacy-link">T&C</span></div>
       </div>
-      <div class="widget-footer">
-        <div class="footer-text">Powered by <strong>ShivAI</strong></div>
+      <div class="widget-footer" style="padding: 4px 0; margin: 0;">
+         <div class="footer-text" style="display: flex; align-items: center; justify-content: center; gap: 6px; font-size: 12px; color: #6b7280; flex-wrap: nowrap; line-height: 1;">
+          <span>Powered by</span>
+          <a href="https://callshivai.com" target="_blank" rel="noopener noreferrer" class="footer-logo-link" style="display: inline-flex; align-items: center; text-decoration: none; cursor: pointer; transition: all 0.2s ease; vertical-align: middle;">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1500 1500" class="footer-logo" style="height: 48px; width: 48px; fill: #3b82f6; display: inline-block; vertical-align: middle; margin-left: -5px;">
+            
+              <path class="cls-1" d="m404.66,608.33c-9.95-7.3-50.21-35.08-105.88-29.33-26.64,2.75-47.74,12.25-62.31,21.06-14.39,8.7-26.96,20.35-35.39,34.9-12.13,20.93-15.94,45.25-9.6,67.8,4.02,14.28,11.39,25.29,18.63,33.3,6.91,7.65,15.23,13.89,24.25,18.89,25.77,14.32,51.54,28.63,77.31,42.95,11.98,7.56,18.69,20.94,17.17,34.34-.11,1.01-.27,1.98-.47,2.93-2.85,13.83-15.4,23.46-29.5,24.28-8.62.5-18.56.28-29.41-1.45-34.59-5.51-58.34-23.08-69.39-32.54-13.35,21.1-26.71,42.2-40.06,63.3,13.96,9.75,32.81,20.78,56.52,29.33,42.03,15.17,79.38,15.38,102.3,13.59,7.85-.92,45.14-6.13,72.25-39.35,1.28-1.57,2.49-3.15,3.65-4.73,27.87-38.33,23.14-92-9.89-125.97-.3-.31-.6-.62-.91-.93-17.09-17.27-35.69-27.61-51.02-33.85-19.44-7.9-38.05-17.71-55.07-29.99-.78-.56-1.56-1.12-2.33-1.68-9.66-6.97-12.29-20.21-6.03-30.34h0c7.3-11.68,22.31-17.66,37.92-15.02,8.22-.53,21.33-.36,36.48,4.29,15.34,4.71,26.38,12.07,32.91,17.17,9.3-20.98,18.6-41.97,27.9-62.95Z"/>
+              <path class="cls-1" d="m630.61,740.85c-3.86-4.46-8.41-8.89-13.76-13.05-17.19-13.34-35.56-18.29-49.77-19.92-15.45-1.76-31.19.76-45.13,7.63-.08.04-.16.08-.25.12-13.14,6.52-22.41,14.79-28.33,21.1v-169.18h-72.25v358.41h72.25v-130.44c9.49-21.4,30.88-33.36,50.51-29.8,3.55.64,6.78,1.75,9.71,3.15,14.12,6.76,22.48,21.69,22.48,37.35v119.75h73.68v-132.05c0-19.38-6.46-38.41-19.14-53.06Z"/>
+              <rect class="cls-1" x="662.56" y="712.06" width="74.4" height="213.9"/>
+              <path class="cls-1" d="m953.03,825.14c-13.76,33.61-27.52,67.21-41.28,100.82h84.42l25.75-67.96c-8.94-6.55-20.41-13.83-34.43-20.38-12.7-5.93-24.48-9.84-34.47-12.48Z"/>
+              <circle class="cls-1" cx="1270.13" cy="623.35" r="45.07"/>
+              <circle class="cls-1" cx="699.76" cy="623.35" r="45.07"/>
+              <path class="cls-1" d="m954.09,822.73l95.6-235.02h71.13l94.46,235.02c-13.9-.54-54.29-3.99-86.12-34.9-26-25.25-33.27-56.18-36.12-68.31-.48-2.06-.75-3.53-1.31-6.44-4.83-25.25-5.11-43.74-5.38-76.6-.22-27.23-.29-45.31-.45-45.31-.19,0-.33,26.01-1.25,51.3-.44,12.07-.99,22.81-.99,22.81-.31,5.8-.54,8.99-.78,14.32-.97,21.54-.88,21.8-1.44,25.22-2.48,15.29-13.28,66.99-58.46,96.77-27.62,18.21-55.44,20.82-68.92,21.15Z"/>
+              <path class="cls-1" d="m1215.73,825.86c-6.37.43-13.66,1.49-21.51,3.68-22.94,6.41-38.73,19.17-47.51,27.69,7.45,22.45,14.9,44.91,22.35,67.36h137.14v-101.86l-72.84,3.12.57,47.8-18.21-47.8Z"/>
+              <polygon class="cls-1" points="1233.94 716.32 1306.21 716.32 1306.21 825.14 1233.94 822.21 1233.94 716.32"/>
+              <path class="cls-1" d="m872.77,821c22.25.49,44.49.98,66.74,1.47,18.21-35.7,36.41-71.4,54.62-107.1l-80.12-3.31-48.65,116.61h-5.72l-51.51-116.61h-72.25v27.9l98.72,186h52.22c17.12-33.61,34.25-67.21,51.37-100.82-21.81-1.38-43.62-2.76-65.43-4.14Z"/>
+            </svg>
+            </a></div>
       </div>
     `;
 
@@ -405,8 +436,24 @@
       </svg>
       </button>
       </div>
-       <div class="widget-footer relative top-3">
-      <div class="footer-text">Powered by <strong>ShivAI</strong></div>
+       <div class="widget-footer" style="padding: 4px 0; margin: 0;">
+      <div class="footer-text" style="display: flex; align-items: center; justify-content: center; gap: 6px; font-size: 12px; color: #6b7280; flex-wrap: nowrap; line-height: 1;">
+          <span>Powered by</span>
+          <a href="https://callshivai.com" target="_blank" rel="noopener noreferrer" class="footer-logo-link" style="display: inline-flex; align-items: center; text-decoration: none; cursor: pointer; transition: all 0.2s ease;">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1500 1500" class="footer-logo" style="height: 48px; width: 48px; fill: #3b82f6; vertical-align: middle; line-height: 1; margin-left: -5px;">
+            
+              <path class="cls-1" d="m404.66,608.33c-9.95-7.3-50.21-35.08-105.88-29.33-26.64,2.75-47.74,12.25-62.31,21.06-14.39,8.7-26.96,20.35-35.39,34.9-12.13,20.93-15.94,45.25-9.6,67.8,4.02,14.28,11.39,25.29,18.63,33.3,6.91,7.65,15.23,13.89,24.25,18.89,25.77,14.32,51.54,28.63,77.31,42.95,11.98,7.56,18.69,20.94,17.17,34.34-.11,1.01-.27,1.98-.47,2.93-2.85,13.83-15.4,23.46-29.5,24.28-8.62.5-18.56.28-29.41-1.45-34.59-5.51-58.34-23.08-69.39-32.54-13.35,21.1-26.71,42.2-40.06,63.3,13.96,9.75,32.81,20.78,56.52,29.33,42.03,15.17,79.38,15.38,102.3,13.59,7.85-.92,45.14-6.13,72.25-39.35,1.28-1.57,2.49-3.15,3.65-4.73,27.87-38.33,23.14-92-9.89-125.97-.3-.31-.6-.62-.91-.93-17.09-17.27-35.69-27.61-51.02-33.85-19.44-7.9-38.05-17.71-55.07-29.99-.78-.56-1.56-1.12-2.33-1.68-9.66-6.97-12.29-20.21-6.03-30.34h0c7.3-11.68,22.31-17.66,37.92-15.02,8.22-.53,21.33-.36,36.48,4.29,15.34,4.71,26.38,12.07,32.91,17.17,9.3-20.98,18.6-41.97,27.9-62.95Z"/>
+              <path class="cls-1" d="m630.61,740.85c-3.86-4.46-8.41-8.89-13.76-13.05-17.19-13.34-35.56-18.29-49.77-19.92-15.45-1.76-31.19.76-45.13,7.63-.08.04-.16.08-.25.12-13.14,6.52-22.41,14.79-28.33,21.1v-169.18h-72.25v358.41h72.25v-130.44c9.49-21.4,30.88-33.36,50.51-29.8,3.55.64,6.78,1.75,9.71,3.15,14.12,6.76,22.48,21.69,22.48,37.35v119.75h73.68v-132.05c0-19.38-6.46-38.41-19.14-53.06Z"/>
+              <rect class="cls-1" x="662.56" y="712.06" width="74.4" height="213.9"/>
+              <path class="cls-1" d="m953.03,825.14c-13.76,33.61-27.52,67.21-41.28,100.82h84.42l25.75-67.96c-8.94-6.55-20.41-13.83-34.43-20.38-12.7-5.93-24.48-9.84-34.47-12.48Z"/>
+              <circle class="cls-1" cx="1270.13" cy="623.35" r="45.07"/>
+              <circle class="cls-1" cx="699.76" cy="623.35" r="45.07"/>
+              <path class="cls-1" d="m954.09,822.73l95.6-235.02h71.13l94.46,235.02c-13.9-.54-54.29-3.99-86.12-34.9-26-25.25-33.27-56.18-36.12-68.31-.48-2.06-.75-3.53-1.31-6.44-4.83-25.25-5.11-43.74-5.38-76.6-.22-27.23-.29-45.31-.45-45.31-.19,0-.33,26.01-1.25,51.3-.44,12.07-.99,22.81-.99,22.81-.31,5.8-.54,8.99-.78,14.32-.97,21.54-.88,21.8-1.44,25.22-2.48,15.29-13.28,66.99-58.46,96.77-27.62,18.21-55.44,20.82-68.92,21.15Z"/>
+              <path class="cls-1" d="m1215.73,825.86c-6.37.43-13.66,1.49-21.51,3.68-22.94,6.41-38.73,19.17-47.51,27.69,7.45,22.45,14.9,44.91,22.35,67.36h137.14v-101.86l-72.84,3.12.57,47.8-18.21-47.8Z"/>
+              <polygon class="cls-1" points="1233.94 716.32 1306.21 716.32 1306.21 825.14 1233.94 822.21 1233.94 716.32"/>
+              <path class="cls-1" d="m872.77,821c22.25.49,44.49.98,66.74,1.47,18.21-35.7,36.41-71.4,54.62-107.1l-80.12-3.31-48.65,116.61h-5.72l-51.51-116.61h-72.25v27.9l98.72,186h52.22c17.12-33.61,34.25-67.21,51.37-100.82-21.81-1.38-43.62-2.76-65.43-4.14Z"/>
+            </svg>
+            </a></div>
       </div>
       </div>
     `;
@@ -968,12 +1015,72 @@
       }
 
       .footer-text {
-      font-size: 11px;
-      color: #9ca3af;
+      font-size: 12px;
+      color: #6b7280;
+      text-align: center;
+      margin-top: 8px;
       }
 
-      .footer-text strong {
-      color: #111827;
+      .footer-text span {
+      color: #6b7280;
+      font-weight: 500;
+      }
+      
+      .footer-text a {
+      color: #3b82f6;
+      text-decoration: none;
+      font-weight: 600;
+      }
+
+      .footer-text a:hover {
+      color: #2563eb;
+      }
+
+      .footer-logo .cls-1 {
+      fill: currentColor;
+      stroke-width: 0px;
+      }
+
+      .footer-logo-link:hover .footer-logo {
+      transform: scale(1.1);
+      }
+
+      /* Footer Mobile Responsiveness */
+      @media (max-width: 768px) {
+        .footer-text {
+          font-size: 11px;
+          gap: 3px;
+        }
+        
+        .footer-logo {
+          height: 36px !important;
+          width: 36px !important;
+        }
+        
+        .footer-text span {
+          font-size: 11px;
+        }
+      }
+
+      @media (max-width: 480px) {
+        .footer-text {
+          font-size: 10px;
+          gap: 2px;
+          padding: 0 4px;
+        }
+        
+        .footer-logo {
+          height: 32px !important;
+          width: 32px !important;
+        }
+        
+        .footer-text span {
+          font-size: 10px;
+        }
+        
+        .footer-logo-link {
+          padding: 2px;
+        }
       }
 
       /* Call View */
@@ -1731,18 +1838,131 @@
 
   // Close widget
   function closeWidget() {
+    console.log("🔴 Widget closing - checking call state");
+
+    // Always perform cleanup regardless of connection state
+    console.log("🔴 Performing complete cleanup on widget close");
+
+    // Set all states to disconnected immediately
+    isConnected = false;
+    isConnecting = false;
+    hasReceivedFirstAIResponse = false;
+    shouldAutoUnmute = false;
+    isMuted = false;
+
+    // Stop loading and clear all timers immediately
+    clearLoadingStatus();
+    stopCallTimer();
+
+    // Close WebSocket immediately
+    if (ws) {
+      console.log("🔌 Closing WebSocket on widget close");
+      ws.close();
+      ws = null;
+    }
+
+    // Stop all audio immediately
+    stopAllScheduledAudio();
+    teardownPlaybackProcessor();
+
+    // Stop and disable microphone immediately
+    if (mediaStream) {
+      console.log(
+        "🎤 Stopping microphone and revoking permissions on widget close"
+      );
+      mediaStream.getTracks().forEach((track) => {
+        console.log(
+          `Stopping track: ${track.kind}, state: ${track.readyState}`
+        );
+        track.stop(); // Stop the track completely
+        track.enabled = false; // Disable the track
+      });
+      mediaStream = null;
+      console.log("🎤 Microphone permissions revoked successfully");
+    }
+
+    // Close audio context immediately
+    if (audioContext) {
+      try {
+        audioContext.close().catch((err) => {
+          console.warn("Error closing audio context:", err);
+        });
+      } catch (error) {
+        console.error("Error closing audio context:", error);
+      }
+      audioContext = null;
+    }
+
+    // Clear all transcripts completely
+    if (messagesDiv) {
+      console.log("📝 Transcripts cleared completely");
+    }
+
+    // Reset all transcript-related variables
+    currentUserTranscript = "";
+    currentAssistantTranscript = "";
+    lastUserMessageDiv = null;
+
+    // Stop visualizer
+    if (visualizerInterval) {
+      clearInterval(visualizerInterval);
+      visualizerInterval = null;
+      animateVisualizer(false);
+    }
+
+    // Reset UI elements immediately
+    updateStatus("Ready to connect", "disconnected");
+    if (connectBtn) {
+      connectBtn.innerHTML =
+        '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path></svg>';
+      connectBtn.classList.remove("connected");
+      connectBtn.title = "Start Call";
+      connectBtn.disabled = false;
+    }
+
+    if (muteBtn) {
+      muteBtn.style.display = "none";
+      muteBtn.classList.remove("muted");
+    }
+
+    if (languageSelect) {
+      languageSelect.disabled = false;
+    }
+
+    // Call async cleanup for API call (non-blocking)
+    if (window.currentCallId) {
+      fetch("https://shivai-com-backend.onrender.com/api/v1/calls/end-call", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ callId: window.currentCallId }),
+      })
+        .catch((err) => {
+          console.warn("Error ending call via API:", err);
+        })
+        .finally(() => {
+          window.currentCallId = null;
+        });
+    }
+
+    console.log("🔴 Complete cleanup finished on widget close");
+
     widgetContainer.classList.remove("active");
     isWidgetOpen = false;
+
     // Show trigger button when widget closes
     if (triggerBtn) {
       triggerBtn.style.display = "flex";
     }
+
     // Return to landing view when closing
     switchToLandingView();
+
     // Restart messages when widget closes
     if (!messageInterval) {
       startLiveMessages();
     }
+
+    console.log("✅ Widget closed successfully");
   }
 
   // Handle connect button click
@@ -1751,11 +1971,11 @@
     if (e) {
       e.stopPropagation();
     }
-    
+
     // iOS: Unlock audio contexts on user interaction
     if (isIOS()) {
       try {
-        if (soundContext && soundContext.state === 'suspended') {
+        if (soundContext && soundContext.state === "suspended") {
           await soundContext.resume();
         }
         // Create a dummy audio buffer and play it to unlock iOS audio
@@ -1770,47 +1990,91 @@
         console.warn("🍎 [iOS] Audio unlock failed:", e);
       }
     }
-    
+
     // Prevent button spam during connection
     if (isConnecting) {
       return;
     }
 
     if (isConnected) {
-      stopConversation();
+      // Immediate hang up - stop everything instantly
+      console.log("🔴 Immediate hang up requested");
+
+      // Set states immediately
+      isConnected = false;
+      isConnecting = false;
+
+      // Stop loading and clear all timers immediately
+      clearLoadingStatus();
+      stopCallTimer();
+
+      // Close WebSocket immediately
+      if (ws) {
+        console.log("🔌 Closing WebSocket immediately");
+        ws.close();
+        ws = null;
+      }
+
+      // Stop all audio immediately
+      stopAllScheduledAudio();
+
+      // Update UI immediately
+      updateStatus("Disconnecting...", "connecting");
+      connectBtn.disabled = true;
+
+      // Call the full cleanup asynchronously
+      stopConversation().finally(() => {
+        connectBtn.disabled = false;
+        console.log("✅ Hang up completed");
+      });
+
+      return; // Exit immediately after initiating hang up
     } else {
       isConnecting = true;
       connectBtn.disabled = true; // Disable button during connection
-      
+
       // Play connecting sound
-      playSound('connecting');
-      
+      playSound("connecting");
+
       try {
         // Show hang-up button immediately
         connectBtn.innerHTML =
           '<svg width="26" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z" transform="rotate(135 12 12)"></path></svg>';
         connectBtn.classList.add("connected");
         connectBtn.title = "Hang Up";
-        
+
         await startConversation();
-        
+
         // Re-enable button after connection succeeds
         connectBtn.disabled = false;
         isConnecting = false;
       } catch (error) {
         console.error("Failed to start conversation:", error);
+
+        // Reset all states immediately on error
+        isConnected = false;
+        isConnecting = false;
+        hasReceivedFirstAIResponse = false;
+        shouldAutoUnmute = false;
+
+        // Clear any loading states
+        clearLoadingStatus();
+        stopCallTimer();
+
+        // Update UI
         updateStatus("❌ Failed to connect", "disconnected");
-        
+
         // Reset UI on error
         connectBtn.innerHTML =
           '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path></svg>';
         connectBtn.classList.remove("connected");
         connectBtn.title = "Start Call";
         connectBtn.disabled = false;
-        isConnecting = false;
-        
+
         if (muteBtn) {
           muteBtn.style.display = "none";
+          muteBtn.classList.remove("muted");
+          isMuted = false;
         }
         languageSelect.disabled = false;
       }
@@ -1820,7 +2084,7 @@
   // Update mute button UI based on current mute state
   function updateMuteButton() {
     if (!muteBtn) return;
-    
+
     // Update microphone tracks if available
     if (mediaStream) {
       mediaStream.getAudioTracks().forEach((track) => {
@@ -1865,9 +2129,9 @@
   // Loading animation functions
   function showLoadingStatus(message) {
     clearLoadingStatus(); // Clear any existing animation
-    let dots = '';
+    let dots = "";
     loadingInterval = setInterval(() => {
-      dots = dots.length >= 3 ? '' : dots + '.';
+      dots = dots.length >= 3 ? "" : dots + ".";
       const statusText = statusDiv.querySelector(".status-text");
       if (statusText) {
         statusText.textContent = `${message}${dots}`;
@@ -1890,18 +2154,18 @@
     if (callTimerElement) {
       callTimerElement.style.display = "block";
     }
-    
+
     // Show UI controls when timer starts (when AI actually begins responding)
     if (muteBtn) {
       muteBtn.style.display = "flex";
     }
-    
+
     // Update connect button to show end call when timer starts
     connectBtn.innerHTML =
       '<svg width="26" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z" transform="rotate(135 12 12)"></path></svg>';
     connectBtn.classList.add("connected");
     connectBtn.title = "End Call";
-    
+
     callTimerInterval = setInterval(updateCallTimer, 1000);
     updateCallTimer();
   }
@@ -1933,39 +2197,68 @@
 
   // Progressive connection states with sounds from widget2
   async function showProgressiveConnectionStates() {
-    // Check connection state for optimization 
+    // Check connection state for optimization
     const wasWarmedUp = false; // Could be enhanced with caching later
     const hasPreloadedAudio = audioContext !== null;
-    
+
     // Optimize delays to match AI response time (3-4 seconds total)
     // Total time should be ~2.5-3s to allow AI warmup time
     const baseDelay = wasWarmedUp ? 100 : 200;
-    
+
     const states = [
-      { text: "Connecting to AI servers...", desc: wasWarmedUp ? "Using cached connection" : "Establishing secure connection", delay: baseDelay + 200, sound: true }, // 400ms
-      { text: "Setting up voice pipeline...", desc: hasPreloadedAudio ? "Audio pipeline ready" : "Configuring audio processing", delay: hasPreloadedAudio ? 150 : baseDelay + 100, sound: false }, // 300ms
-      { text: "Configuring audio streams...", desc: "Optimizing voice quality", delay: baseDelay + 300, sound: true }, // 500ms
-      { text: "Almost ready to talk...", desc: "Finalizing setup", delay: 400, sound: false }, // 400ms
-      { text: "Connection established! 🎉", desc: "AI is warming up, ready in moments...", delay: 600, sound: false } // 600ms - Total ~2.2s
+      {
+        text: "Connecting to AI servers...",
+        desc: wasWarmedUp
+          ? "Using cached connection"
+          : "Establishing secure connection",
+        delay: baseDelay + 200,
+        sound: true,
+      }, // 400ms
+      {
+        text: "Setting up voice pipeline...",
+        desc: hasPreloadedAudio
+          ? "Audio pipeline ready"
+          : "Configuring audio processing",
+        delay: hasPreloadedAudio ? 150 : baseDelay + 100,
+        sound: false,
+      }, // 300ms
+      {
+        text: "Configuring audio streams...",
+        desc: "Optimizing voice quality",
+        delay: baseDelay + 300,
+        sound: true,
+      }, // 500ms
+      {
+        text: "Almost ready to talk...",
+        desc: "Finalizing setup",
+        delay: 400,
+        sound: false,
+      }, // 400ms
+      {
+        text: "Connection established! 🎉",
+        desc: "AI is warming up, ready in moments...",
+        delay: 600,
+        sound: false,
+      }, // 600ms - Total ~2.2s
     ];
 
     for (const state of states) {
       // Update status with main text
       updateStatus(state.text, "connecting");
-      
+
       // Show description in loading status if available
       if (state.desc) {
         showLoadingStatus(state.desc);
       }
-      
+
       // Play sound if specified
       if (state.sound) {
-        playSound('connecting'); // Use connecting sound for better audio experience
+        playSound("connecting"); // Use connecting sound for better audio experience
       }
-      
+
       // Wait for specified delay
       if (state.delay > 0) {
-        await new Promise(resolve => setTimeout(resolve, state.delay));
+        await new Promise((resolve) => setTimeout(resolve, state.delay));
       }
     }
   }
@@ -2032,7 +2325,7 @@
       // Reset flags for new conversation
       hasReceivedFirstAIResponse = false;
       shouldAutoUnmute = true; // Will auto-unmute after AI first response
-      
+
       // Show progressive connection states with sounds
       await showProgressiveConnectionStates();
 
@@ -2043,13 +2336,15 @@
       // Check if microphone API is available
       if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
         updateStatus("❌ Microphone not supported", "disconnected");
-        alert("Your browser doesn't support microphone access. Please use a modern browser like Chrome, Safari, or Firefox.");
+        alert(
+          "Your browser doesn't support microphone access. Please use a modern browser like Chrome, Safari, or Firefox."
+        );
         throw new Error("getUserMedia not supported");
       }
 
       // Get microphone access with iOS/mobile compatibility
       updateStatus("Requesting microphone...", "connecting");
-      
+
       try {
         mediaStream = await navigator.mediaDevices.getUserMedia({
           audio: {
@@ -2061,7 +2356,7 @@
           },
         });
         console.log("Microphone access granted");
-        
+
         // Mute microphone initially - will be unmuted after AI first response
         if (shouldAutoUnmute) {
           mediaStream.getAudioTracks().forEach((track) => {
@@ -2071,7 +2366,7 @@
         }
       } catch (micError) {
         console.error("Error accessing microphone:", micError);
-        
+
         // Try with simpler constraints for iOS/mobile fallback
         try {
           console.log("Trying fallback microphone settings...");
@@ -2079,7 +2374,7 @@
             audio: true,
           });
           console.log("Microphone access granted with fallback settings");
-          
+
           // Mute microphone initially - will be unmuted after AI first response
           if (shouldAutoUnmute) {
             mediaStream.getAudioTracks().forEach((track) => {
@@ -2090,15 +2385,17 @@
         } catch (fallbackError) {
           console.error("Fallback microphone access failed:", fallbackError);
           updateStatus("❌ Microphone access denied", "disconnected");
-          
+
           // Provide helpful message based on error
           let errorMessage = "Microphone access is required for voice calls.";
           if (fallbackError.name === "NotAllowedError") {
-            errorMessage += "\n\nPlease allow microphone permissions in your browser settings.";
+            errorMessage +=
+              "\n\nPlease allow microphone permissions in your browser settings.";
           } else if (fallbackError.name === "NotFoundError") {
-            errorMessage += "\n\nNo microphone found. Please check your device.";
+            errorMessage +=
+              "\n\nNo microphone found. Please check your device.";
           }
-          
+
           alert(errorMessage);
           throw new Error("Microphone access denied");
         }
@@ -2143,21 +2440,27 @@
         sampleRate: 24000,
         latencyHint: "interactive", // Optimize for low latency
       };
-      
+
       // iOS-specific audio context settings for better volume
       if (isIOS()) {
         audioContextOptions.latencyHint = "playback"; // Better for iOS audio volume
-        console.log("🍎 [iOS] Using iOS-optimized audio settings with 20x amplification and soft clipping");
+        console.log(
+          "🍎 [iOS] Using iOS-optimized audio settings with 20x amplification and soft clipping"
+        );
       } else {
-        console.log("🤖 [Android] Using standard audio settings with 12x amplification");
+        console.log(
+          "🤖 [Android] Using standard audio settings with 12x amplification"
+        );
       }
-      
-      audioContext = new (window.AudioContext || window.webkitAudioContext)(audioContextOptions);
+
+      audioContext = new (window.AudioContext || window.webkitAudioContext)(
+        audioContextOptions
+      );
 
       // Resume audio context if suspended (browser autoplay policy)
       if (audioContext.state === "suspended") {
         await audioContext.resume();
-        
+
         // iOS: Additional resume attempts with delay
         if (isIOS() && audioContext.state === "suspended") {
           setTimeout(async () => {
@@ -2180,39 +2483,46 @@
       ws.onopen = async () => {
         console.log("🟢 [WEBSOCKET] Connected to server");
         isConnected = true;
-        
+
         // Keep loading until AI first response - show waiting for AI
         updateStatus("Waiting for AI response...", "connecting");
         showLoadingStatus("AI is preparing to speak...");
-        
+
         // Play call start sound
-        playSound('call-start');
-        
+        playSound("call-start");
+
         // Hide UI elements initially - will show when timer starts (when AI responds)
         if (muteBtn) {
           muteBtn.style.display = "none";
           // Start muted internally but don't show muted UI - will auto-unmute after AI first response
           isMuted = true;
-          console.log("🔇 Starting with microphone muted internally - will auto-unmute after AI responds");
+          console.log(
+            "🔇 Starting with microphone muted internally - will auto-unmute after AI responds"
+          );
         }
         languageSelect.disabled = true;
         console.log("Connected to server");
 
         // Get client IP address
         const clientIp = await getClientIP();
-        
+
         // Get agent ID from input if available
-        const agentIdInput = document.getElementById('agent-id-input');
+        const agentIdInput = document.getElementById("agent-id-input");
 
         // Send configuration to WebSocket server
-        ws.send(JSON.stringify({
-          type: 'config',
-          language: selectedLanguage,
-          agent_id: "id123",
-          client_ip: clientIp || null
-        }));
-        
-        console.log("📤 [WEBSOCKET] Sent config with IP:", clientIp || "unavailable");
+        ws.send(
+          JSON.stringify({
+            type: "config",
+            language: selectedLanguage,
+            agent_id: "id123",
+            client_ip: clientIp || null,
+          })
+        );
+
+        console.log(
+          "📤 [WEBSOCKET] Sent config with IP:",
+          clientIp || "unavailable"
+        );
 
         // Start continuous audio streaming
         console.log("🎤 [AUDIO] Starting audio streaming");
@@ -2256,8 +2566,11 @@
           const isFinal = data.is_final;
 
           if (transcript && transcript.trim()) {
-            console.log(`📝 [USER ${isFinal ? 'FINAL' : 'INTERIM'}]:`, transcript);
-            
+            console.log(
+              `📝 [USER ${isFinal ? "FINAL" : "INTERIM"}]:`,
+              transcript
+            );
+
             if (!lastUserMessageDiv) {
               // Create new message for user
               lastUserMessageDiv = addMessage("user", transcript);
@@ -2279,14 +2592,14 @@
           // AI transcript delta - accumulate
           console.log("📝 [AI DELTA]:", data.delta);
           currentAssistantTranscript += data.delta;
-          
+
           // Clear loading on first AI response
           if (!hasReceivedFirstAIResponse && data.delta && data.delta.trim()) {
             hasReceivedFirstAIResponse = true;
             clearLoadingStatus();
             updateStatus("🤖 AI Speaking...", "speaking");
             startCallTimer(); // Start timer only when AI begins responding
-            
+
             // Auto-unmute microphone after 2.5 seconds to let AI finish initial greeting
             if (shouldAutoUnmute && isMuted) {
               setTimeout(() => {
@@ -2301,8 +2614,10 @@
                 shouldAutoUnmute = false; // Prevent multiple auto-unmutes
               }, 2500);
             }
-            
-            console.log("🎉 First AI response received - loading cleared, timer started");
+
+            console.log(
+              "🎉 First AI response received - loading cleared, timer started"
+            );
           }
         } else if (eventType === "response.audio_transcript.done") {
           // AI transcript completed
@@ -2315,14 +2630,14 @@
           // Perfect audio scheduling
           console.log("🔊 [AI AUDIO] Received audio chunk");
           scheduleAudioChunk(base64ToArrayBuffer(data.delta));
-          
+
           // Clear loading on first AI audio response
           if (!hasReceivedFirstAIResponse) {
             hasReceivedFirstAIResponse = true;
             clearLoadingStatus();
             updateStatus("🤖 AI Speaking...", "speaking");
             startCallTimer(); // Start timer only when AI begins responding
-            
+
             // Auto-unmute microphone after 2.5 seconds to let AI finish initial greeting
             if (shouldAutoUnmute && isMuted) {
               setTimeout(() => {
@@ -2337,8 +2652,10 @@
                 shouldAutoUnmute = false; // Prevent multiple auto-unmutes
               }, 2500);
             }
-            
-            console.log("🎉 First AI audio received - loading cleared, timer started");
+
+            console.log(
+              "🎉 First AI audio received - loading cleared, timer started"
+            );
           }
         } else if (eventType === "response.done") {
           console.log("✅ [AI] Response complete");
@@ -2375,12 +2692,25 @@
 
   // Stop conversation
   async function stopConversation() {
+    console.log("🛑 stopConversation() called");
+
+    // Set all states to disconnected immediately
     isConnected = false;
+    isConnecting = false;
+    hasReceivedFirstAIResponse = false;
+    shouldAutoUnmute = false;
+    isMuted = false;
+
+    // Stop all timers and loading states immediately
     stopCallTimer();
-    
+    clearLoadingStatus();
+
     // Play disconnect sound
-    // Play call end sound
-    playSound('call-end');
+    try {
+      playSound("call-end");
+    } catch (e) {
+      console.warn("Could not play call-end sound:", e);
+    }
 
     // Call end-call API if we have a callId
     if (window.currentCallId) {
@@ -2425,7 +2755,9 @@
     if (mediaStream) {
       console.log("Stopping microphone and closing media stream...");
       mediaStream.getTracks().forEach((track) => {
-        console.log(`Stopping track: ${track.kind}, state: ${track.readyState}`);
+        console.log(
+          `Stopping track: ${track.kind}, state: ${track.readyState}`
+        );
         track.stop(); // Stop each track
         track.enabled = false; // Disable track
       });
@@ -2526,18 +2858,21 @@
   function setupPlaybackProcessor() {
     if (!audioContext) {
       return;
-    } 
+    }
     teardownPlaybackProcessor();
     playbackBufferQueue = [];
     playbackBufferOffset = 0;
-    
+
     // Create master gain node - keep at 1.0 for iOS to avoid double amplification
     // We'll handle iOS volume boost through sample amplification only
     masterGainNode = audioContext.createGain();
     const masterGainValue = 1.0; // Same for both iOS and Android
-    masterGainNode.gain.setValueAtTime(masterGainValue, audioContext.currentTime);
+    masterGainNode.gain.setValueAtTime(
+      masterGainValue,
+      audioContext.currentTime
+    );
     masterGainNode.connect(audioContext.destination);
-    
+
     playbackProcessor = audioContext.createScriptProcessor(1024, 1, 1);
     playbackProcessor.onaudioprocess = handlePlaybackProcess;
     playbackProcessor.connect(masterGainNode); // Connect through master gain
@@ -2553,8 +2888,10 @@
 
   // Detect iOS device
   function isIOS() {
-    return /iPad|iPhone|iPod/.test(navigator.userAgent) || 
-           (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+    return (
+      /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+      (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1)
+    );
   }
 
   // Advanced soft clipping function to prevent audio tearing on iOS
@@ -2579,7 +2916,7 @@
   function handlePlaybackProcess(event) {
     const output = event.outputBuffer.getChannelData(0);
     let offset = 0;
-  
+
     // iOS requires higher amplification but not too aggressive to avoid tearing
     // Reduced from 20x to 15x to prevent audio artifacts while maintaining volume
     const volumeGain = isIOS() ? 15.0 : 12.0; // 15x for iOS, 12x for Android/others
@@ -2601,7 +2938,8 @@
 
       // Copy samples with volume boost and iOS-specific soft clipping
       for (let i = 0; i < samplesToCopy; i++) {
-        const amplifiedSample = currentBuffer[playbackBufferOffset + i] * volumeGain;
+        const amplifiedSample =
+          currentBuffer[playbackBufferOffset + i] * volumeGain;
         if (isIOS()) {
           // Use soft clipping for iOS to handle higher amplification smoothly
           output[offset + i] = softClip(amplifiedSample);
