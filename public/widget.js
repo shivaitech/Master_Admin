@@ -1,3 +1,5 @@
+
+
 /**
  * ShivAI Widget Loader Script
  * Embeddable widget for client websites
@@ -350,11 +352,11 @@
         </button>
         <div class="privacy-text">By using this service you agree to our <span class="privacy-link">T&C</span></div>
       </div>
-      <div class="widget-footer" style="padding: 4px 0; margin: 0;">
-         <div class="footer-text" style="display: flex; align-items: center; justify-content: center; gap: 6px; font-size: 12px; color: #6b7280; flex-wrap: nowrap; line-height: 1;">
+      <div class="widget-footer" style="padding: 0; margin: 0; background-color: #f9fafb;">
+         <div class="footer-text" style="display: flex; align-items: center; justify-content: center; gap: 6px; font-size: 16px; color: #6b7280; flex-wrap: nowrap; line-height: 1;">
           <span>Powered by</span>
           <a href="https://callshivai.com" target="_blank" rel="noopener noreferrer" class="footer-logo-link" style="display: inline-flex; align-items: center; text-decoration: none; cursor: pointer; transition: all 0.2s ease; vertical-align: middle;">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1500 1500" class="footer-logo" style="height: 48px; width: 48px; fill: #3b82f6; display: inline-block; vertical-align: middle; margin-left: -5px;">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1500 1500" class="footer-logo" style="height: 56px; width: 56px; fill: #3b82f6; display: inline-block; vertical-align: middle; margin-left: -5px;">
             
               <path class="cls-1" d="m404.66,608.33c-9.95-7.3-50.21-35.08-105.88-29.33-26.64,2.75-47.74,12.25-62.31,21.06-14.39,8.7-26.96,20.35-35.39,34.9-12.13,20.93-15.94,45.25-9.6,67.8,4.02,14.28,11.39,25.29,18.63,33.3,6.91,7.65,15.23,13.89,24.25,18.89,25.77,14.32,51.54,28.63,77.31,42.95,11.98,7.56,18.69,20.94,17.17,34.34-.11,1.01-.27,1.98-.47,2.93-2.85,13.83-15.4,23.46-29.5,24.28-8.62.5-18.56.28-29.41-1.45-34.59-5.51-58.34-23.08-69.39-32.54-13.35,21.1-26.71,42.2-40.06,63.3,13.96,9.75,32.81,20.78,56.52,29.33,42.03,15.17,79.38,15.38,102.3,13.59,7.85-.92,45.14-6.13,72.25-39.35,1.28-1.57,2.49-3.15,3.65-4.73,27.87-38.33,23.14-92-9.89-125.97-.3-.31-.6-.62-.91-.93-17.09-17.27-35.69-27.61-51.02-33.85-19.44-7.9-38.05-17.71-55.07-29.99-.78-.56-1.56-1.12-2.33-1.68-9.66-6.97-12.29-20.21-6.03-30.34h0c7.3-11.68,22.31-17.66,37.92-15.02,8.22-.53,21.33-.36,36.48,4.29,15.34,4.71,26.38,12.07,32.91,17.17,9.3-20.98,18.6-41.97,27.9-62.95Z"/>
               <path class="cls-1" d="m630.61,740.85c-3.86-4.46-8.41-8.89-13.76-13.05-17.19-13.34-35.56-18.29-49.77-19.92-15.45-1.76-31.19.76-45.13,7.63-.08.04-.16.08-.25.12-13.14,6.52-22.41,14.79-28.33,21.1v-169.18h-72.25v358.41h72.25v-130.44c9.49-21.4,30.88-33.36,50.51-29.8,3.55.64,6.78,1.75,9.71,3.15,14.12,6.76,22.48,21.69,22.48,37.35v119.75h73.68v-132.05c0-19.38-6.46-38.41-19.14-53.06Z"/>
@@ -376,6 +378,7 @@
     callView.className = "call-view";
     callView.style.display = "none";
     callView.innerHTML = `
+    <div class="call-visualizer" id="call-visualizer">
       <div class="call-header">
       <button class="back-btn" id="back-btn" aria-label="Back to landing">
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -436,11 +439,12 @@
       </svg>
       </button>
       </div>
-       <div class="widget-footer" style="padding: 4px 0; margin: 0;">
-      <div class="footer-text" style="display: flex; align-items: center; justify-content: center; gap: 6px; font-size: 12px; color: #6b7280; flex-wrap: nowrap; line-height: 1;">
+      </div>
+       <div class="widget-footer" style="padding: 0; margin: 0; background-color: #f9fafb;">
+      <div class="footer-text" style="display: flex; align-items: center; justify-content: center; gap: 6px; font-size: 16px; color: #6b7280; flex-wrap: nowrap; line-height: 1;">
           <span>Powered by</span>
           <a href="https://callshivai.com" target="_blank" rel="noopener noreferrer" class="footer-logo-link" style="display: inline-flex; align-items: center; text-decoration: none; cursor: pointer; transition: all 0.2s ease;">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1500 1500" class="footer-logo" style="height: 48px; width: 48px; fill: #3b82f6; vertical-align: middle; line-height: 1; margin-left: -5px;">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1500 1500" class="footer-logo" style="height: 56px; width: 56px; fill: #3b82f6; vertical-align: middle; line-height: 1; margin-left: -5px;">
             
               <path class="cls-1" d="m404.66,608.33c-9.95-7.3-50.21-35.08-105.88-29.33-26.64,2.75-47.74,12.25-62.31,21.06-14.39,8.7-26.96,20.35-35.39,34.9-12.13,20.93-15.94,45.25-9.6,67.8,4.02,14.28,11.39,25.29,18.63,33.3,6.91,7.65,15.23,13.89,24.25,18.89,25.77,14.32,51.54,28.63,77.31,42.95,11.98,7.56,18.69,20.94,17.17,34.34-.11,1.01-.27,1.98-.47,2.93-2.85,13.83-15.4,23.46-29.5,24.28-8.62.5-18.56.28-29.41-1.45-34.59-5.51-58.34-23.08-69.39-32.54-13.35,21.1-26.71,42.2-40.06,63.3,13.96,9.75,32.81,20.78,56.52,29.33,42.03,15.17,79.38,15.38,102.3,13.59,7.85-.92,45.14-6.13,72.25-39.35,1.28-1.57,2.49-3.15,3.65-4.73,27.87-38.33,23.14-92-9.89-125.97-.3-.31-.6-.62-.91-.93-17.09-17.27-35.69-27.61-51.02-33.85-19.44-7.9-38.05-17.71-55.07-29.99-.78-.56-1.56-1.12-2.33-1.68-9.66-6.97-12.29-20.21-6.03-30.34h0c7.3-11.68,22.31-17.66,37.92-15.02,8.22-.53,21.33-.36,36.48,4.29,15.34,4.71,26.38,12.07,32.91,17.17,9.3-20.98,18.6-41.97,27.9-62.95Z"/>
               <path class="cls-1" d="m630.61,740.85c-3.86-4.46-8.41-8.89-13.76-13.05-17.19-13.34-35.56-18.29-49.77-19.92-15.45-1.76-31.19.76-45.13,7.63-.08.04-.16.08-.25.12-13.14,6.52-22.41,14.79-28.33,21.1v-169.18h-72.25v358.41h72.25v-130.44c9.49-21.4,30.88-33.36,50.51-29.8,3.55.64,6.78,1.75,9.71,3.15,14.12,6.76,22.48,21.69,22.48,37.35v119.75h73.68v-132.05c0-19.38-6.46-38.41-19.14-53.06Z"/>
@@ -455,6 +459,7 @@
             </svg>
             </a></div>
       </div>
+      
       </div>
     `;
 
@@ -1009,7 +1014,6 @@
       }
 
       .widget-footer {
-      padding: 6px 8px;
       text-align: center;
       border-top: 1px solid #f3f4f6;
       }
@@ -1018,7 +1022,7 @@
       font-size: 12px;
       color: #6b7280;
       text-align: center;
-      margin-top: 8px;
+      // margin-top: 8px;
       }
 
       .footer-text span {
@@ -1048,38 +1052,40 @@
       /* Footer Mobile Responsiveness */
       @media (max-width: 768px) {
         .footer-text {
-          font-size: 11px;
-          gap: 3px;
+          font-size: 14px;
+          gap: 4px;
         }
         
         .footer-logo {
-          height: 36px !important;
-          width: 36px !important;
+          height: 44px !important;
+          width: 44px !important;
         }
         
         .footer-text span {
-          font-size: 11px;
+          font-size: 14px;
         }
       }
 
       @media (max-width: 480px) {
         .footer-text {
-          font-size: 10px;
-          gap: 2px;
+          font-size: 12px;
+          gap: 3px;
           padding: 0 4px;
         }
         
         .footer-logo {
-          height: 32px !important;
-          width: 32px !important;
+          height: 40px !important;
+          width: 40px !important;
         }
         
         .footer-text span {
-          font-size: 10px;
+          font-size: 11px;
         }
         
         .footer-logo-link {
-          padding: 2px;
+          padding: 0px;
+          position: relative;
+          left: -2px;
         }
       }
 
@@ -2894,32 +2900,15 @@
     );
   }
 
-  // Advanced soft clipping function to prevent audio tearing on iOS
-  function softClip(sample) {
-    const abs = Math.abs(sample);
-    if (abs <= 0.8) {
-      // Clean range - no processing needed
-      return sample;
-    } else if (abs <= 1.0) {
-      // Gentle compression in the near-clipping range
-      const sign = sample >= 0 ? 1 : -1;
-      const compressed = 0.8 + (abs - 0.8) * 0.5; // Gentle compression
-      return sign * compressed;
-    } else {
-      // Soft limiting for values above 1.0
-      const sign = sample >= 0 ? 1 : -1;
-      return sign * (0.9 + 0.1 * Math.tanh((abs - 1.0) * 2.0)); // Smooth limiting
-    }
-  }
+  // Simple audio processing - removed complex gain control that caused wavy sound
 
-  // Handle continuous playback process
+  // Handle continuous playback process with improved volume consistency
   function handlePlaybackProcess(event) {
     const output = event.outputBuffer.getChannelData(0);
     let offset = 0;
 
-    // iOS requires higher amplification but not too aggressive to avoid tearing
-    // Reduced from 20x to 15x to prevent audio artifacts while maintaining volume
-    const volumeGain = isIOS() ? 15.0 : 12.0; // 15x for iOS, 12x for Android/others
+    // Use fixed, stable volume gain for consistent audio
+    const baseVolumeGain = 8.0; // Increased gain for better volume while maintaining stability
 
     while (offset < output.length) {
       if (playbackBufferQueue.length === 0) {
@@ -2936,17 +2925,16 @@
       const remaining = currentBuffer.length - playbackBufferOffset;
       const samplesToCopy = Math.min(remaining, output.length - offset);
 
-      // Copy samples with volume boost and iOS-specific soft clipping
+      // Simple, stable audio processing without dynamic gain adjustments
       for (let i = 0; i < samplesToCopy; i++) {
-        const amplifiedSample =
-          currentBuffer[playbackBufferOffset + i] * volumeGain;
-        if (isIOS()) {
-          // Use soft clipping for iOS to handle higher amplification smoothly
-          output[offset + i] = softClip(amplifiedSample);
-        } else {
-          // Use hard clipping for Android/others
-          output[offset + i] = Math.max(-1, Math.min(1, amplifiedSample));
-        }
+        const rawSample = currentBuffer[playbackBufferOffset + i];
+        let amplifiedSample = rawSample * baseVolumeGain;
+        
+        // Simple hard limiting to prevent distortion (no complex soft clipping)
+        if (amplifiedSample > 0.9) amplifiedSample = 0.9;
+        if (amplifiedSample < -0.9) amplifiedSample = -0.9;
+        
+        output[offset + i] = amplifiedSample;
       }
 
       offset += samplesToCopy;
