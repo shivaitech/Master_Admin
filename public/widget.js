@@ -2443,15 +2443,18 @@
       }
 
       const startCallData = await startCallResponse.json();
+      console.log("📋 [API] Full start call response:", startCallData);
+      
       if (!startCallData.success || !startCallData.data) {
         throw new Error(startCallData.message || "Failed to start call");
       }
 
       const { callId, pythonServiceUrl } = startCallData.data;
-      console.log("Call started:", callId, "URL:", pythonServiceUrl);
+      console.log("✅ [API] Call started successfully - CallId:", callId, "URL:", pythonServiceUrl);
 
       // Store callId for later use
       window.currentCallId = callId;
+      console.log("💾 [STORAGE] CallId stored in window.currentCallId:", window.currentCallId);
 
       // STEP 3: Initialize audio context with iOS-specific settings
       const audioContextOptions = {
@@ -2534,11 +2537,14 @@
             language: selectedLanguage,
             agent_id: "id123",
             client_ip: clientIp || null,
+            callId: window.currentCallId || null,
           })
         );
 
         console.log(
-          "📤 [WEBSOCKET] Sent config with IP:",
+          "📤 [WEBSOCKET] Sent config with callId:",
+          window.currentCallId || "unavailable",
+          "IP:",
           clientIp || "unavailable"
         );
 
