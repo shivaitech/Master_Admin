@@ -398,7 +398,8 @@
       <option value="ar">🇸🇦 Arabic</option>
       <option value="zh">🇨🇳 Chinese</option>
       <option value="nl">🇳🇱 Dutch</option>
-      <option value="en-GB">🇬🇧 English (US)</option>
+      <option value="en-GB">🇬🇧 English (UK)</option>
+      <option value="en-US">🇺🇸 English (US)</option>
       <option value="en-IN">🇮🇳 English (India)</option>
       <option value="fr">🇫🇷 French</option>
       <option value="de">🇩🇪 German</option>
