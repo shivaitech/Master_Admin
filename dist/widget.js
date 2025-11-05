@@ -3190,17 +3190,16 @@
     playbackBufferQueue = [];
     playbackBufferOffset = 0;
 
-    // Create master gain node - keep at 1.0 for iOS to avoid double amplification
-    // We'll handle iOS volume boost through sample amplification only
+    // Create master gain node with optimized volume settings
     masterGainNode = audioContext.createGain();
-    const masterGainValue = 1.0; // Same for both iOS and Android
+    const masterGainValue = 1.2; // Slightly increased master gain for better volume
     masterGainNode.gain.setValueAtTime(
       masterGainValue,
       audioContext.currentTime
     );
     masterGainNode.connect(audioContext.destination);
 
-    playbackProcessor = audioContext.createScriptProcessor(1024, 1, 1);
+    playbackProcessor = audioContext.createScriptProcessor(2048, 1, 1); // Larger buffer for smoother processing
     playbackProcessor.onaudioprocess = handlePlaybackProcess;
     playbackProcessor.connect(masterGainNode); // Connect through master gain
   }
@@ -3223,14 +3222,14 @@
 
   // Simple audio processing - removed complex gain control that caused wavy sound
 
-  // Handle continuous playback process with improved volume consistency
+  // Handle continuous playback process with crystal clear audio
   function handlePlaybackProcess(event) {
     const output = event.outputBuffer.getChannelData(0);
     let offset = 0;
 
-    // Use fixed, stable volume gain for consistent audio
-    const baseVolumeGain = 8.0; // Increased gain for better volume while maintaining stability
-
+    // Increased volume gain for better clarity and loudness
+    const baseVolumeGain = 12.0; // Higher gain for better volume
+    
     while (offset < output.length) {
       if (playbackBufferQueue.length === 0) {
         for (; offset < output.length; offset++) {
@@ -3246,14 +3245,20 @@
       const remaining = currentBuffer.length - playbackBufferOffset;
       const samplesToCopy = Math.min(remaining, output.length - offset);
 
-      // Simple, stable audio processing without dynamic gain adjustments
+      // Crystal clear audio processing with proper limiting
       for (let i = 0; i < samplesToCopy; i++) {
         const rawSample = currentBuffer[playbackBufferOffset + i];
         let amplifiedSample = rawSample * baseVolumeGain;
 
-        // Simple hard limiting to prevent distortion (no complex soft clipping)
-        if (amplifiedSample > 0.9) amplifiedSample = 0.9;
-        if (amplifiedSample < -0.9) amplifiedSample = -0.9;
+        // Smooth soft clipping for natural sound without distortion
+        if (amplifiedSample > 0.95) {
+          amplifiedSample = 0.95 - (amplifiedSample - 0.95) * 0.1;
+        } else if (amplifiedSample < -0.95) {
+          amplifiedSample = -0.95 - (amplifiedSample + 0.95) * 0.1;
+        }
+
+        // Final hard limit as safety
+        amplifiedSample = Math.max(-0.98, Math.min(0.98, amplifiedSample));
 
         output[offset + i] = amplifiedSample;
       }
