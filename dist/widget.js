@@ -297,6 +297,269 @@
     oscillator.stop(soundContext.currentTime + duration);
   }
 
+  // Make element draggable
+  function makeDraggable(element) {
+    let isDragging = false;
+    let startX, startY, initialX, initialY;
+    let dragTimeout;
+
+    // Add draggable cursor styles
+    element.style.cursor = 'move';
+    
+    element.addEventListener('mousedown', startDrag);
+    element.addEventListener('touchstart', startDrag, { passive: false });
+
+    function startDrag(e) {
+      e.preventDefault();
+      
+      // Clear any existing timeout
+      if (dragTimeout) {
+        clearTimeout(dragTimeout);
+      }
+
+      // Set a small delay to distinguish between click and drag
+      dragTimeout = setTimeout(() => {
+        isDragging = true;
+        element.style.transition = 'none'; // Disable transitions during drag
+        
+        if (e.type === 'mousedown') {
+          startX = e.clientX;
+          startY = e.clientY;
+        } else {
+          startX = e.touches[0].clientX;
+          startY = e.touches[0].clientY;
+        }
+
+        const rect = element.getBoundingClientRect();
+        initialX = rect.left;
+        initialY = rect.top;
+
+        // Add global listeners
+        document.addEventListener('mousemove', drag);
+        document.addEventListener('mouseup', stopDrag);
+        document.addEventListener('touchmove', drag, { passive: false });
+        document.addEventListener('touchend', stopDrag);
+        
+        // Add dragging class for visual feedback
+        element.classList.add('dragging');
+      }, 100); // 100ms delay to distinguish from click
+    }
+
+    function drag(e) {
+      if (!isDragging) return;
+      e.preventDefault();
+
+      let currentX, currentY;
+      if (e.type === 'mousemove') {
+        currentX = e.clientX;
+        currentY = e.clientY;
+      } else {
+        currentX = e.touches[0].clientX;
+        currentY = e.touches[0].clientY;
+      }
+
+      const deltaX = currentX - startX;
+      const deltaY = currentY - startY;
+
+      let newX = initialX + deltaX;
+      let newY = initialY + deltaY;
+
+      // Keep element within viewport bounds
+      const elementRect = element.getBoundingClientRect();
+      const maxX = window.innerWidth - elementRect.width;
+      const maxY = window.innerHeight - elementRect.height;
+
+      newX = Math.max(0, Math.min(newX, maxX));
+      newY = Math.max(0, Math.min(newY, maxY));
+
+      // Update position
+      element.style.position = 'fixed';
+      element.style.left = newX + 'px';
+      element.style.top = newY + 'px';
+      element.style.bottom = 'auto';
+      element.style.right = 'auto';
+    }
+
+    function stopDrag(e) {
+      if (dragTimeout) {
+        clearTimeout(dragTimeout);
+        dragTimeout = null;
+      }
+
+      if (isDragging) {
+        isDragging = false;
+        element.style.transition = ''; // Re-enable transitions
+        element.classList.remove('dragging');
+        
+        // Save position to localStorage for persistence
+        const elementRect = element.getBoundingClientRect();
+        const positionKey = element.classList.contains('shivai-trigger') ? 'shivai-trigger-position' : 'shivai-widget-position';
+        localStorage.setItem(positionKey, JSON.stringify({
+          left: elementRect.left,
+          top: elementRect.top
+        }));
+      }
+
+      // Remove global listeners
+      document.removeEventListener('mousemove', drag);
+      document.removeEventListener('mouseup', stopDrag);
+      document.removeEventListener('touchmove', drag);
+      document.removeEventListener('touchend', stopDrag);
+    }
+
+    // Restore position from localStorage
+    const positionKey = element.classList.contains('shivai-trigger') ? 'shivai-trigger-position' : 'shivai-widget-position';
+    const savedPosition = localStorage.getItem(positionKey);
+    if (savedPosition) {
+      try {
+        const position = JSON.parse(savedPosition);
+        element.style.position = 'fixed';
+        element.style.left = position.left + 'px';
+        element.style.top = position.top + 'px';
+        element.style.bottom = 'auto';
+        element.style.right = 'auto';
+      } catch (e) {
+        console.warn('Failed to restore element position:', e);
+      }
+    }
+  }
+
+  // Make widget draggable by header only
+  function makeWidgetDraggable(widgetElement) {
+    let isDragging = false;
+    let startX, startY, initialX, initialY;
+    let dragTimeout;
+
+    // Find the widget headers (both landing and call view)
+    const headers = widgetElement.querySelectorAll('.widget-header');
+    
+    headers.forEach(header => {
+      header.style.cursor = 'move';
+      header.addEventListener('mousedown', startDrag);
+      header.addEventListener('touchstart', startDrag, { passive: false });
+    });
+
+    function startDrag(e) {
+      // Don't drag if clicking on close button or other interactive elements
+      if (e.target.classList.contains('widget-close') || 
+          e.target.closest('.widget-close') || 
+          e.target.classList.contains('start-call-btn') ||
+          e.target.closest('.start-call-btn')) {
+        return;
+      }
+
+      e.preventDefault();
+      
+      // Clear any existing timeout
+      if (dragTimeout) {
+        clearTimeout(dragTimeout);
+      }
+
+      // Set a small delay to distinguish between click and drag
+      dragTimeout = setTimeout(() => {
+        isDragging = true;
+        widgetElement.style.transition = 'none'; // Disable transitions during drag
+        
+        if (e.type === 'mousedown') {
+          startX = e.clientX;
+          startY = e.clientY;
+        } else {
+          startX = e.touches[0].clientX;
+          startY = e.touches[0].clientY;
+        }
+
+        const rect = widgetElement.getBoundingClientRect();
+        initialX = rect.left;
+        initialY = rect.top;
+
+        // Add global listeners
+        document.addEventListener('mousemove', drag);
+        document.addEventListener('mouseup', stopDrag);
+        document.addEventListener('touchmove', drag, { passive: false });
+        document.addEventListener('touchend', stopDrag);
+        
+        // Add dragging class for visual feedback
+        widgetElement.classList.add('dragging');
+      }, 100); // 100ms delay to distinguish from click
+    }
+
+    function drag(e) {
+      if (!isDragging) return;
+      e.preventDefault();
+
+      let currentX, currentY;
+      if (e.type === 'mousemove') {
+        currentX = e.clientX;
+        currentY = e.clientY;
+      } else {
+        currentX = e.touches[0].clientX;
+        currentY = e.touches[0].clientY;
+      }
+
+      const deltaX = currentX - startX;
+      const deltaY = currentY - startY;
+
+      let newX = initialX + deltaX;
+      let newY = initialY + deltaY;
+
+      // Keep element within viewport bounds
+      const elementRect = widgetElement.getBoundingClientRect();
+      const maxX = window.innerWidth - elementRect.width;
+      const maxY = window.innerHeight - elementRect.height;
+
+      newX = Math.max(0, Math.min(newX, maxX));
+      newY = Math.max(0, Math.min(newY, maxY));
+
+      // Update position
+      widgetElement.style.position = 'fixed';
+      widgetElement.style.left = newX + 'px';
+      widgetElement.style.top = newY + 'px';
+      widgetElement.style.bottom = 'auto';
+      widgetElement.style.right = 'auto';
+    }
+
+    function stopDrag(e) {
+      if (dragTimeout) {
+        clearTimeout(dragTimeout);
+        dragTimeout = null;
+      }
+
+      if (isDragging) {
+        isDragging = false;
+        widgetElement.style.transition = ''; // Re-enable transitions
+        widgetElement.classList.remove('dragging');
+        
+        // Save position to localStorage for persistence
+        const elementRect = widgetElement.getBoundingClientRect();
+        localStorage.setItem('shivai-widget-position', JSON.stringify({
+          left: elementRect.left,
+          top: elementRect.top
+        }));
+      }
+
+      // Remove global listeners
+      document.removeEventListener('mousemove', drag);
+      document.removeEventListener('mouseup', stopDrag);
+      document.removeEventListener('touchmove', drag);
+      document.removeEventListener('touchend', stopDrag);
+    }
+
+    // Restore position from localStorage
+    const savedPosition = localStorage.getItem('shivai-widget-position');
+    if (savedPosition) {
+      try {
+        const position = JSON.parse(savedPosition);
+        widgetElement.style.position = 'fixed';
+        widgetElement.style.left = position.left + 'px';
+        widgetElement.style.top = position.top + 'px';
+        widgetElement.style.bottom = 'auto';
+        widgetElement.style.right = 'auto';
+      } catch (e) {
+        console.warn('Failed to restore widget position:', e);
+      }
+    }
+  }
+
   // Create widget UI elements
   function createWidgetUI() {
     // Create floating trigger button with phone icon
@@ -471,6 +734,9 @@
     // Append to document
     document.body.appendChild(triggerBtn);
     document.body.appendChild(widgetContainer);
+
+    // Make widget draggable only (not trigger button)
+    makeWidgetDraggable(widgetContainer);
 
     // Create live message bubble
     createLiveMessageBubble();
@@ -726,7 +992,7 @@
       display: flex;
       align-items: center;
       justify-content: center;
-      z-index: 10000;
+      z-index: 2147483647;
       color: #ffffff;
       font-size: 24px;
       transition: all 0.3s ease;
@@ -1752,6 +2018,28 @@
         padding: 12px 14px;
         font-size: 13px;
       }
+      
+      /* Dragging styles */
+      .dragging {
+        opacity: 0.8;
+        transform: scale(1.05);
+        z-index: 999999 !important;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3) !important;
+        transition: none !important;
+      }
+      
+      .shivai-widget.dragging {
+        transition: none !important;
+      }
+      
+      .widget-header:hover {
+        cursor: move;
+      }
+      
+      .widget-header .widget-close:hover,
+      .widget-header .start-call-btn:hover {
+        cursor: pointer;
+      }
       }
     `;
 
@@ -2444,17 +2732,25 @@
 
       const startCallData = await startCallResponse.json();
       console.log("📋 [API] Full start call response:", startCallData);
-      
+
       if (!startCallData.success || !startCallData.data) {
         throw new Error(startCallData.message || "Failed to start call");
       }
 
       const { callId, pythonServiceUrl } = startCallData.data;
-      console.log("✅ [API] Call started successfully - CallId:", callId, "URL:", pythonServiceUrl);
+      console.log(
+        "✅ [API] Call started successfully - CallId:",
+        callId,
+        "URL:",
+        pythonServiceUrl
+      );
 
       // Store callId for later use
       window.currentCallId = callId;
-      console.log("💾 [STORAGE] CallId stored in window.currentCallId:", window.currentCallId);
+      console.log(
+        "💾 [STORAGE] CallId stored in window.currentCallId:",
+        window.currentCallId
+      );
 
       // STEP 3: Initialize audio context with iOS-specific settings
       const audioContextOptions = {
@@ -2499,7 +2795,9 @@
       setupPlaybackProcessor();
 
       // Connect to Python WebSocket service
-      ws = new WebSocket("wss://openai-shell.onrender.com/ws");
+      ws = new WebSocket(
+        pythonServiceUrl || "wss://python.service.callshivai.com"
+      );
 
       ws.onopen = async () => {
         console.log("🟢 [WEBSOCKET] Connected to server");
@@ -2947,11 +3245,11 @@
       for (let i = 0; i < samplesToCopy; i++) {
         const rawSample = currentBuffer[playbackBufferOffset + i];
         let amplifiedSample = rawSample * baseVolumeGain;
-        
+
         // Simple hard limiting to prevent distortion (no complex soft clipping)
         if (amplifiedSample > 0.9) amplifiedSample = 0.9;
         if (amplifiedSample < -0.9) amplifiedSample = -0.9;
-        
+
         output[offset + i] = amplifiedSample;
       }
 
