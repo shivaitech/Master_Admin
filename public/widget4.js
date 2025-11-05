@@ -431,7 +431,7 @@
     let dragTimeout;
 
     // Find the widget headers (both landing and call view)
-    const headers = widgetElement.querySelectorAll('.widget-header');
+    const headers = widgetElement.querySelectorAll('.widget-header, .call-header');
     
     headers.forEach(header => {
       header.style.cursor = 'move';
@@ -440,11 +440,13 @@
     });
 
     function startDrag(e) {
-      // Don't drag if clicking on close button or other interactive elements
+      // Don't drag if clicking on close button, back button, or other interactive elements
       if (e.target.classList.contains('widget-close') || 
           e.target.closest('.widget-close') || 
           e.target.classList.contains('start-call-btn') ||
-          e.target.closest('.start-call-btn')) {
+          e.target.closest('.start-call-btn') ||
+          e.target.classList.contains('back-btn') ||
+          e.target.closest('.back-btn')) {
         return;
       }
 
@@ -2032,12 +2034,15 @@
         transition: none !important;
       }
       
-      .widget-header:hover {
+      .widget-header:hover,
+      .call-header:hover {
         cursor: move;
       }
       
       .widget-header .widget-close:hover,
-      .widget-header .start-call-btn:hover {
+      .widget-header .start-call-btn:hover,
+      .call-header .widget-close:hover,
+      .call-header .back-btn:hover {
         cursor: pointer;
       }
       }
