@@ -123,7 +123,7 @@ const AIEmployeeStatsMain = ({ onViewEmployee }) => {
     lastUpdate: "2024-01-15 14:30:00",
     totalSessions: 0,
     successfulSessions: 0,
-    avgSessionDuration: "3.2 min",
+    avgSessionDuration: "3m 12s",
     type: "chat",
     performance: 0,
     createdAt: "2024-01-01",
@@ -229,7 +229,7 @@ const AIEmployeeStatsMain = ({ onViewEmployee }) => {
             new Date().toISOString(),
           duration: session.total_duration
             ? `${Math.floor(session.total_duration / 60)}m ${
-                session.total_duration % 60
+                Math.floor(session.total_duration % 60)
               }s`
             : session.duration ||
               calculateDuration(
