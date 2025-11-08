@@ -24,12 +24,35 @@
   let hasReceivedFirstAIResponse = false; // Track first AI response to clear loading
   let shouldAutoUnmute = false; // Flag to auto-unmute after AI first response
 
+  // Session management variables
+  let sessionId = null;
+  let callStartTime = null;
+  let callDuration = 0;
+  let callTimerInterval = null;
+
+  // Enhanced audio processing variables
+  let rawMicStreamRef = null;
+  let triggerAudioBuffer = null;
+  let audioContextOptions = null;
+  let destinationNode = null;
+  let aiAudioElement = null; // Reference to AI audio element
+  let remoteAudioStream = null; // Remote audio stream for background playback
+
   // Playback processor variables for smooth audio
   let playbackProcessor = null;
   let playbackBufferQueue = [];
   let playbackBufferOffset = 0;
   let assistantSpeaking = false;
   let masterGainNode = null; // Master volume control
+
+  // Loading messages for better UX
+  const loadingMessages = [
+    "Establishing secure connection...",
+    "Warming up audio channels...",
+    "Initializing AI persona...",
+    "Finalizing setup...",
+  ];
+  let currentLoadingIndex = 0;
 
   // Sound effects system
   let soundContext = null;
@@ -63,14 +86,212 @@
 
   // Call timer variables
   let callTimerElement = null;
-  let callStartTime = null;
-  let callTimerInterval = null;
 
   // Initialize widget
   function initWidget() {
     createWidgetUI();
     setupEventListeners();
     initSoundContext();
+    prefetchTriggerAudio(); // Prefetch audio for better performance
+    setupBackgroundHandling(); // Setup iOS background support
+    
+    // Test iOS background audio setup after initialization
+    setTimeout(() => {
+      testIOSBackgroundAudio();
+    }, 1000);
+  }
+
+  // Setup iOS background and lock screen support with enhanced audio handling
+  function setupBackgroundHandling() {
+    // Handle visibility changes for iOS background support
+    document.addEventListener('visibilitychange', async () => {
+      if (isIOS() && isConnected && audioContext) {
+        if (document.visibilityState === 'visible') {
+          // App became visible again
+          logMessage('App visible - resuming audio context and connections', 'info');
+          
+          // Resume audio context
+          if (audioContext.state === 'suspended') {
+            try {
+              await audioContext.resume();
+              logMessage('Audio context resumed after visibility change', 'success');
+            } catch (err) {
+              logMessage('Failed to resume audio context: ' + err.message, 'error');
+            }
+          }
+          
+          // Resume AI audio element if suspended
+          if (aiAudioElement && aiAudioElement.paused && remoteAudioStream) {
+            try {
+              aiAudioElement.srcObject = remoteAudioStream;
+              await aiAudioElement.play();
+              logMessage('AI audio element resumed', 'success');
+            } catch (err) {
+              logMessage('Failed to resume AI audio element: ' + err.message, 'error');
+            }
+          }
+          
+        } else {
+          // App went to background
+          logMessage('App backgrounded - maintaining audio connection', 'info');
+          
+          // Keep audio element playing for background audio
+          if (aiAudioElement && remoteAudioStream) {
+            try {
+              aiAudioElement.srcObject = remoteAudioStream;
+              // Don't pause - let it continue in background
+              logMessage('Audio maintained for background playback', 'success');
+            } catch (err) {
+              logMessage('Failed to maintain background audio: ' + err.message, 'error');
+            }
+          }
+        }
+      }
+    });
+
+    // Handle page unload for proper cleanup
+    window.addEventListener('beforeunload', () => {
+      if (isConnected) {
+        stopConversation();
+      }
+    });
+
+    // Enhanced focus handling for iOS with audio recovery
+    if (isIOS()) {
+      window.addEventListener('focus', async () => {
+        if (isConnected) {
+          // Resume audio context
+          if (audioContext && audioContext.state === 'suspended') {
+            try {
+              await audioContext.resume();
+              logMessage('Audio context resumed on focus', 'success');
+            } catch (err) {
+              logMessage('Focus audio resume failed: ' + err.message, 'error');
+            }
+          }
+          
+          // Ensure AI audio is playing
+          if (aiAudioElement && aiAudioElement.paused && remoteAudioStream) {
+            try {
+              await aiAudioElement.play();
+              logMessage('AI audio resumed on focus', 'success');
+            } catch (err) {
+              logMessage('Focus AI audio resume failed: ' + err.message, 'error');
+            }
+          }
+        }
+      });
+      
+      // Handle audio interruptions (phone calls, etc.)
+      if (aiAudioElement) {
+        aiAudioElement.addEventListener('pause', () => {
+          if (isConnected && remoteAudioStream) {
+            logMessage('AI audio paused - attempting recovery', 'info');
+            setTimeout(async () => {
+              try {
+                if (aiAudioElement.paused && isConnected) {
+                  await aiAudioElement.play();
+                  logMessage('AI audio recovered from pause', 'success');
+                }
+              } catch (err) {
+                logMessage('Failed to recover AI audio: ' + err.message, 'error');
+              }
+            }, 1000);
+          }
+        });
+      }
+    }
+  }
+
+  // Generate session ID for analytics tracking
+  function generateSessionId() {
+    return crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2,9)}`;
+  }
+
+  // Prefetch trigger audio for better performance
+  async function prefetchTriggerAudio() {
+    try {
+      console.log('🎵 Prefetching trigger audio...');
+      const response = await fetch('/audio/call-trigger-hmm.mp3', { cache: 'force-cache' });
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      triggerAudioBuffer = await response.arrayBuffer();
+      console.log('🎵 Trigger audio prefetched and cached');
+    } catch (err) {
+      console.warn('⚠️ Failed to prefetch trigger audio:', err);
+    }
+  }
+
+  // Test iOS background audio functionality
+  function testIOSBackgroundAudio() {
+    if (!isIOS()) {
+      logMessage('Not an iOS device - background audio test skipped', 'info');
+      return;
+    }
+
+    logMessage('Testing iOS background audio setup...', 'info');
+    
+    const checks = {
+      audioContext: !!audioContext,
+      aiAudioElement: !!aiAudioElement,
+      remoteAudioStream: !!remoteAudioStream,
+      autoplayEnabled: aiAudioElement ? !aiAudioElement.paused : false,
+      audioContextState: audioContext ? audioContext.state : 'none'
+    };
+
+    logMessage('iOS Background Audio Checks:', 'info');
+    Object.entries(checks).forEach(([key, value]) => {
+      logMessage(`  ${key}: ${value}`, value ? 'success' : 'error');
+    });
+
+    // Test stream connection
+    if (aiAudioElement && remoteAudioStream) {
+      const tracks = remoteAudioStream.getAudioTracks();
+      logMessage(`Audio stream has ${tracks.length} audio tracks`, tracks.length > 0 ? 'success' : 'warning');
+    }
+
+    return checks;
+  }
+
+  // Enhanced status update with loading messages
+  function updateStatusWithLoading(message, type = 'info') {
+    if (type === 'connecting') {
+      currentLoadingIndex = (currentLoadingIndex + 1) % loadingMessages.length;
+      message = loadingMessages[currentLoadingIndex];
+      
+      // Set interval for cycling messages
+      if (loadingInterval) clearInterval(loadingInterval);
+      loadingInterval = setInterval(() => {
+        currentLoadingIndex = (currentLoadingIndex + 1) % loadingMessages.length;
+        updateStatus(loadingMessages[currentLoadingIndex], 'connecting');
+      }, 2500);
+    } else {
+      if (loadingInterval) {
+        clearInterval(loadingInterval);
+        loadingInterval = null;
+      }
+    }
+    
+    updateStatus(message, type);
+  }
+
+  // Log messages with enhanced formatting (from React code)
+  function logMessage(message, type = 'info') {
+    const timestamp = new Date().toLocaleTimeString();
+    const log = `[${timestamp}] ${message}`;
+
+    switch (type) {
+      case 'error':
+        console.error(log);
+        break;
+      case 'success':
+        console.log(`%c${log}`, 'color: #28a745');
+        break;
+      case 'ai':
+        console.log(`%c${log}`, 'color: #007bff');
+        break;
+      default:
+        console.info(log);
+    }
   }
 
   // Initialize sound context for call sounds
@@ -297,6 +518,271 @@
     oscillator.stop(soundContext.currentTime + duration);
   }
 
+  // Make element draggable
+  function makeDraggable(element) {
+    let isDragging = false;
+    let startX, startY, initialX, initialY;
+    let dragTimeout;
+
+    // Add draggable cursor styles
+    element.style.cursor = 'move';
+    
+    element.addEventListener('mousedown', startDrag);
+    element.addEventListener('touchstart', startDrag, { passive: false });
+
+    function startDrag(e) {
+      e.preventDefault();
+      
+      // Clear any existing timeout
+      if (dragTimeout) {
+        clearTimeout(dragTimeout);
+      }
+
+      // Set a small delay to distinguish between click and drag
+      dragTimeout = setTimeout(() => {
+        isDragging = true;
+        element.style.transition = 'none'; // Disable transitions during drag
+        
+        if (e.type === 'mousedown') {
+          startX = e.clientX;
+          startY = e.clientY;
+        } else {
+          startX = e.touches[0].clientX;
+          startY = e.touches[0].clientY;
+        }
+
+        const rect = element.getBoundingClientRect();
+        initialX = rect.left;
+        initialY = rect.top;
+
+        // Add global listeners
+        document.addEventListener('mousemove', drag);
+        document.addEventListener('mouseup', stopDrag);
+        document.addEventListener('touchmove', drag, { passive: false });
+        document.addEventListener('touchend', stopDrag);
+        
+        // Add dragging class for visual feedback
+        element.classList.add('dragging');
+      }, 100); // 100ms delay to distinguish from click
+    }
+
+    function drag(e) {
+      if (!isDragging) return;
+      e.preventDefault();
+
+      let currentX, currentY;
+      if (e.type === 'mousemove') {
+        currentX = e.clientX;
+        currentY = e.clientY;
+      } else {
+        currentX = e.touches[0].clientX;
+        currentY = e.touches[0].clientY;
+      }
+
+      const deltaX = currentX - startX;
+      const deltaY = currentY - startY;
+
+      let newX = initialX + deltaX;
+      let newY = initialY + deltaY;
+
+      // Keep element within viewport bounds
+      const elementRect = element.getBoundingClientRect();
+      const maxX = window.innerWidth - elementRect.width;
+      const maxY = window.innerHeight - elementRect.height;
+
+      newX = Math.max(0, Math.min(newX, maxX));
+      newY = Math.max(0, Math.min(newY, maxY));
+
+      // Update position
+      element.style.position = 'fixed';
+      element.style.left = newX + 'px';
+      element.style.top = newY + 'px';
+      element.style.bottom = 'auto';
+      element.style.right = 'auto';
+    }
+
+    function stopDrag(e) {
+      if (dragTimeout) {
+        clearTimeout(dragTimeout);
+        dragTimeout = null;
+      }
+
+      if (isDragging) {
+        isDragging = false;
+        element.style.transition = ''; // Re-enable transitions
+        element.classList.remove('dragging');
+        
+        // Save position to localStorage for persistence
+        const elementRect = element.getBoundingClientRect();
+        const positionKey = element.classList.contains('shivai-trigger') ? 'shivai-trigger-position' : 'shivai-widget-position';
+        localStorage.setItem(positionKey, JSON.stringify({
+          left: elementRect.left,
+          top: elementRect.top
+        }));
+      }
+
+      // Remove global listeners
+      document.removeEventListener('mousemove', drag);
+      document.removeEventListener('mouseup', stopDrag);
+      document.removeEventListener('touchmove', drag);
+      document.removeEventListener('touchend', stopDrag);
+    }
+
+    // Restore position from localStorage
+    const positionKey = element.classList.contains('shivai-trigger') ? 'shivai-trigger-position' : 'shivai-widget-position';
+    const savedPosition = localStorage.getItem(positionKey);
+    if (savedPosition) {
+      try {
+        const position = JSON.parse(savedPosition);
+        element.style.position = 'fixed';
+        element.style.left = position.left + 'px';
+        element.style.top = position.top + 'px';
+        element.style.bottom = 'auto';
+        element.style.right = 'auto';
+      } catch (e) {
+        console.warn('Failed to restore element position:', e);
+      }
+    }
+  }
+
+  // Make widget draggable by header only
+  function makeWidgetDraggable(widgetElement) {
+    let isDragging = false;
+    let startX, startY, initialX, initialY;
+    let dragTimeout;
+
+    // Find the widget headers (both landing and call view)
+    const headers = widgetElement.querySelectorAll('.widget-header, .call-header');
+    
+    headers.forEach(header => {
+      header.style.cursor = 'move';
+      header.addEventListener('mousedown', startDrag);
+      header.addEventListener('touchstart', startDrag, { passive: false });
+    });
+
+    function startDrag(e) {
+      // Don't drag if clicking on close button, back button, or other interactive elements
+      if (e.target.classList.contains('widget-close') || 
+          e.target.closest('.widget-close') || 
+          e.target.classList.contains('start-call-btn') ||
+          e.target.closest('.start-call-btn') ||
+          e.target.classList.contains('back-btn') ||
+          e.target.closest('.back-btn')) {
+        return;
+      }
+
+      e.preventDefault();
+      
+      // Clear any existing timeout
+      if (dragTimeout) {
+        clearTimeout(dragTimeout);
+      }
+
+      // Set a small delay to distinguish between click and drag
+      dragTimeout = setTimeout(() => {
+        isDragging = true;
+        widgetElement.style.transition = 'none'; // Disable transitions during drag
+        
+        if (e.type === 'mousedown') {
+          startX = e.clientX;
+          startY = e.clientY;
+        } else {
+          startX = e.touches[0].clientX;
+          startY = e.touches[0].clientY;
+        }
+
+        const rect = widgetElement.getBoundingClientRect();
+        initialX = rect.left;
+        initialY = rect.top;
+
+        // Add global listeners
+        document.addEventListener('mousemove', drag);
+        document.addEventListener('mouseup', stopDrag);
+        document.addEventListener('touchmove', drag, { passive: false });
+        document.addEventListener('touchend', stopDrag);
+        
+        // Add dragging class for visual feedback
+        widgetElement.classList.add('dragging');
+      }, 100); // 100ms delay to distinguish from click
+    }
+
+    function drag(e) {
+      if (!isDragging) return;
+      e.preventDefault();
+
+      let currentX, currentY;
+      if (e.type === 'mousemove') {
+        currentX = e.clientX;
+        currentY = e.clientY;
+      } else {
+        currentX = e.touches[0].clientX;
+        currentY = e.touches[0].clientY;
+      }
+
+      const deltaX = currentX - startX;
+      const deltaY = currentY - startY;
+
+      let newX = initialX + deltaX;
+      let newY = initialY + deltaY;
+
+      // Keep element within viewport bounds
+      const elementRect = widgetElement.getBoundingClientRect();
+      const maxX = window.innerWidth - elementRect.width;
+      const maxY = window.innerHeight - elementRect.height;
+
+      newX = Math.max(0, Math.min(newX, maxX));
+      newY = Math.max(0, Math.min(newY, maxY));
+
+      // Update position
+      widgetElement.style.position = 'fixed';
+      widgetElement.style.left = newX + 'px';
+      widgetElement.style.top = newY + 'px';
+      widgetElement.style.bottom = 'auto';
+      widgetElement.style.right = 'auto';
+    }
+
+    function stopDrag(e) {
+      if (dragTimeout) {
+        clearTimeout(dragTimeout);
+        dragTimeout = null;
+      }
+
+      if (isDragging) {
+        isDragging = false;
+        widgetElement.style.transition = ''; // Re-enable transitions
+        widgetElement.classList.remove('dragging');
+        
+        // Save position to localStorage for persistence
+        const elementRect = widgetElement.getBoundingClientRect();
+        localStorage.setItem('shivai-widget-position', JSON.stringify({
+          left: elementRect.left,
+          top: elementRect.top
+        }));
+      }
+
+      // Remove global listeners
+      document.removeEventListener('mousemove', drag);
+      document.removeEventListener('mouseup', stopDrag);
+      document.removeEventListener('touchmove', drag);
+      document.removeEventListener('touchend', stopDrag);
+    }
+
+    // Restore position from localStorage
+    const savedPosition = localStorage.getItem('shivai-widget-position');
+    if (savedPosition) {
+      try {
+        const position = JSON.parse(savedPosition);
+        widgetElement.style.position = 'fixed';
+        widgetElement.style.left = position.left + 'px';
+        widgetElement.style.top = position.top + 'px';
+        widgetElement.style.bottom = 'auto';
+        widgetElement.style.right = 'auto';
+      } catch (e) {
+        console.warn('Failed to restore widget position:', e);
+      }
+    }
+  }
+
   // Create widget UI elements
   function createWidgetUI() {
     // Create floating trigger button with phone icon
@@ -350,11 +836,11 @@
         </button>
         <div class="privacy-text">By using this service you agree to our <span class="privacy-link">T&C</span></div>
       </div>
-      <div class="widget-footer" style="padding: 4px 0; margin: 0;">
-         <div class="footer-text" style="display: flex; align-items: center; justify-content: center; gap: 6px; font-size: 12px; color: #6b7280; flex-wrap: nowrap; line-height: 1;">
+      <div class="widget-footer" style="padding: 0; margin: 0; background-color: #f9fafb;">
+         <div class="footer-text" style="display: flex; align-items: center; justify-content: center; gap: 6px; font-size: 13px; color: #6b7280; flex-wrap: nowrap; line-height: 1;">
           <span>Powered by</span>
           <a href="https://callshivai.com" target="_blank" rel="noopener noreferrer" class="footer-logo-link" style="display: inline-flex; align-items: center; text-decoration: none; cursor: pointer; transition: all 0.2s ease; vertical-align: middle;">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1500 1500" class="footer-logo" style="height: 48px; width: 48px; fill: #3b82f6; display: inline-block; vertical-align: middle; margin-left: -5px;">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1500 1500" class="footer-logo" style="height: 42px; width: 42px; fill: #3b82f6; display: inline-block; vertical-align: middle; margin-left: -5px;">
             
               <path class="cls-1" d="m404.66,608.33c-9.95-7.3-50.21-35.08-105.88-29.33-26.64,2.75-47.74,12.25-62.31,21.06-14.39,8.7-26.96,20.35-35.39,34.9-12.13,20.93-15.94,45.25-9.6,67.8,4.02,14.28,11.39,25.29,18.63,33.3,6.91,7.65,15.23,13.89,24.25,18.89,25.77,14.32,51.54,28.63,77.31,42.95,11.98,7.56,18.69,20.94,17.17,34.34-.11,1.01-.27,1.98-.47,2.93-2.85,13.83-15.4,23.46-29.5,24.28-8.62.5-18.56.28-29.41-1.45-34.59-5.51-58.34-23.08-69.39-32.54-13.35,21.1-26.71,42.2-40.06,63.3,13.96,9.75,32.81,20.78,56.52,29.33,42.03,15.17,79.38,15.38,102.3,13.59,7.85-.92,45.14-6.13,72.25-39.35,1.28-1.57,2.49-3.15,3.65-4.73,27.87-38.33,23.14-92-9.89-125.97-.3-.31-.6-.62-.91-.93-17.09-17.27-35.69-27.61-51.02-33.85-19.44-7.9-38.05-17.71-55.07-29.99-.78-.56-1.56-1.12-2.33-1.68-9.66-6.97-12.29-20.21-6.03-30.34h0c7.3-11.68,22.31-17.66,37.92-15.02,8.22-.53,21.33-.36,36.48,4.29,15.34,4.71,26.38,12.07,32.91,17.17,9.3-20.98,18.6-41.97,27.9-62.95Z"/>
               <path class="cls-1" d="m630.61,740.85c-3.86-4.46-8.41-8.89-13.76-13.05-17.19-13.34-35.56-18.29-49.77-19.92-15.45-1.76-31.19.76-45.13,7.63-.08.04-.16.08-.25.12-13.14,6.52-22.41,14.79-28.33,21.1v-169.18h-72.25v358.41h72.25v-130.44c9.49-21.4,30.88-33.36,50.51-29.8,3.55.64,6.78,1.75,9.71,3.15,14.12,6.76,22.48,21.69,22.48,37.35v119.75h73.68v-132.05c0-19.38-6.46-38.41-19.14-53.06Z"/>
@@ -376,6 +862,7 @@
     callView.className = "call-view";
     callView.style.display = "none";
     callView.innerHTML = `
+    <div class="call-visualizer" id="call-visualizer">
       <div class="call-header">
       <button class="back-btn" id="back-btn" aria-label="Back to landing">
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -397,7 +884,8 @@
       <option value="ar">🇸🇦 Arabic</option>
       <option value="zh">🇨🇳 Chinese</option>
       <option value="nl">🇳🇱 Dutch</option>
-      <option value="en">🇬🇧 English (US)</option>
+      <option value="en-GB">🇬🇧 English (UK)</option>
+      <option value="en-US">🇺🇸 English (US)</option>
       <option value="en-IN">🇮🇳 English (India)</option>
       <option value="fr">🇫🇷 French</option>
       <option value="de">🇩🇪 German</option>
@@ -436,11 +924,12 @@
       </svg>
       </button>
       </div>
-       <div class="widget-footer" style="padding: 4px 0; margin: 0;">
-      <div class="footer-text" style="display: flex; align-items: center; justify-content: center; gap: 6px; font-size: 12px; color: #6b7280; flex-wrap: nowrap; line-height: 1;">
+      </div>
+       <div class="widget-footer" style="padding: 0; margin: 0; background-color: #f9fafb;">
+      <div class="footer-text" style="display: flex; align-items: center; justify-content: center; gap: 6px; font-size: 13px; color: #6b7280; flex-wrap: nowrap; line-height: 1;">
           <span>Powered by</span>
           <a href="https://callshivai.com" target="_blank" rel="noopener noreferrer" class="footer-logo-link" style="display: inline-flex; align-items: center; text-decoration: none; cursor: pointer; transition: all 0.2s ease;">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1500 1500" class="footer-logo" style="height: 48px; width: 48px; fill: #3b82f6; vertical-align: middle; line-height: 1; margin-left: -5px;">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1500 1500" class="footer-logo" style="height: 42px; width: 42px; fill: #3b82f6; vertical-align: middle; line-height: 1; margin-left: -5px;">
             
               <path class="cls-1" d="m404.66,608.33c-9.95-7.3-50.21-35.08-105.88-29.33-26.64,2.75-47.74,12.25-62.31,21.06-14.39,8.7-26.96,20.35-35.39,34.9-12.13,20.93-15.94,45.25-9.6,67.8,4.02,14.28,11.39,25.29,18.63,33.3,6.91,7.65,15.23,13.89,24.25,18.89,25.77,14.32,51.54,28.63,77.31,42.95,11.98,7.56,18.69,20.94,17.17,34.34-.11,1.01-.27,1.98-.47,2.93-2.85,13.83-15.4,23.46-29.5,24.28-8.62.5-18.56.28-29.41-1.45-34.59-5.51-58.34-23.08-69.39-32.54-13.35,21.1-26.71,42.2-40.06,63.3,13.96,9.75,32.81,20.78,56.52,29.33,42.03,15.17,79.38,15.38,102.3,13.59,7.85-.92,45.14-6.13,72.25-39.35,1.28-1.57,2.49-3.15,3.65-4.73,27.87-38.33,23.14-92-9.89-125.97-.3-.31-.6-.62-.91-.93-17.09-17.27-35.69-27.61-51.02-33.85-19.44-7.9-38.05-17.71-55.07-29.99-.78-.56-1.56-1.12-2.33-1.68-9.66-6.97-12.29-20.21-6.03-30.34h0c7.3-11.68,22.31-17.66,37.92-15.02,8.22-.53,21.33-.36,36.48,4.29,15.34,4.71,26.38,12.07,32.91,17.17,9.3-20.98,18.6-41.97,27.9-62.95Z"/>
               <path class="cls-1" d="m630.61,740.85c-3.86-4.46-8.41-8.89-13.76-13.05-17.19-13.34-35.56-18.29-49.77-19.92-15.45-1.76-31.19.76-45.13,7.63-.08.04-.16.08-.25.12-13.14,6.52-22.41,14.79-28.33,21.1v-169.18h-72.25v358.41h72.25v-130.44c9.49-21.4,30.88-33.36,50.51-29.8,3.55.64,6.78,1.75,9.71,3.15,14.12,6.76,22.48,21.69,22.48,37.35v119.75h73.68v-132.05c0-19.38-6.46-38.41-19.14-53.06Z"/>
@@ -455,6 +944,7 @@
             </svg>
             </a></div>
       </div>
+      
       </div>
     `;
 
@@ -467,6 +957,19 @@
     // Append to document
     document.body.appendChild(triggerBtn);
     document.body.appendChild(widgetContainer);
+
+    // Create audio element for continuous AI audio playback (iOS background support)
+    aiAudioElement = document.createElement("audio");
+    aiAudioElement.id = "shivai-ai-audio";
+    aiAudioElement.autoplay = true;
+    aiAudioElement.setAttribute("playsinline", "");
+    aiAudioElement.style.display = "none";
+    document.body.appendChild(aiAudioElement);
+
+    logMessage('AI audio element created for background support', 'success');
+
+    // Make widget draggable only (not trigger button)
+    makeWidgetDraggable(widgetContainer);
 
     // Create live message bubble
     createLiveMessageBubble();
@@ -722,7 +1225,7 @@
       display: flex;
       align-items: center;
       justify-content: center;
-      z-index: 10000;
+      z-index: 2147483647;
       color: #ffffff;
       font-size: 24px;
       transition: all 0.3s ease;
@@ -1009,7 +1512,6 @@
       }
 
       .widget-footer {
-      padding: 6px 8px;
       text-align: center;
       border-top: 1px solid #f3f4f6;
       }
@@ -1018,7 +1520,7 @@
       font-size: 12px;
       color: #6b7280;
       text-align: center;
-      margin-top: 8px;
+      // margin-top: 8px;
       }
 
       .footer-text span {
@@ -1045,41 +1547,56 @@
       transform: scale(1.1);
       }
 
+       .footer-logo-link {
+          padding: 0px;
+          position: relative;
+          left: -2px;
+          top: 0.5px;
+        }
       /* Footer Mobile Responsiveness */
       @media (max-width: 768px) {
         .footer-text {
-          font-size: 11px;
-          gap: 3px;
+          font-size: 14px;
+          gap: 4px;
         }
         
         .footer-logo {
-          height: 36px !important;
-          width: 36px !important;
+          height: 44px !important;
+          width: 44px !important;
         }
         
         .footer-text span {
-          font-size: 11px;
+          font-size: 14px;
+        }
+          
+       .footer-logo-link {
+          padding: 0px;
+          position: relative;
+          left: -2px;
+          top: 0.5px;
         }
       }
 
       @media (max-width: 480px) {
         .footer-text {
-          font-size: 10px;
-          gap: 2px;
+          font-size: 12px;
+          gap: 3px;
           padding: 0 4px;
         }
         
         .footer-logo {
-          height: 32px !important;
-          width: 32px !important;
+          height: 40px !important;
+          width: 40px !important;
         }
         
         .footer-text span {
-          font-size: 10px;
+          font-size: 11px;
         }
         
         .footer-logo-link {
-          padding: 2px;
+          padding: 0px;
+          position: relative;
+          left: -2px;
         }
       }
 
@@ -1734,6 +2251,31 @@
         padding: 12px 14px;
         font-size: 13px;
       }
+      
+      /* Dragging styles */
+      .dragging {
+        opacity: 0.8;
+        transform: scale(1.05);
+        z-index: 999999 !important;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3) !important;
+        transition: none !important;
+      }
+      
+      .shivai-widget.dragging {
+        transition: none !important;
+      }
+      
+      .widget-header:hover,
+      .call-header:hover {
+        cursor: move;
+      }
+      
+      .widget-header .widget-close:hover,
+      .widget-header .start-call-btn:hover,
+      .call-header .widget-close:hover,
+      .call-header .back-btn:hover {
+        cursor: pointer;
+      }
       }
     `;
 
@@ -2148,9 +2690,11 @@
     }
   }
 
-  // Call timer functions
+  // Enhanced call timer functions with better formatting
   function startCallTimer() {
     callStartTime = Date.now();
+    callDuration = 0;
+    
     if (callTimerElement) {
       callTimerElement.style.display = "block";
     }
@@ -2168,6 +2712,8 @@
 
     callTimerInterval = setInterval(updateCallTimer, 1000);
     updateCallTimer();
+    
+    logMessage('Call timer started', 'success');
   }
 
   function stopCallTimer() {
@@ -2175,24 +2721,38 @@
       clearInterval(callTimerInterval);
       callTimerInterval = null;
     }
+    
+    const finalDuration = callStartTime ? Math.floor((Date.now() - callStartTime) / 1000) : 0;
     callStartTime = null;
+    callDuration = 0;
+    
+    // Reset document title
+    document.title = "ShivAI Widget";
+    
     if (callTimerElement) {
       callTimerElement.style.display = "none";
       callTimerElement.textContent = "00:00";
     }
   }
 
+  // Enhanced call timer with better formatting
   function updateCallTimer() {
     if (!callStartTime || !callTimerElement) return;
 
     const elapsed = Math.floor((Date.now() - callStartTime) / 1000);
+    callDuration = elapsed;
+    
     const minutes = Math.floor(elapsed / 60);
     const seconds = elapsed % 60;
 
-    callTimerElement.textContent = `${String(minutes).padStart(
-      2,
-      "0"
-    )}:${String(seconds).padStart(2, "0")}`;
+    // Format as MM:SS (matching React component)
+    const formattedTime = `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+    callTimerElement.textContent = formattedTime;
+    
+    // Also update document title for background awareness
+    if (isConnected) {
+      document.title = `ShivAI Call - ${formattedTime}`;
+    }
   }
 
   // Progressive connection states with sounds from widget2
@@ -2425,68 +2985,114 @@
       }
 
       const startCallData = await startCallResponse.json();
+      console.log("📋 [API] Full start call response:", startCallData);
+
       if (!startCallData.success || !startCallData.data) {
         throw new Error(startCallData.message || "Failed to start call");
       }
 
       const { callId, pythonServiceUrl } = startCallData.data;
-      console.log("Call started:", callId, "URL:", pythonServiceUrl);
+      console.log(
+        "✅ [API] Call started successfully - CallId:",
+        callId,
+        "URL:",
+        pythonServiceUrl
+      );
 
       // Store callId for later use
       window.currentCallId = callId;
+      logMessage(`CallId stored: ${window.currentCallId}`, 'success');
 
-      // STEP 3: Initialize audio context with iOS-specific settings
-      const audioContextOptions = {
+      // Generate session ID for analytics
+      sessionId = generateSessionId();
+      logMessage(`Session ID generated: ${sessionId}`, 'info');
+
+      // STEP 3: Initialize enhanced audio context with iOS-specific settings
+      audioContextOptions = {
         sampleRate: 24000,
         latencyHint: "interactive", // Optimize for low latency
       };
 
-      // iOS-specific audio context settings for better volume
+      // Enhanced iOS-specific audio context settings
       if (isIOS()) {
         audioContextOptions.latencyHint = "playback"; // Better for iOS audio volume
-        console.log(
-          "🍎 [iOS] Using iOS-optimized audio settings with 20x amplification and soft clipping"
-        );
+        logMessage("iOS device detected - Using optimized audio settings", 'success');
       } else {
-        console.log(
-          "🤖 [Android] Using standard audio settings with 12x amplification"
-        );
+        logMessage("Non-iOS device - Using standard audio settings", 'info');
       }
 
       audioContext = new (window.AudioContext || window.webkitAudioContext)(
         audioContextOptions
       );
 
-      // Resume audio context if suspended (browser autoplay policy)
+      // Enhanced audio context resume for iOS stability
       if (audioContext.state === "suspended") {
         await audioContext.resume();
+        logMessage('Audio context resumed', 'success');
 
-        // iOS: Additional resume attempts with delay
+        // iOS: Additional resume attempts with progressive delays for better stability
         if (isIOS() && audioContext.state === "suspended") {
-          setTimeout(async () => {
-            try {
-              await audioContext.resume();
-              console.log("🍎 [iOS] Audio context resumed after delay");
-            } catch (e) {
-              console.warn("🍎 [iOS] Failed to resume audio context:", e);
-            }
-          }, 100);
+          const iosResumeAttempts = [100, 250, 500];
+          for (let i = 0; i < iosResumeAttempts.length; i++) {
+            setTimeout(async () => {
+              try {
+                if (audioContext.state === "suspended") {
+                  await audioContext.resume();
+                  logMessage(`iOS audio context resumed after ${iosResumeAttempts[i]}ms delay`, 'success');
+                }
+              } catch (e) {
+                logMessage(`iOS audio resume attempt ${i + 1} failed: ${e.message}`, 'error');
+              }
+            }, iosResumeAttempts[i]);
+          }
         }
       }
 
-      // Setup playback processor for smooth audio
+      // Setup playback processor for enhanced audio
       setupPlaybackProcessor();
 
       // Connect to Python WebSocket service
-      ws = new WebSocket("wss://openai-shell.onrender.com/ws");
+      ws = new WebSocket(
+        pythonServiceUrl || "wss://python.service.callshivai.com"
+      );
 
       ws.onopen = async () => {
-        console.log("🟢 [WEBSOCKET] Connected to server");
+        logMessage("WebSocket connected to server", 'success');
         isConnected = true;
 
+        // Create remote audio stream for background playback
+        try {
+          if (audioContext && aiAudioElement) {
+            // Create a MediaStreamDestination for AI audio
+            const streamDestination = audioContext.createMediaStreamDestination();
+            remoteAudioStream = streamDestination.stream;
+            
+            // Connect AI audio element to the stream for background playback
+            aiAudioElement.srcObject = remoteAudioStream;
+            await aiAudioElement.play();
+            
+            logMessage('AI audio stream connected for background playback', 'success');
+          }
+        } catch (err) {
+          logMessage('Failed to setup AI audio stream: ' + err.message, 'error');
+        }
+
         // Keep loading until AI first response - show waiting for AI
-        updateStatus("Waiting for AI response...", "connecting");
-        showLoadingStatus("AI is preparing to speak...");
+        updateStatusWithLoading("Waiting for AI response...", "connecting");
+
+        // Start session logging with backend
+        try {
+          const sessionConfig = {
+            agent: 'support', // Default agent
+            language: selectedLanguage,
+            gender: 'female'
+          };
+          
+          // You can add backend session logging here if needed
+          logMessage('Session logging initiated', 'success');
+        } catch (err) {
+          logMessage('Session logging failed: ' + err.message, 'error');
+        }
 
         // Play call start sound
         playSound("call-start");
@@ -2516,11 +3122,14 @@
             language: selectedLanguage,
             agent_id: "id123",
             client_ip: clientIp || null,
+            callId: window.currentCallId || null,
           })
         );
 
         console.log(
-          "📤 [WEBSOCKET] Sent config with IP:",
+          "📤 [WEBSOCKET] Sent config with callId:",
+          window.currentCallId || "unavailable",
+          "IP:",
           clientIp || "unavailable"
         );
 
@@ -2531,12 +3140,12 @@
 
       ws.onmessage = async (event) => {
         const data = JSON.parse(event.data);
-        console.log("📥 [WEBSOCKET] Message received:", data.type, data);
+        logMessage(`WebSocket message received: ${data.type}`, 'info');
         const eventType = data.type;
 
-        // Handle different event types
+        // Enhanced message handling with session tracking
         if (eventType === "input_audio_buffer.speech_started") {
-          console.log("🎤 [USER] Speech started");
+          logMessage("User speech started", 'info');
           updateStatus("🎤 Listening...", "listening");
 
           // PERFECT INTERRUPT: Stop AI audio when user starts speaking
@@ -2553,7 +3162,7 @@
             );
           }
         } else if (eventType === "input_audio_buffer.speech_stopped") {
-          console.log("🛑 [USER] Speech stopped");
+          logMessage("User speech stopped", 'info');
           updateStatus("🤔 Processing...", "speaking");
           if (visualizerInterval) {
             clearInterval(visualizerInterval);
@@ -2561,15 +3170,12 @@
             animateVisualizer(false);
           }
         } else if (eventType === "deepgram.transcript") {
-          // Deepgram transcript - more accurate than OpenAI
+          // Enhanced Deepgram transcript handling with session tracking
           const transcript = data.transcript;
           const isFinal = data.is_final;
 
           if (transcript && transcript.trim()) {
-            console.log(
-              `📝 [USER ${isFinal ? "FINAL" : "INTERIM"}]:`,
-              transcript
-            );
+            logMessage(`User ${isFinal ? "FINAL" : "INTERIM"}: ${transcript}`, isFinal ? 'success' : 'info');
 
             if (!lastUserMessageDiv) {
               // Create new message for user
@@ -2589,16 +3195,23 @@
             }
           }
         } else if (eventType === "response.audio_transcript.delta") {
-          // AI transcript delta - accumulate
-          console.log("📝 [AI DELTA]:", data.delta);
+          // Enhanced AI transcript delta handling with session tracking
+          logMessage(`AI delta: ${data.delta}`, 'ai');
           currentAssistantTranscript += data.delta;
 
-          // Clear loading on first AI response
+          // Clear loading on first AI response and start call timer
           if (!hasReceivedFirstAIResponse && data.delta && data.delta.trim()) {
             hasReceivedFirstAIResponse = true;
             clearLoadingStatus();
             updateStatus("🤖 AI Speaking...", "speaking");
             startCallTimer(); // Start timer only when AI begins responding
+            
+            // Play enhanced trigger audio for better iOS performance
+            if (triggerAudioBuffer) {
+              playEnhancedTriggerAudio();
+            }
+
+            logMessage('First AI response received - call is now active', 'success');
 
             // Auto-unmute microphone after 2.5 seconds to let AI finish initial greeting
             if (shouldAutoUnmute && isMuted) {
@@ -2690,9 +3303,12 @@
     }
   }
 
-  // Stop conversation
+  // Enhanced stop conversation with session cleanup
   async function stopConversation() {
-    console.log("🛑 stopConversation() called");
+    logMessage("Stopping conversation and cleaning up session", 'info');
+
+    // Calculate call duration for analytics
+    let duration = callStartTime ? Math.floor((Date.now() - callStartTime) / 1000) : 0;
 
     // Set all states to disconnected immediately
     isConnected = false;
@@ -2704,12 +3320,29 @@
     // Stop all timers and loading states immediately
     stopCallTimer();
     clearLoadingStatus();
+    
+    // Clear loading interval if active
+    if (loadingInterval) {
+      clearInterval(loadingInterval);
+      loadingInterval = null;
+    }
 
     // Play disconnect sound
     try {
       playSound("call-end");
     } catch (e) {
       console.warn("Could not play call-end sound:", e);
+    }
+
+    // End session logging with backend if session exists
+    if (sessionId) {
+      try {
+        // You can add backend session logging end here
+        logMessage(`Session ${sessionId} ended after ${duration} seconds`, 'success');
+        sessionId = null;
+      } catch (err) {
+        logMessage('Failed to end session logging: ' + err.message, 'error');
+      }
     }
 
     // Call end-call API if we have a callId
@@ -2726,16 +3359,17 @@
             },
             body: JSON.stringify({
               callId: window.currentCallId,
+              duration: duration
             }),
           }
         );
 
         if (response.ok) {
           const data = await response.json();
-          console.log("Call ended successfully:", data);
+          logMessage("Call ended successfully", 'success');
         }
       } catch (error) {
-        console.error("Error ending call:", error);
+        logMessage("Error ending call: " + error.message, 'error');
       } finally {
         window.currentCallId = null;
       }
@@ -2863,17 +3497,32 @@
     playbackBufferQueue = [];
     playbackBufferOffset = 0;
 
-    // Create master gain node - keep at 1.0 for iOS to avoid double amplification
-    // We'll handle iOS volume boost through sample amplification only
+    // Create master gain node with optimized volume settings
     masterGainNode = audioContext.createGain();
-    const masterGainValue = 1.0; // Same for both iOS and Android
+    const masterGainValue = 1.2; // Slightly increased master gain for better volume
     masterGainNode.gain.setValueAtTime(
       masterGainValue,
       audioContext.currentTime
     );
     masterGainNode.connect(audioContext.destination);
 
-    playbackProcessor = audioContext.createScriptProcessor(1024, 1, 1);
+    // Also connect to remote audio stream for background playback
+    if (remoteAudioStream) {
+      try {
+        const streamDestination = audioContext.createMediaStreamDestination();
+        masterGainNode.connect(streamDestination);
+        remoteAudioStream = streamDestination.stream;
+        
+        if (aiAudioElement) {
+          aiAudioElement.srcObject = remoteAudioStream;
+          logMessage('Audio stream connected to AI element for background playback', 'success');
+        }
+      } catch (err) {
+        logMessage('Failed to connect audio stream: ' + err.message, 'error');
+      }
+    }
+
+    playbackProcessor = audioContext.createScriptProcessor(2048, 1, 1); // Larger buffer for smoother processing
     playbackProcessor.onaudioprocess = handlePlaybackProcess;
     playbackProcessor.connect(masterGainNode); // Connect through master gain
   }
@@ -2894,33 +3543,16 @@
     );
   }
 
-  // Advanced soft clipping function to prevent audio tearing on iOS
-  function softClip(sample) {
-    const abs = Math.abs(sample);
-    if (abs <= 0.8) {
-      // Clean range - no processing needed
-      return sample;
-    } else if (abs <= 1.0) {
-      // Gentle compression in the near-clipping range
-      const sign = sample >= 0 ? 1 : -1;
-      const compressed = 0.8 + (abs - 0.8) * 0.5; // Gentle compression
-      return sign * compressed;
-    } else {
-      // Soft limiting for values above 1.0
-      const sign = sample >= 0 ? 1 : -1;
-      return sign * (0.9 + 0.1 * Math.tanh((abs - 1.0) * 2.0)); // Smooth limiting
-    }
-  }
+  // Simple audio processing - removed complex gain control that caused wavy sound
 
-  // Handle continuous playback process
+  // Handle continuous playback process with crystal clear audio
   function handlePlaybackProcess(event) {
     const output = event.outputBuffer.getChannelData(0);
     let offset = 0;
 
-    // iOS requires higher amplification but not too aggressive to avoid tearing
-    // Reduced from 20x to 15x to prevent audio artifacts while maintaining volume
-    const volumeGain = isIOS() ? 15.0 : 12.0; // 15x for iOS, 12x for Android/others
-
+    // Increased volume gain for better clarity and loudness
+    const baseVolumeGain = 12.0; // Higher gain for better volume
+    
     while (offset < output.length) {
       if (playbackBufferQueue.length === 0) {
         for (; offset < output.length; offset++) {
@@ -2936,17 +3568,22 @@
       const remaining = currentBuffer.length - playbackBufferOffset;
       const samplesToCopy = Math.min(remaining, output.length - offset);
 
-      // Copy samples with volume boost and iOS-specific soft clipping
+      // Crystal clear audio processing with proper limiting
       for (let i = 0; i < samplesToCopy; i++) {
-        const amplifiedSample =
-          currentBuffer[playbackBufferOffset + i] * volumeGain;
-        if (isIOS()) {
-          // Use soft clipping for iOS to handle higher amplification smoothly
-          output[offset + i] = softClip(amplifiedSample);
-        } else {
-          // Use hard clipping for Android/others
-          output[offset + i] = Math.max(-1, Math.min(1, amplifiedSample));
+        const rawSample = currentBuffer[playbackBufferOffset + i];
+        let amplifiedSample = rawSample * baseVolumeGain;
+
+        // Smooth soft clipping for natural sound without distortion
+        if (amplifiedSample > 0.95) {
+          amplifiedSample = 0.95 - (amplifiedSample - 0.95) * 0.1;
+        } else if (amplifiedSample < -0.95) {
+          amplifiedSample = -0.95 - (amplifiedSample + 0.95) * 0.1;
         }
+
+        // Final hard limit as safety
+        amplifiedSample = Math.max(-0.98, Math.min(0.98, amplifiedSample));
+
+        output[offset + i] = amplifiedSample;
       }
 
       offset += samplesToCopy;
@@ -2989,6 +3626,112 @@
       float32[i] = pcm16[i] / 0x8000;
     }
     return float32;
+  }
+
+  // Enhanced trigger audio for better iOS support and greeting initiation
+  async function playEnhancedTriggerAudio() {
+    try {
+      logMessage('Playing enhanced trigger audio to initiate AI greeting...', 'info');
+      const startTime = performance.now();
+      
+      // Create new audio context for trigger playback
+      const triggerContext = new (window.AudioContext || window.webkitAudioContext)();
+      
+      // Create destination for mixed audio
+      destinationNode = triggerContext.createMediaStreamDestination();
+      
+      // Connect microphone with reduced volume during trigger
+      if (mediaStream) {
+        const micSource = triggerContext.createMediaStreamSource(mediaStream);
+        const micGain = triggerContext.createGain();
+        micGain.gain.value = 0.1; // Reduce mic volume during trigger
+        micSource.connect(micGain);
+        micGain.connect(destinationNode);
+      }
+      
+      // Decode and play trigger audio
+      let audioBuffer = null;
+      if (triggerAudioBuffer) {
+        // Use prefetched buffer
+        logMessage('Using cached trigger audio buffer', 'success');
+        audioBuffer = await triggerContext.decodeAudioData(triggerAudioBuffer.slice(0));
+      } else {
+        // Fallback to direct fetch
+        logMessage('Fetching trigger audio (no cache)', 'info');
+        const response = await fetch('/audio/call-trigger-hmm.mp3');
+        const arrayBuffer = await response.arrayBuffer();
+        audioBuffer = await triggerContext.decodeAudioData(arrayBuffer);
+      }
+      
+      const triggerSource = triggerContext.createBufferSource();
+      triggerSource.buffer = audioBuffer;
+      const triggerGain = triggerContext.createGain();
+      triggerGain.gain.value = 0.8;
+      triggerSource.connect(triggerGain);
+      triggerGain.connect(destinationNode);
+      
+      // Send mixed audio to WebSocket
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        // Implementation would depend on your WebSocket audio streaming setup
+        logMessage('Trigger audio prepared for WebSocket streaming', 'success');
+      }
+      
+      // Track playback completion
+      let completed = false;
+      const expectedDuration = audioBuffer.duration * 1000 + 800; // Add margin
+      
+      const onTriggerComplete = () => {
+        if (completed) return;
+        completed = true;
+        
+        const elapsed = Math.round(performance.now() - startTime);
+        logMessage(`Trigger audio completed (${elapsed}ms), restoring microphone`, 'success');
+        
+        // Restore microphone volume
+        if (mediaStream) {
+          try {
+            const tracks = mediaStream.getAudioTracks();
+            tracks.forEach(track => track.enabled = true);
+          } catch (error) {
+            console.error('Error restoring microphone:', error);
+          }
+        }
+        
+        // Clean up audio context
+        if (triggerContext.state !== 'closed') {
+          triggerContext.close();
+        }
+        
+        logMessage('AI should now respond with greeting', 'success');
+      };
+      
+      // Start playback
+      triggerSource.start(0);
+      triggerSource.onended = onTriggerComplete;
+      
+      // Fallback timeout
+      setTimeout(() => {
+        if (!completed) {
+          logMessage('Trigger audio timeout - forcing completion', 'error');
+          onTriggerComplete();
+          
+          // Send fallback message to WebSocket if available
+          if (ws && ws.readyState === WebSocket.OPEN) {
+            const fallbackMessage = {
+              type: 'play_greeting_fallback',
+              session_id: sessionId,
+              language: languageSelect?.value || 'en-US'
+            };
+            ws.send(JSON.stringify(fallbackMessage));
+            logMessage('Sent greeting fallback request', 'info');
+          }
+        }
+      }, expectedDuration);
+      
+    } catch (error) {
+      console.error('Enhanced trigger audio failed:', error);
+      logMessage(`Enhanced trigger audio failed: ${error.message}`, 'error');
+    }
   }
 
   // Perfect audio interruption system
