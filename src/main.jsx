@@ -4,7 +4,6 @@ import { Provider } from "react-redux";
 import store from "./Redux-config/store.js";
 import "./index.css";
 
-// Loading component
 const Loading = () => (
   <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 flex items-center justify-center">
     <div className="text-center">

@@ -1,13 +1,10 @@
-/**
- * ShivAI Widget Loader Script
- * Embeddable widget for client websites
- * This script loads and mounts the React widget component
- */
-
 (function () {
   "use strict";
-
-  // Widget state variables
+  try {
+    localStorage.removeItem('shivai-trigger-position');
+    localStorage.removeItem('shivai-widget-position');
+  } catch (e) {
+  }
   let ws = null;
   let audioContext = null;
   let mediaStream = null;
@@ -19,24 +16,21 @@
   let lastUserMessageDiv = null;
   let visualizerInterval = null;
   let isWidgetOpen = false;
-  let isConnecting = false; // Track if connection is in progress
-  let loadingInterval = null; // Track loading animation interval
-  let hasReceivedFirstAIResponse = false; // Track first AI response to clear loading
-  let shouldAutoUnmute = false; // Flag to auto-unmute after AI first response
-
-  // Playback processor variables for smooth audio
+  let isConnecting = false;
+  let loadingInterval = null;
+  let hasReceivedFirstAIResponse = false;
+  let shouldAutoUnmute = false;
   let playbackProcessor = null;
   let playbackBufferQueue = [];
   let playbackBufferOffset = 0;
   let assistantSpeaking = false;
-  let masterGainNode = null; // Master volume control
-
-  // Sound effects system
+  let masterGainNode = null;
   let soundContext = null;
   let soundsEnabled = true;
   let userInteracted = false;
-
-  // Bubble message variables
+  let audioBufferingStarted = false;
+  let minBufferChunks = 3;
+  let audioStreamComplete = false;
   let messageBubble = null;
   let liveMessages = [
     "📞 Call ShivAI!",
@@ -46,8 +40,6 @@
   ];
   let currentMessageIndex = 0;
   let messageInterval = null;
-
-  // DOM elements
   let triggerBtn = null;
   let widgetContainer = null;
   let landingView = null;
@@ -59,34 +51,22 @@
   let muteBtn = null;
   let visualizerBars = null;
   let languageSelect = null;
-  let currentView = "landing"; // 'landing' or 'call'
-
-  // Call timer variables
+  let currentView = "landing";
   let callTimerElement = null;
   let callStartTime = null;
   let callTimerInterval = null;
-
-  // Initialize widget
   function initWidget() {
     createWidgetUI();
     setupEventListeners();
     initSoundContext();
   }
-
-  // Initialize sound context for call sounds
   function initSoundContext() {
     if (!soundsEnabled) return;
-
     try {
       soundContext = new (window.AudioContext || window.webkitAudioContext)();
-
-      // iOS Safari requires user interaction to unlock audio context
       if (soundContext.state === "suspended") {
         const unlockAudio = () => {
-          // Mark user interaction for iOS
           userInteracted = true;
-
-          // Resume sound context
           soundContext
             .resume()
             .then(() => {
@@ -95,8 +75,6 @@
             .catch((err) => {
               console.warn("Failed to resume sound context:", err);
             });
-
-          // Also resume voice audio context if available (iOS fix)
           if (audioContext && audioContext.state === "suspended") {
             audioContext
               .resume()
@@ -107,8 +85,6 @@
                 console.warn("Failed to resume voice audio context:", err);
               });
           }
-
-          // Clean up listeners after first user interaction
           document.removeEventListener("touchstart", unlockAudio);
           document.removeEventListener("click", unlockAudio);
         };
@@ -123,14 +99,11 @@
       soundsEnabled = false;
     }
   }
-
-  // Play call sound effects
   function playSound(type) {
     if (!soundsEnabled || !soundContext) {
       initSoundContext();
       if (!soundContext) return;
     }
-
     try {
       switch (type) {
         case "connecting":
@@ -152,60 +125,43 @@
       console.warn("Error playing sound:", error);
     }
   }
-
-  // Generate connecting sound - ascending tone sequence
   function playConnectingSound() {
-    const frequencies = [440, 554, 659]; // A, C#, E notes
+    const frequencies = [440, 554, 659];
     let delay = 0;
-
     frequencies.forEach((freq, index) => {
       setTimeout(() => {
-        generateTone(freq, 0.15, 0.3); // frequency, duration, volume
+        generateTone(freq, 0.15, 0.3);
       }, delay);
       delay += 120;
     });
   }
-
-  // Generate dialling sound - repeating dial tone pattern
   function playDiallingSound() {
-    const dialTone = 440; // Standard dial tone frequency
+    const dialTone = 440;
     let iterations = 0;
-    const maxIterations = 3; // Repeat 3 times
-
+    const maxIterations = 3;
     const playDialTone = () => {
       if (iterations < maxIterations) {
-        // Play two short beeps with a pause
         generateTone(dialTone, 0.2, 0.4);
         setTimeout(() => {
           generateTone(dialTone, 0.2, 0.4);
         }, 250);
-
         iterations++;
-
-        // Schedule next iteration
         setTimeout(playDialTone, 800);
       }
     };
-
     playDialTone();
   }
-
-  // Generate call start sound - pleasant ascending chord
   function playCallStartSound() {
-    const frequencies = [261.63, 329.63, 392.0]; // C, E, G major chord
-
+    const frequencies = [261.63, 329.63, 392.0];
     frequencies.forEach((freq, index) => {
       setTimeout(() => {
         generateTone(freq, 0.3, 0.25);
       }, index * 50);
     });
   }
-
-  // Generate call end sound - descending tone
   function playCallEndSound() {
-    const frequencies = [392.0, 329.63, 261.63]; // G, E, C descending
+    const frequencies = [392.0, 329.63, 261.63];
     let delay = 0;
-
     frequencies.forEach((freq, index) => {
       setTimeout(() => {
         generateTone(freq, 0.2, 0.2);
@@ -213,11 +169,8 @@
       delay += 100;
     });
   }
-
-  // Get user's IP address
   async function getClientIP() {
     try {
-      // Method 1: Try ipapi.co (includes geolocation)
       try {
         const response = await fetch("https://ipapi.co/json/", {
           method: "GET",
@@ -230,8 +183,6 @@
       } catch (e) {
         console.warn("🌐 [IP] ipapi.co failed:", e.message);
       }
-
-      // Method 2: Try ipify as fallback
       try {
         const response = await fetch("https://api.ipify.org?format=json", {
           method: "GET",
@@ -244,8 +195,6 @@
       } catch (e) {
         console.warn("🌐 [IP] ipify failed:", e.message);
       }
-
-      // Method 3: Try ipinfo.io as another fallback
       try {
         const response = await fetch("https://ipinfo.io/json", {
           method: "GET",
@@ -258,30 +207,20 @@
       } catch (e) {
         console.warn("🌐 [IP] ipinfo.io failed:", e.message);
       }
-
       return null;
     } catch (error) {
       console.error("🌐 [IP] All IP detection methods failed:", error);
       return null;
     }
   }
-
-  // Generate tone using Web Audio API
   function generateTone(frequency, duration, volume = 0.1) {
     if (!soundContext) return;
-
     const oscillator = soundContext.createOscillator();
     const gainNode = soundContext.createGain();
-
-    // Connect oscillator to gain to speakers
     oscillator.connect(gainNode);
     gainNode.connect(soundContext.destination);
-
-    // Configure oscillator
     oscillator.frequency.setValueAtTime(frequency, soundContext.currentTime);
-    oscillator.type = "sine"; // Smooth, pleasant tone
-
-    // Configure gain envelope (fade in/out to avoid clicks)
+    oscillator.type = "sine";
     gainNode.gain.setValueAtTime(0, soundContext.currentTime);
     gainNode.gain.linearRampToValueAtTime(
       volume,
@@ -291,37 +230,24 @@
       0.001,
       soundContext.currentTime + duration
     );
-
-    // Start and stop the oscillator
     oscillator.start(soundContext.currentTime);
     oscillator.stop(soundContext.currentTime + duration);
   }
-
-  // Make element draggable
   function makeDraggable(element) {
     let isDragging = false;
     let startX, startY, initialX, initialY;
     let dragTimeout;
-
-    // Add draggable cursor styles
     element.style.cursor = 'move';
-    
     element.addEventListener('mousedown', startDrag);
     element.addEventListener('touchstart', startDrag, { passive: false });
-
     function startDrag(e) {
       e.preventDefault();
-      
-      // Clear any existing timeout
       if (dragTimeout) {
         clearTimeout(dragTimeout);
       }
-
-      // Set a small delay to distinguish between click and drag
       dragTimeout = setTimeout(() => {
         isDragging = true;
-        element.style.transition = 'none'; // Disable transitions during drag
-        
+        element.style.transition = 'none';
         if (e.type === 'mousedown') {
           startX = e.clientX;
           startY = e.clientY;
@@ -329,26 +255,19 @@
           startX = e.touches[0].clientX;
           startY = e.touches[0].clientY;
         }
-
         const rect = element.getBoundingClientRect();
         initialX = rect.left;
         initialY = rect.top;
-
-        // Add global listeners
         document.addEventListener('mousemove', drag);
         document.addEventListener('mouseup', stopDrag);
         document.addEventListener('touchmove', drag, { passive: false });
         document.addEventListener('touchend', stopDrag);
-        
-        // Add dragging class for visual feedback
         element.classList.add('dragging');
-      }, 100); // 100ms delay to distinguish from click
+      }, 100);
     }
-
     function drag(e) {
       if (!isDragging) return;
       e.preventDefault();
-
       let currentX, currentY;
       if (e.type === 'mousemove') {
         currentX = e.clientX;
@@ -357,90 +276,48 @@
         currentX = e.touches[0].clientX;
         currentY = e.touches[0].clientY;
       }
-
       const deltaX = currentX - startX;
       const deltaY = currentY - startY;
-
       let newX = initialX + deltaX;
       let newY = initialY + deltaY;
-
-      // Keep element within viewport bounds
       const elementRect = element.getBoundingClientRect();
       const maxX = window.innerWidth - elementRect.width;
       const maxY = window.innerHeight - elementRect.height;
-
       newX = Math.max(0, Math.min(newX, maxX));
       newY = Math.max(0, Math.min(newY, maxY));
-
-      // Update position
       element.style.position = 'fixed';
       element.style.left = newX + 'px';
       element.style.top = newY + 'px';
       element.style.bottom = 'auto';
       element.style.right = 'auto';
     }
-
     function stopDrag(e) {
       if (dragTimeout) {
         clearTimeout(dragTimeout);
         dragTimeout = null;
       }
-
       if (isDragging) {
         isDragging = false;
-        element.style.transition = ''; // Re-enable transitions
+        element.style.transition = '';
         element.classList.remove('dragging');
-        
-        // Save position to localStorage for persistence
-        const elementRect = element.getBoundingClientRect();
-        const positionKey = element.classList.contains('shivai-trigger') ? 'shivai-trigger-position' : 'shivai-widget-position';
-        localStorage.setItem(positionKey, JSON.stringify({
-          left: elementRect.left,
-          top: elementRect.top
-        }));
       }
-
-      // Remove global listeners
       document.removeEventListener('mousemove', drag);
       document.removeEventListener('mouseup', stopDrag);
       document.removeEventListener('touchmove', drag);
       document.removeEventListener('touchend', stopDrag);
     }
-
-    // Restore position from localStorage
-    const positionKey = element.classList.contains('shivai-trigger') ? 'shivai-trigger-position' : 'shivai-widget-position';
-    const savedPosition = localStorage.getItem(positionKey);
-    if (savedPosition) {
-      try {
-        const position = JSON.parse(savedPosition);
-        element.style.position = 'fixed';
-        element.style.left = position.left + 'px';
-        element.style.top = position.top + 'px';
-        element.style.bottom = 'auto';
-        element.style.right = 'auto';
-      } catch (e) {
-        console.warn('Failed to restore element position:', e);
-      }
-    }
   }
-
-  // Make widget draggable by header only
   function makeWidgetDraggable(widgetElement) {
     let isDragging = false;
     let startX, startY, initialX, initialY;
     let dragTimeout;
-
-    // Find the widget headers (both landing and call view)
     const headers = widgetElement.querySelectorAll('.widget-header, .call-header');
-    
     headers.forEach(header => {
       header.style.cursor = 'move';
       header.addEventListener('mousedown', startDrag);
       header.addEventListener('touchstart', startDrag, { passive: false });
     });
-
     function startDrag(e) {
-      // Don't drag if clicking on close button, back button, or other interactive elements
       if (e.target.classList.contains('widget-close') || 
           e.target.closest('.widget-close') || 
           e.target.classList.contains('start-call-btn') ||
@@ -449,19 +326,13 @@
           e.target.closest('.back-btn')) {
         return;
       }
-
       e.preventDefault();
-      
-      // Clear any existing timeout
       if (dragTimeout) {
         clearTimeout(dragTimeout);
       }
-
-      // Set a small delay to distinguish between click and drag
       dragTimeout = setTimeout(() => {
         isDragging = true;
-        widgetElement.style.transition = 'none'; // Disable transitions during drag
-        
+        widgetElement.style.transition = 'none';
         if (e.type === 'mousedown') {
           startX = e.clientX;
           startY = e.clientY;
@@ -469,26 +340,19 @@
           startX = e.touches[0].clientX;
           startY = e.touches[0].clientY;
         }
-
         const rect = widgetElement.getBoundingClientRect();
         initialX = rect.left;
         initialY = rect.top;
-
-        // Add global listeners
         document.addEventListener('mousemove', drag);
         document.addEventListener('mouseup', stopDrag);
         document.addEventListener('touchmove', drag, { passive: false });
         document.addEventListener('touchend', stopDrag);
-        
-        // Add dragging class for visual feedback
         widgetElement.classList.add('dragging');
-      }, 100); // 100ms delay to distinguish from click
+      }, 100);
     }
-
     function drag(e) {
       if (!isDragging) return;
       e.preventDefault();
-
       let currentX, currentY;
       if (e.type === 'mousemove') {
         currentX = e.clientX;
@@ -497,74 +361,38 @@
         currentX = e.touches[0].clientX;
         currentY = e.touches[0].clientY;
       }
-
       const deltaX = currentX - startX;
       const deltaY = currentY - startY;
-
       let newX = initialX + deltaX;
       let newY = initialY + deltaY;
-
-      // Keep element within viewport bounds
       const elementRect = widgetElement.getBoundingClientRect();
       const maxX = window.innerWidth - elementRect.width;
       const maxY = window.innerHeight - elementRect.height;
-
       newX = Math.max(0, Math.min(newX, maxX));
       newY = Math.max(0, Math.min(newY, maxY));
-
-      // Update position
       widgetElement.style.position = 'fixed';
       widgetElement.style.left = newX + 'px';
       widgetElement.style.top = newY + 'px';
       widgetElement.style.bottom = 'auto';
       widgetElement.style.right = 'auto';
     }
-
     function stopDrag(e) {
       if (dragTimeout) {
         clearTimeout(dragTimeout);
         dragTimeout = null;
       }
-
       if (isDragging) {
         isDragging = false;
-        widgetElement.style.transition = ''; // Re-enable transitions
+        widgetElement.style.transition = '';
         widgetElement.classList.remove('dragging');
-        
-        // Save position to localStorage for persistence
-        const elementRect = widgetElement.getBoundingClientRect();
-        localStorage.setItem('shivai-widget-position', JSON.stringify({
-          left: elementRect.left,
-          top: elementRect.top
-        }));
       }
-
-      // Remove global listeners
       document.removeEventListener('mousemove', drag);
       document.removeEventListener('mouseup', stopDrag);
       document.removeEventListener('touchmove', drag);
       document.removeEventListener('touchend', stopDrag);
     }
-
-    // Restore position from localStorage
-    const savedPosition = localStorage.getItem('shivai-widget-position');
-    if (savedPosition) {
-      try {
-        const position = JSON.parse(savedPosition);
-        widgetElement.style.position = 'fixed';
-        widgetElement.style.left = position.left + 'px';
-        widgetElement.style.top = position.top + 'px';
-        widgetElement.style.bottom = 'auto';
-        widgetElement.style.right = 'auto';
-      } catch (e) {
-        console.warn('Failed to restore widget position:', e);
-      }
-    }
   }
-
-  // Create widget UI elements
   function createWidgetUI() {
-    // Create floating trigger button with phone icon
     triggerBtn = document.createElement("button");
     triggerBtn.className = "shivai-trigger shivai-neon-pulse";
     triggerBtn.innerHTML = `
@@ -573,12 +401,8 @@
       </svg>
     `;
     triggerBtn.setAttribute("aria-label", "Open ShivAI Assistant");
-
-    // Create widget container
     widgetContainer = document.createElement("div");
     widgetContainer.className = "shivai-widget";
-
-    // Create Landing View
     landingView = document.createElement("div");
     landingView.className = "landing-view";
     landingView.innerHTML = `
@@ -620,7 +444,6 @@
           <span>Powered by</span>
           <a href="https://callshivai.com" target="_blank" rel="noopener noreferrer" class="footer-logo-link" style="display: inline-flex; align-items: center; text-decoration: none; cursor: pointer; transition: all 0.2s ease; vertical-align: middle;">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1500 1500" class="footer-logo" style="height: 42px; width: 42px; fill: #3b82f6; display: inline-block; vertical-align: middle; margin-left: -5px;">
-            
               <path class="cls-1" d="m404.66,608.33c-9.95-7.3-50.21-35.08-105.88-29.33-26.64,2.75-47.74,12.25-62.31,21.06-14.39,8.7-26.96,20.35-35.39,34.9-12.13,20.93-15.94,45.25-9.6,67.8,4.02,14.28,11.39,25.29,18.63,33.3,6.91,7.65,15.23,13.89,24.25,18.89,25.77,14.32,51.54,28.63,77.31,42.95,11.98,7.56,18.69,20.94,17.17,34.34-.11,1.01-.27,1.98-.47,2.93-2.85,13.83-15.4,23.46-29.5,24.28-8.62.5-18.56.28-29.41-1.45-34.59-5.51-58.34-23.08-69.39-32.54-13.35,21.1-26.71,42.2-40.06,63.3,13.96,9.75,32.81,20.78,56.52,29.33,42.03,15.17,79.38,15.38,102.3,13.59,7.85-.92,45.14-6.13,72.25-39.35,1.28-1.57,2.49-3.15,3.65-4.73,27.87-38.33,23.14-92-9.89-125.97-.3-.31-.6-.62-.91-.93-17.09-17.27-35.69-27.61-51.02-33.85-19.44-7.9-38.05-17.71-55.07-29.99-.78-.56-1.56-1.12-2.33-1.68-9.66-6.97-12.29-20.21-6.03-30.34h0c7.3-11.68,22.31-17.66,37.92-15.02,8.22-.53,21.33-.36,36.48,4.29,15.34,4.71,26.38,12.07,32.91,17.17,9.3-20.98,18.6-41.97,27.9-62.95Z"/>
               <path class="cls-1" d="m630.61,740.85c-3.86-4.46-8.41-8.89-13.76-13.05-17.19-13.34-35.56-18.29-49.77-19.92-15.45-1.76-31.19.76-45.13,7.63-.08.04-.16.08-.25.12-13.14,6.52-22.41,14.79-28.33,21.1v-169.18h-72.25v358.41h72.25v-130.44c9.49-21.4,30.88-33.36,50.51-29.8,3.55.64,6.78,1.75,9.71,3.15,14.12,6.76,22.48,21.69,22.48,37.35v119.75h73.68v-132.05c0-19.38-6.46-38.41-19.14-53.06Z"/>
               <rect class="cls-1" x="662.56" y="712.06" width="74.4" height="213.9"/>
@@ -635,8 +458,6 @@
             </a></div>
       </div>
     `;
-
-    // Create Call View (initially hidden)
     callView = document.createElement("div");
     callView.className = "call-view";
     callView.style.display = "none";
@@ -679,14 +500,12 @@
       <option value="tr">🇹🇷 Turkish</option>
       </select>
       </div>
-      
       <div class="messages-container" id="shivai-messages">
       <div class="empty-state">
       <div class="empty-state-icon">👋</div>
       <div class="empty-state-text">Start a conversation to see transcripts here</div>
       </div>
       </div>
-      
       <div class="controls">
       <div class="call-timer" id="call-timer" style="display: none;">00:00</div>
       <button class="control-btn-icon mute" id="shivai-mute" style="display: none;" title="Mute Microphone">
@@ -709,7 +528,6 @@
           <span>Powered by</span>
           <a href="https://callshivai.com" target="_blank" rel="noopener noreferrer" class="footer-logo-link" style="display: inline-flex; align-items: center; text-decoration: none; cursor: pointer; transition: all 0.2s ease;">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1500 1500" class="footer-logo" style="height: 42px; width: 42px; fill: #3b82f6; vertical-align: middle; line-height: 1; margin-left: -5px;">
-            
               <path class="cls-1" d="m404.66,608.33c-9.95-7.3-50.21-35.08-105.88-29.33-26.64,2.75-47.74,12.25-62.31,21.06-14.39,8.7-26.96,20.35-35.39,34.9-12.13,20.93-15.94,45.25-9.6,67.8,4.02,14.28,11.39,25.29,18.63,33.3,6.91,7.65,15.23,13.89,24.25,18.89,25.77,14.32,51.54,28.63,77.31,42.95,11.98,7.56,18.69,20.94,17.17,34.34-.11,1.01-.27,1.98-.47,2.93-2.85,13.83-15.4,23.46-29.5,24.28-8.62.5-18.56.28-29.41-1.45-34.59-5.51-58.34-23.08-69.39-32.54-13.35,21.1-26.71,42.2-40.06,63.3,13.96,9.75,32.81,20.78,56.52,29.33,42.03,15.17,79.38,15.38,102.3,13.59,7.85-.92,45.14-6.13,72.25-39.35,1.28-1.57,2.49-3.15,3.65-4.73,27.87-38.33,23.14-92-9.89-125.97-.3-.31-.6-.62-.91-.93-17.09-17.27-35.69-27.61-51.02-33.85-19.44-7.9-38.05-17.71-55.07-29.99-.78-.56-1.56-1.12-2.33-1.68-9.66-6.97-12.29-20.21-6.03-30.34h0c7.3-11.68,22.31-17.66,37.92-15.02,8.22-.53,21.33-.36,36.48,4.29,15.34,4.71,26.38,12.07,32.91,17.17,9.3-20.98,18.6-41.97,27.9-62.95Z"/>
               <path class="cls-1" d="m630.61,740.85c-3.86-4.46-8.41-8.89-13.76-13.05-17.19-13.34-35.56-18.29-49.77-19.92-15.45-1.76-31.19.76-45.13,7.63-.08.04-.16.08-.25.12-13.14,6.52-22.41,14.79-28.33,21.1v-169.18h-72.25v358.41h72.25v-130.44c9.49-21.4,30.88-33.36,50.51-29.8,3.55.64,6.78,1.75,9.71,3.15,14.12,6.76,22.48,21.69,22.48,37.35v119.75h73.68v-132.05c0-19.38-6.46-38.41-19.14-53.06Z"/>
               <rect class="cls-1" x="662.56" y="712.06" width="74.4" height="213.9"/>
@@ -723,27 +541,15 @@
             </svg>
             </a></div>
       </div>
-      
       </div>
     `;
-
     widgetContainer.appendChild(landingView);
     widgetContainer.appendChild(callView);
-
-    // Add styles
     addWidgetStyles();
-
-    // Append to document
     document.body.appendChild(triggerBtn);
     document.body.appendChild(widgetContainer);
-
-    // Make widget draggable only (not trigger button)
     makeWidgetDraggable(widgetContainer);
-
-    // Create live message bubble
     createLiveMessageBubble();
-
-    // Cache DOM references for call view
     statusDiv = document.getElementById("shivai-status");
     connectBtn = document.getElementById("shivai-connect");
     messagesDiv = document.getElementById("shivai-messages");
@@ -752,52 +558,37 @@
     visualizerBars = document.querySelectorAll(".visualizer-bar");
     languageSelect = document.getElementById("shivai-language");
     callTimerElement = document.getElementById("call-timer");
-
-    // Set default language based on user's location/browser settings
     setDefaultLanguage();
   }
-
-  // Function to detect and set default language based on user's location
   function setDefaultLanguage() {
-    // Language mapping based on browser locale and country codes
     const languageMap = {
-      ar: "ar", // Arabic
-      zh: "zh", // Chinese
-      "zh-CN": "zh", // Chinese (Simplified)
-      "zh-TW": "zh", // Chinese (Traditional)
-      en: "en", // English
-      "en-US": "en", // English (US)
-      "en-GB": "en", // English (UK)
-      "en-IN": "en-IN", // English (India)
-      fr: "fr", // French
-      de: "de", // German
-      hi: "hi", // Hindi
-      it: "it", // Italian
-      ja: "ja", // Japanese
-      ko: "ko", // Korean
-      pt: "pt", // Portuguese
-      "pt-BR": "pt", // Portuguese (Brazil)
-      es: "es", // Spanish
-      "es-ES": "es", // Spanish (Spain)
-      "es-MX": "es", // Spanish (Mexico)
+      ar: "ar",
+      zh: "zh",
+      "zh-CN": "zh",
+      "zh-TW": "zh",
+      en: "en",
+      "en-US": "en",
+      "en-GB": "en",
+      "en-IN": "en-IN",
+      fr: "fr",
+      de: "de",
+      hi: "hi",
+      it: "it",
+      ja: "ja",
+      ko: "ko",
+      pt: "pt",
+      "pt-BR": "pt",
+      es: "es",
+      "es-ES": "es",
+      "es-MX": "es",
     };
-
-    // Get browser language
     const browserLang = navigator.language || navigator.userLanguage;
-
-    // Try exact match first
     let detectedLang = languageMap[browserLang];
-
-    // If no exact match, try the base language (e.g., 'en' from 'en-US')
     if (!detectedLang && browserLang.includes("-")) {
       const baseLang = browserLang.split("-")[0];
       detectedLang = languageMap[baseLang];
     }
-
-    // Default to English if no match found
     const defaultLang = detectedLang || "en";
-
-    // Set the language selector value
     if (languageSelect) {
       languageSelect.value = defaultLang;
       console.log(
@@ -805,10 +596,7 @@
       );
     }
   }
-
-  // Create live message bubble
   function createLiveMessageBubble() {
-    // Create the bubble container
     messageBubble = document.createElement("div");
     messageBubble.className = "shivai-message-bubble";
     messageBubble.style.cssText = `
@@ -835,8 +623,6 @@
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
       cursor: pointer;
     `;
-
-    // Create the bubble tail (pointing to the trigger button)
     const bubbleTail = document.createElement("div");
     bubbleTail.style.cssText = `
       position: absolute;
@@ -849,52 +635,33 @@
       border-bottom: 6px solid transparent;
       border-left: 6px solid #ffffff;
     `;
-
     messageBubble.appendChild(bubbleTail);
     document.body.appendChild(messageBubble);
-
-    // Add click event to bubble
     messageBubble.addEventListener("click", () => {
       toggleWidget();
     });
-
-    // Add hover effects to bubble
     messageBubble.addEventListener("mouseover", () => {
       messageBubble.style.transform = "translateY(0) scale(1.05)";
       messageBubble.style.boxShadow = "0 6px 20px rgba(0, 0, 0, 0.2)";
     });
-
     messageBubble.addEventListener("mouseout", () => {
       messageBubble.style.transform = "translateY(0) scale(1)";
       messageBubble.style.boxShadow = "0 4px 16px rgba(0, 0, 0, 0.15)";
     });
-
-    // Start the live message rotation
     startLiveMessages();
   }
-
-  // Start rotating messages
   function startLiveMessages() {
-    // Show first message after 3 seconds
     setTimeout(() => {
       showNextMessage();
     }, 3000);
-
-    // Set interval to rotate messages
     messageInterval = setInterval(() => {
       showNextMessage();
-    }, 8000); // Show new message every 8 seconds
+    }, 8000);
   }
-
-  // Show next message in rotation
   function showNextMessage() {
     if (!isWidgetOpen && messageBubble) {
       const message = liveMessages[currentMessageIndex];
-
-      // Clear the bubble first
       messageBubble.innerHTML = "";
-
-      // Create the bubble tail
       const bubbleTail = document.createElement("div");
       bubbleTail.style.cssText = `
         position: absolute;
@@ -907,40 +674,25 @@
         border-bottom: 6px solid transparent;
         border-left: 6px solid #ffffff;
       `;
-
-      // Create message container
       const messageEl = document.createElement("span");
       messageEl.style.opacity = "0";
-
       messageBubble.appendChild(messageEl);
       messageBubble.appendChild(bubbleTail);
-
-      // Show bubble with slide-in animation
       messageBubble.style.visibility = "visible";
       messageBubble.style.animation = "bubbleSlideIn 0.4s ease-out forwards";
-
-      // Start typing animation after bubble appears
       setTimeout(() => {
         typeMessage(message, messageEl);
       }, 400);
-
-      // Hide bubble after 5 seconds
       setTimeout(() => {
         hideBubble();
       }, 5000);
-
-      // Move to next message
       currentMessageIndex = (currentMessageIndex + 1) % liveMessages.length;
     }
   }
-
-  // Type message with animation
   function typeMessage(message, messageEl) {
     let i = 0;
     messageEl.textContent = "";
     messageEl.style.opacity = "1";
-
-    // Add typing cursor
     const cursor = document.createElement("span");
     cursor.style.cssText = `
       opacity: 1;
@@ -949,7 +701,6 @@
     `;
     cursor.textContent = "";
     messageEl.appendChild(cursor);
-
     const typeInterval = setInterval(() => {
       if (i < message.length) {
         const text = message.substring(0, i + 1);
@@ -958,15 +709,12 @@
         i++;
       } else {
         clearInterval(typeInterval);
-        // Remove cursor after typing completes
         setTimeout(() => {
           cursor.remove();
         }, 500);
       }
     }, 60);
   }
-
-  // Hide bubble with animation
   function hideBubble() {
     if (messageBubble) {
       messageBubble.style.animation = "bubbleSlideOut 0.3s ease-in forwards";
@@ -976,11 +724,8 @@
       }, 300);
     }
   }
-
-  // Add widget styles
   function addWidgetStyles() {
     const styles = `
-      /* Main trigger button with neon pulse effect */
       .shivai-trigger {
       position: fixed;
       bottom: 20px;
@@ -1001,25 +746,19 @@
       background: linear-gradient(135deg, #4b5563 0%, #6b7280 30%, #374151 70%, #1f2937 100%);
       box-shadow: 0 8px 32px rgba(0, 0, 0, 0.25), 0 2px 8px rgba(0, 0, 0, 0.15);
       }
-
       .shivai-trigger:hover {
       transform: scale(1.1);
       background: linear-gradient(135deg, #6b7280 0%, #9ca3af 30%, #4b5563 70%, #374151 100%);
       box-shadow: 0 12px 40px rgba(0, 0, 0, 0.35), 0 4px 12px rgba(0, 0, 0, 0.25);
       }
-
       .shivai-trigger:active {
       transform: scale(0.95);
       background: linear-gradient(135deg, #374151 0%, #4b5563 30%, #1f2937 70%, #111827 100%);
       box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4), inset 0 2px 4px rgba(0, 0, 0, 0.25);
       }
-
-      /* Neon pulse animation */
       .shivai-neon-pulse {
-      // position: relative;
       overflow: visible;
       }
-      
       .shivai-neon-pulse::before,
       .shivai-neon-pulse::after {
       content: "";
@@ -1031,11 +770,9 @@
       opacity: 0;
       pointer-events: none;
       }
-      
       .shivai-neon-pulse::after {
       animation-delay: 1s;
       }
-      
       @keyframes neonPulseOut {
       0% {
         transform: scale(1);
@@ -1046,8 +783,6 @@
         opacity: 0;
       }
       }
-
-      /* Bubble message animations */
       @keyframes bubbleSlideIn {
       0% {
         opacity: 0;
@@ -1062,7 +797,6 @@
         transform: translateY(0) scale(1);
       }
       }
-
       @keyframes bubbleSlideOut {
       0% {
         opacity: 1;
@@ -1073,13 +807,10 @@
         transform: translateY(10px) scale(0.8);
       }
       }
-
       @keyframes typingCursor {
       0%, 50% { opacity: 1; }
       51%, 100% { opacity: 0; }
       }
-
-      /* Shine animation for start call button */
       @keyframes shine {
       0% {
         left: -100%;
@@ -1088,12 +819,10 @@
         left: 100%;
       }
       }
-
       .start-call-btn {
       position: relative;
       overflow: hidden;
       }
-
       .start-call-btn::before {
       content: '';
       position: absolute;
@@ -1109,17 +838,12 @@
       );
       animation: shine 2s infinite;
       }
-
       .start-call-btn:hover::before {
       animation: shine 1s infinite;
       }
-
-      /* Message bubble styling */
       .shivai-message-bubble {
       cursor: pointer;
       }
-
-      /* Mobile responsive button size */
       @media (max-width: 768px) {
       .shivai-trigger {
         width: 56px;
@@ -1128,7 +852,6 @@
         bottom: 16px;
         right: 16px;
       }
-
       .shivai-message-bubble {
         bottom: 26px !important;
         right: 80px !important;
@@ -1137,7 +860,6 @@
         max-width: 200px !important;
       }
       }
-
       @media (max-width: 420px) {
       .shivai-trigger {
         width: 52px;
@@ -1145,7 +867,6 @@
         bottom: 12px;
         right: 12px;
       }
-
       .shivai-message-bubble {
         bottom: 22px !important;
         right: 70px !important;
@@ -1154,7 +875,6 @@
         max-width: 180px !important;
       }
       }
-
       .shivai-widget {
       position: fixed;
       bottom: 60px;
@@ -1171,12 +891,10 @@
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
       border: 1px solid #e5e7eb;
       }
-
       .shivai-widget.active {
       display: flex;
       animation: slideUpWidget 0.3s ease-out;
       }
-
       @keyframes slideUpWidget {
       from {
         opacity: 0;
@@ -1187,15 +905,12 @@
         transform: translateY(0);
       }
       }
-
-      /* Landing View */
       .landing-view {
       display: flex;
       flex-direction: column;
       width: 100%;
       background: white;
       }
-
       .landing-view .widget-header {
       position: relative;
       text-align: center;
@@ -1203,7 +918,6 @@
       background: #ffffff;
       border-bottom: none;
       }
-
       .landing-view .widget-avatar {
       width: 64px;
       height: 64px;
@@ -1218,7 +932,6 @@
       box-shadow: 0 3px 10px rgba(0, 0, 0, 0.08);
       padding: 8px;
       }
-
       .landing-view .widget-title {
       font-weight: 600;
       font-size: 16px;
@@ -1226,7 +939,6 @@
       margin: 0 0 6px 0;
       letter-spacing: -0.01em;
       }
-
       .landing-view .widget-subtitle {
       font-size: 12px;
       color: #6b7280;
@@ -1235,7 +947,6 @@
       line-height: 1.5;
       padding: 0 6px;
       }
-
       .start-call-btn {
       width: 50%;
       padding: 10px 12px;
@@ -1252,20 +963,15 @@
       justify-content: center;
       gap: 8px;
       transition: all 0.2s ease;
-      // margin: 0 0 12px 0;
-      // border: 2px solid rgba(255, 255, 255, 0.15);
       }
-
       .start-call-btn:hover {
       background: linear-gradient(135deg, #6b7280 0%, #9ca3af 30%, #4b5563 70%, #374151 100%);
       transform: translateY(-1px);
       box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
       }
-
       .start-call-btn:active {
       transform: translateY(0);
       }
-
       .privacy-text {
       font-size: 11px;
       color: #9ca3af;
@@ -1273,71 +979,57 @@
       margin: 0 0 6px 0;
       line-height: 1.1;
       }
-
       .privacy-link {
       color: #2563eb;
       cursor: pointer;
       text-decoration: underline;
       }
-
       .widget-footer {
       text-align: center;
       border-top: 1px solid #f3f4f6;
       }
-
       .footer-text {
       font-size: 12px;
       color: #6b7280;
       text-align: center;
-      // margin-top: 8px;
       }
-
       .footer-text span {
       color: #6b7280;
       font-weight: 500;
       }
-      
       .footer-text a {
       color: #3b82f6;
       text-decoration: none;
       font-weight: 600;
       }
-
       .footer-text a:hover {
       color: #2563eb;
       }
-
       .footer-logo .cls-1 {
       fill: currentColor;
       stroke-width: 0px;
       }
-
       .footer-logo-link:hover .footer-logo {
       transform: scale(1.1);
       }
-
        .footer-logo-link {
           padding: 0px;
           position: relative;
           left: -2px;
           top: 0.5px;
         }
-      /* Footer Mobile Responsiveness */
       @media (max-width: 768px) {
         .footer-text {
           font-size: 14px;
           gap: 4px;
         }
-        
         .footer-logo {
           height: 44px !important;
           width: 44px !important;
         }
-        
         .footer-text span {
           font-size: 14px;
         }
-          
        .footer-logo-link {
           padding: 0px;
           position: relative;
@@ -1345,38 +1037,33 @@
           top: 0.5px;
         }
       }
-
       @media (max-width: 480px) {
         .footer-text {
           font-size: 12px;
           gap: 3px;
           padding: 0 4px;
         }
-        
         .footer-logo {
           height: 40px !important;
           width: 40px !important;
+          position: relative;
+          top: -2px;
         }
-        
         .footer-text span {
           font-size: 11px;
         }
-        
         .footer-logo-link {
           padding: 0px;
           position: relative;
           left: -2px;
         }
       }
-
-      /* Call View */
       .call-view {
       display: flex;
       flex-direction: column;
       width: 100%;
       max-height: 600px;
       }
-
       .call-header {
       display: flex;
       align-items: center;
@@ -1385,7 +1072,6 @@
       border-bottom: 1px solid #e5e7eb;
       gap: 10px;
       }
-
       .back-btn {
       background: transparent;
       border: none;
@@ -1399,17 +1085,14 @@
       transition: all 0.2s ease;
       flex-shrink: 0;
       }
-
       .back-btn:hover {
       background: #f3f4f6;
       color: #111827;
       }
-
       .call-info {
       flex: 1;
       min-width: 0;
       }
-
       .call-info-name {
       font-size: 14px;
       font-weight: 600;
@@ -1417,7 +1100,6 @@
       margin-bottom: 2px;
       line-height: 1.2;
       }
-
       .call-info-status {
       font-size: 11px;
       display: flex;
@@ -1425,38 +1107,29 @@
       font-weight: 500;
       color: #10b981;
       }
-
       .call-info-status .status-text {
       font-size: 11px;
       line-height: 1;
       }
-
-      /* Status color variants for header */
       .call-info-status.connecting {
       color: #d97706;
       }
-
       .call-info-status.connected {
       color: #2563eb;
       }
-
       .call-info-status.listening {
       color: #059669;
       }
-
       .call-info-status.speaking {
       color: #db2777;
       }
-
       .call-info-status.disconnected {
       color: #dc2626;
       }
-
       .call-view .widget-close {
       position: static;
       margin: 0;
       }
-
       .call-body {
       padding: 10px;
       flex: 1;
@@ -1466,15 +1139,12 @@
       overflow-y: auto;
       background: #ffffff;
       }
-
-      /* Language Section */
       .language-section {
       display: flex;
       flex-direction: column;
       gap: 4px;
       margin-bottom: 6px;
       }
-
       .language-label {
       font-size: 11px;
       font-weight: 400;
@@ -1482,7 +1152,6 @@
       letter-spacing: 0.5px;
       margin: 0;
       }
-
       .language-select-styled {
       padding: 6px 10px !important;
       border-radius: 6px;
@@ -1500,20 +1169,16 @@
       -webkit-appearance: none;
       -moz-appearance: none;
       }
-
       .language-select-styled:hover {
       border-color: #9ca3af;
       background-color: #f9fafb;
       }
-
       .language-select-styled:focus {
       outline: none;
       border-color: #6b7280;
       box-shadow: 0 0 0 3px rgba(107, 114, 128, 0.1);
       background-color: white;
       }
-
-      /* Enhanced Controls Row */
       .call-controls-row {
       display: flex;
       align-items: stretch;
@@ -1521,7 +1186,6 @@
       padding: 0;
       margin-bottom: 12px;
       }
-
       .audio-visualizer-enhanced {
       flex: 0 0 auto;
       display: flex;
@@ -1534,7 +1198,6 @@
       padding: 8px 10px;
       border: 1px solid #e5e7eb;
       }
-
       .audio-visualizer-enhanced .visualizer-bar {
       width: 3px;
       height: 16px;
@@ -1542,31 +1205,24 @@
       border-radius: 2px;
       transition: all 0.15s ease;
       }
-
       .audio-visualizer-enhanced .visualizer-bar.active {
       animation: visualizerPulseEnhanced 0.8s ease-in-out infinite;
       }
-
       .audio-visualizer-enhanced .visualizer-bar:nth-child(1) {
       animation-delay: 0s;
       }
-
       .audio-visualizer-enhanced .visualizer-bar:nth-child(2) {
       animation-delay: 0.1s;
       }
-
       .audio-visualizer-enhanced .visualizer-bar:nth-child(3) {
       animation-delay: 0.2s;
       }
-
       .audio-visualizer-enhanced .visualizer-bar:nth-child(4) {
       animation-delay: 0.3s;
       }
-
       .audio-visualizer-enhanced .visualizer-bar:nth-child(5) {
       animation-delay: 0.4s;
       }
-
       @keyframes visualizerPulseEnhanced {
       0%, 100% {
         height: 16px;
@@ -1579,7 +1235,6 @@
         background: linear-gradient(180deg, #4b5563 0%, #374151 100%);
       }
       }
-
       .widget-header {
       position: relative;
       text-align: center;
@@ -1587,7 +1242,6 @@
       background: #ffffff;
       border-bottom: 1px solid #f3f4f6;
       }
-
       .widget-avatar {
       width: 64px;
       height: 64px;
@@ -1601,7 +1255,6 @@
       border: 2px solid #e5e7eb;
       box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
       }
-
       .widget-title {
       font-weight: 600;
       font-size: 18px;
@@ -1609,14 +1262,12 @@
       margin: 0 0 4px 0;
       letter-spacing: -0.01em;
       }
-
       .widget-subtitle {
       font-size: 13px;
       color: #6b7280;
       margin: 0;
       font-weight: 400;
       }
-
       .widget-close {
       position: absolute;
       top: 8px;
@@ -1636,12 +1287,10 @@
       font-weight: 300;
       line-height: 1;
       }
-
       .widget-close:hover {
       background: #f3f4f6;
       color: #374151;
       }
-
       .widget-body {
       padding: 20px;
       flex: 1;
@@ -1651,19 +1300,16 @@
       overflow-y: auto;
       background: #ffffff;
       }
-
       .language-selector {
       display: flex;
       flex-direction: column;
       gap: 6px;
       }
-
       .language-selector label {
       font-size: 12px;
       font-weight: 500;
       color: #374151;
       }
-
       .language-selector select {
       padding: 8px 10px;
       border-radius: 8px;
@@ -1674,13 +1320,11 @@
       cursor: pointer;
       transition: all 0.2s ease;
       }
-
       .language-selector select:focus {
       outline: none;
       border-color: #6b7280;
       box-shadow: 0 0 0 3px rgba(107, 114, 128, 0.1);
       }
-
       .status {
       padding: 10px 12px;
       border-radius: 8px;
@@ -1689,37 +1333,31 @@
       font-weight: 500;
       border: 1px solid transparent;
       }
-
       .status.connecting {
       background: #fef3c7;
       color: #92400e;
       border-color: #fde68a;
       }
-
       .status.connected {
       background: #dbeafe;
       color: #1e40af;
       border-color: #bfdbfe;
       }
-
       .status.listening {
       background: #d1fae5;
       color: #065f46;
       border-color: #a7f3d0;
       }
-
       .status.speaking {
       background: #fce7f3;
       color: #9f1239;
       border-color: #fbcfe8;
       }
-
       .status.disconnected {
       background: #fee2e2;
       color: #991b1b;
       border-color: #fecaca;
       }
-
       .audio-visualizer {
       display: flex;
       justify-content: center;
@@ -1730,7 +1368,6 @@
       border-radius: 8px;
       padding: 10px;
       }
-
       .visualizer-bar {
       width: 4px;
       height: 20px;
@@ -1738,11 +1375,9 @@
       border-radius: 2px;
       transition: height 0.15s ease;
       }
-
       .visualizer-bar.active {
       animation: visualizerPulse 0.8s ease-in-out infinite;
       }
-
       @keyframes visualizerPulse {
       0%, 100% {
         height: 20px;
@@ -1753,7 +1388,6 @@
         opacity: 1;
       }
       }
-
       .messages-container {
       flex: 1;
       overflow-y: auto;
@@ -1764,43 +1398,35 @@
       background: #f9fafb;
       min-height: 120px;
       }
-
       .messages-container::-webkit-scrollbar {
       width: 4px;
       }
-
       .messages-container::-webkit-scrollbar-track {
       background: #f3f4f6;
       border-radius: 2px;
       }
-
       .messages-container::-webkit-scrollbar-thumb {
       background: #d1d5db;
       border-radius: 2px;
       }
-
       .messages-container::-webkit-scrollbar-thumb:hover {
       background: #9ca3af;
       }
-
       .empty-state {
       text-align: center;
       padding: 20px 10px;
       color: #6b7280;
       }
-
       .empty-state-icon {
       font-size: 36px;
       margin-bottom: 6px;
       opacity: 0.9;
       }
-
       .empty-state-text {
       font-size: 13px;
       color: #9ca3af;
       line-height: 1.4;
       }
-
       .message {
       margin-bottom: 10px;
       padding: 8px 12px;
@@ -1810,14 +1436,12 @@
       line-height: 1.4;
       word-wrap: break-word;
       }
-
       .message.user {
       background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
       margin-left: auto;
       color: #1e40af;
       border: 1px solid #bfdbfe;
       }
-
       .message.assistant {
       background: #f3f4f6;
       margin-right: auto;
@@ -1826,14 +1450,12 @@
       }
       border-bottom-right-radius: 4px;
       }
-
       .message.assistant {
       background: #f3f4f6;
       margin-right: auto;
       color: #111827;
       border: 1px solid #e5e7eb;
       }
-
       .message-label {
       font-size: 11px;
       font-weight: 600;
@@ -1842,13 +1464,11 @@
       text-transform: uppercase;
       letter-spacing: 0.5px;
       }
-
       .message-text {
       font-size: 14px;
       line-height: 1.5;
       color: inherit;
       }
-
       .controls {
       display: flex;
       align-items: center;
@@ -1856,7 +1476,6 @@
       gap: 10px;
       margin-top: 2px;
       }
-
       .call-timer {
       font-size: 14px;
       font-weight: 600;
@@ -1872,7 +1491,6 @@
       position: relative;
       overflow: hidden;
       }
-
       .call-timer::before {
       content: '';
       position: absolute;
@@ -1883,7 +1501,6 @@
       background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.6), transparent);
       animation: timerShimmer 2s infinite;
       }
-
       @keyframes timerShimmer {
       0% {
         left: -100%;
@@ -1892,7 +1509,6 @@
         left: 100%;
       }
       }
-
       .control-btn-icon {
       width: 44px;
       height: 44px;
@@ -1908,14 +1524,12 @@
       overflow: hidden;
       flex-shrink: 0;
       }
-
       .control-btn-icon.connect {
       background: linear-gradient(135deg, #4b5563 0%, #6b7280 30%, #374151 70%, #1f2937 100%);
       color: white;
       box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
       animation: connectPulse 2s ease-in-out infinite;
       }
-
       @keyframes connectPulse {
       0%, 100% {
         box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1), 0 0 0 0 rgba(107, 114, 128, 0.4);
@@ -1924,73 +1538,60 @@
         box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1), 0 0 0 6px rgba(107, 114, 128, 0);
       }
       }
-
       .control-btn-icon.connect:hover {
       background: linear-gradient(135deg, #6b7280 0%, #9ca3af 30%, #4b5563 70%, #374151 100%);
       transform: scale(1.05);
       box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
       }
-
       .control-btn-icon.connect:active {
       transform: scale(0.95);
       }
-
       .control-btn-icon.connect.connected {
       background: linear-gradient(135deg, #dc2626 0%, #ef4444 50%, #dc2626 100%);
       animation: none;
       z-index: 1;
       }
-
       .control-btn-icon.connect.connected:hover {
       background: linear-gradient(135deg, #b91c1c 0%, #dc2626 50%, #b91c1c 100%);
       transform: scale(1.05);
       }
-
       .control-btn-icon.clear {
       background: #f3f4f6;
       color: #6b7280;
       box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
       }
-
       .control-btn-icon.clear:hover {
       background: #e5e7eb;
       color: #374151;
       transform: scale(1.05);
       box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
       }
-
       .control-btn-icon.clear:active {
       transform: scale(0.95);
       }
-
       .control-btn-icon.mute {
       background: #f3f4f6;
       color: #10b981;
       box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
       }
-
       .control-btn-icon.mute:hover {
       background: #d1fae5;
       color: #059669;
       transform: scale(1.05);
       box-shadow: 0 4px 10px rgba(16, 185, 129, 0.2);
       }
-
       .control-btn-icon.mute:active {
       transform: scale(0.95);
       }
-
       .control-btn-icon.mute.muted {
       background: #fee2e2;
       color: #dc2626;
       }
-
       .control-btn-icon.mute.muted:hover {
       background: #fecaca;
       color: #b91c1c;
       box-shadow: 0 4px 10px rgba(220, 38, 38, 0.2);
       }
-
       @media (max-width: 768px) {
       .shivai-widget {
         width: calc(100vw - 40px);
@@ -1999,7 +1600,6 @@
         max-height: 500px;
       }
       }
-
       @media (max-width: 480px) {
       .shivai-widget {
         width: calc(100vw - 24px);
@@ -2007,21 +1607,16 @@
         bottom: 3%;
         max-height: 450px;
       }
-
       .widget-header {
         padding: 16px 12px 20px;
       }
-
       .widget-body {
         padding: 16px;
       }
-
       .control-btn {
         padding: 12px 14px;
         font-size: 13px;
       }
-      
-      /* Dragging styles */
       .dragging {
         opacity: 0.8;
         transform: scale(1.05);
@@ -2029,16 +1624,13 @@
         box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3) !important;
         transition: none !important;
       }
-      
       .shivai-widget.dragging {
         transition: none !important;
       }
-      
       .widget-header:hover,
       .call-header:hover {
         cursor: move;
       }
-      
       .widget-header .widget-close:hover,
       .widget-header .start-call-btn:hover,
       .call-header .widget-close:hover,
@@ -2047,44 +1639,30 @@
       }
       }
     `;
-
     const styleSheet = document.createElement("style");
     styleSheet.textContent = styles;
     document.head.appendChild(styleSheet);
-  } // Setup event listeners
+  }
   function setupEventListeners() {
-    // Trigger button click
     triggerBtn.addEventListener("click", toggleWidget);
-
-    // Close button clicks (both in landing and call views)
     const closeButtons = widgetContainer.querySelectorAll(".widget-close");
     closeButtons.forEach((btn) => {
       btn.addEventListener("click", closeWidget);
     });
-
-    // Start Call button click
     const startCallBtn = document.getElementById("start-call-btn");
     if (startCallBtn) {
       startCallBtn.addEventListener("click", switchToCallView);
     }
-
-    // Back button click
     const backBtn = document.getElementById("back-btn");
     if (backBtn) {
       backBtn.addEventListener("click", switchToLandingView);
     }
-
-    // Connect button click
     if (connectBtn) {
       connectBtn.addEventListener("click", handleConnectClick);
     }
-
-    // Mute button click
     if (muteBtn) {
       muteBtn.addEventListener("click", handleMuteClick);
     }
-
-    // Close widget when clicking outside
     document.addEventListener("click", (e) => {
       if (
         isWidgetOpen &&
@@ -2094,35 +1672,25 @@
         closeWidget();
       }
     });
-
-    // Handle escape key
     document.addEventListener("keydown", (e) => {
       if (e.key === "Escape" && isWidgetOpen) {
         closeWidget();
       }
     });
   }
-
-  // Switch to call view
   function switchToCallView() {
     currentView = "call";
     landingView.style.display = "none";
     callView.style.display = "flex";
   }
-
-  // Switch to landing view
   function switchToLandingView() {
     currentView = "landing";
     landingView.style.display = "flex";
     callView.style.display = "none";
-
-    // If call was active, disconnect
     if (isConnected) {
       stopConversation();
     }
   }
-
-  // Toggle widget visibility
   function toggleWidget() {
     if (isWidgetOpen) {
       closeWidget();
@@ -2130,53 +1698,35 @@
       openWidget();
     }
   }
-
-  // Open widget
   function openWidget() {
     widgetContainer.classList.add("active");
     isWidgetOpen = true;
-    // Hide trigger button when widget opens
     if (triggerBtn) {
       triggerBtn.style.display = "none";
     }
-    // Hide bubble when widget opens
     hideBubble();
     if (messageInterval) {
       clearInterval(messageInterval);
       messageInterval = null;
     }
   }
-
-  // Close widget
   function closeWidget() {
     console.log("🔴 Widget closing - checking call state");
-
-    // Always perform cleanup regardless of connection state
     console.log("🔴 Performing complete cleanup on widget close");
-
-    // Set all states to disconnected immediately
     isConnected = false;
     isConnecting = false;
     hasReceivedFirstAIResponse = false;
     shouldAutoUnmute = false;
     isMuted = false;
-
-    // Stop loading and clear all timers immediately
     clearLoadingStatus();
     stopCallTimer();
-
-    // Close WebSocket immediately
     if (ws) {
       console.log("🔌 Closing WebSocket on widget close");
       ws.close();
       ws = null;
     }
-
-    // Stop all audio immediately
     stopAllScheduledAudio();
     teardownPlaybackProcessor();
-
-    // Stop and disable microphone immediately
     if (mediaStream) {
       console.log(
         "🎤 Stopping microphone and revoking permissions on widget close"
@@ -2185,14 +1735,12 @@
         console.log(
           `Stopping track: ${track.kind}, state: ${track.readyState}`
         );
-        track.stop(); // Stop the track completely
-        track.enabled = false; // Disable the track
+        track.stop();
+        track.enabled = false;
       });
       mediaStream = null;
       console.log("🎤 Microphone permissions revoked successfully");
     }
-
-    // Close audio context immediately
     if (audioContext) {
       try {
         audioContext.close().catch((err) => {
@@ -2203,25 +1751,17 @@
       }
       audioContext = null;
     }
-
-    // Clear all transcripts completely
     if (messagesDiv) {
       console.log("📝 Transcripts cleared completely");
     }
-
-    // Reset all transcript-related variables
     currentUserTranscript = "";
     currentAssistantTranscript = "";
     lastUserMessageDiv = null;
-
-    // Stop visualizer
     if (visualizerInterval) {
       clearInterval(visualizerInterval);
       visualizerInterval = null;
       animateVisualizer(false);
     }
-
-    // Reset UI elements immediately
     updateStatus("Ready to connect", "disconnected");
     if (connectBtn) {
       connectBtn.innerHTML =
@@ -2230,17 +1770,13 @@
       connectBtn.title = "Start Call";
       connectBtn.disabled = false;
     }
-
     if (muteBtn) {
       muteBtn.style.display = "none";
       muteBtn.classList.remove("muted");
     }
-
     if (languageSelect) {
       languageSelect.disabled = false;
     }
-
-    // Call async cleanup for API call (non-blocking)
     if (window.currentCallId) {
       fetch("https://shivai-com-backend.onrender.com/api/v1/calls/end-call", {
         method: "POST",
@@ -2254,42 +1790,27 @@
           window.currentCallId = null;
         });
     }
-
     console.log("🔴 Complete cleanup finished on widget close");
-
     widgetContainer.classList.remove("active");
     isWidgetOpen = false;
-
-    // Show trigger button when widget closes
     if (triggerBtn) {
       triggerBtn.style.display = "flex";
     }
-
-    // Return to landing view when closing
     switchToLandingView();
-
-    // Restart messages when widget closes
     if (!messageInterval) {
       startLiveMessages();
     }
-
     console.log("✅ Widget closed successfully");
   }
-
-  // Handle connect button click
   async function handleConnectClick(e) {
-    // Prevent event from closing the widget
     if (e) {
       e.stopPropagation();
     }
-
-    // iOS: Unlock audio contexts on user interaction
     if (isIOS()) {
       try {
         if (soundContext && soundContext.state === "suspended") {
           await soundContext.resume();
         }
-        // Create a dummy audio buffer and play it to unlock iOS audio
         if (soundContext) {
           const buffer = soundContext.createBuffer(1, 1, 22050);
           const source = soundContext.createBufferSource();
@@ -2301,87 +1822,54 @@
         console.warn("🍎 [iOS] Audio unlock failed:", e);
       }
     }
-
-    // Prevent button spam during connection
     if (isConnecting) {
       return;
     }
-
     if (isConnected) {
-      // Immediate hang up - stop everything instantly
       console.log("🔴 Immediate hang up requested");
-
-      // Set states immediately
       isConnected = false;
       isConnecting = false;
-
-      // Stop loading and clear all timers immediately
       clearLoadingStatus();
       stopCallTimer();
-
-      // Close WebSocket immediately
       if (ws) {
         console.log("🔌 Closing WebSocket immediately");
         ws.close();
         ws = null;
       }
-
-      // Stop all audio immediately
       stopAllScheduledAudio();
-
-      // Update UI immediately
       updateStatus("Disconnecting...", "connecting");
       connectBtn.disabled = true;
-
-      // Call the full cleanup asynchronously
       stopConversation().finally(() => {
         connectBtn.disabled = false;
         console.log("✅ Hang up completed");
       });
-
-      return; // Exit immediately after initiating hang up
+      return;
     } else {
       isConnecting = true;
-      connectBtn.disabled = true; // Disable button during connection
-
-      // Play connecting sound
+      connectBtn.disabled = true;
       playSound("connecting");
-
       try {
-        // Show hang-up button immediately
         connectBtn.innerHTML =
           '<svg width="26" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z" transform="rotate(135 12 12)"></path></svg>';
         connectBtn.classList.add("connected");
         connectBtn.title = "Hang Up";
-
         await startConversation();
-
-        // Re-enable button after connection succeeds
         connectBtn.disabled = false;
         isConnecting = false;
       } catch (error) {
         console.error("Failed to start conversation:", error);
-
-        // Reset all states immediately on error
         isConnected = false;
         isConnecting = false;
         hasReceivedFirstAIResponse = false;
         shouldAutoUnmute = false;
-
-        // Clear any loading states
         clearLoadingStatus();
         stopCallTimer();
-
-        // Update UI
         updateStatus("❌ Failed to connect", "disconnected");
-
-        // Reset UI on error
         connectBtn.innerHTML =
           '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path></svg>';
         connectBtn.classList.remove("connected");
         connectBtn.title = "Start Call";
         connectBtn.disabled = false;
-
         if (muteBtn) {
           muteBtn.style.display = "none";
           muteBtn.classList.remove("muted");
@@ -2391,19 +1879,13 @@
       }
     }
   }
-
-  // Update mute button UI based on current mute state
   function updateMuteButton() {
     if (!muteBtn) return;
-
-    // Update microphone tracks if available
     if (mediaStream) {
       mediaStream.getAudioTracks().forEach((track) => {
         track.enabled = !isMuted;
       });
     }
-
-    // Update button UI
     if (isMuted) {
       muteBtn.classList.add("muted");
       muteBtn.title = "Unmute Microphone";
@@ -2416,17 +1898,12 @@
         '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path><line x1="12" y1="19" x2="12" y2="23"></line><line x1="8" y1="23" x2="16" y2="23"></line></svg>';
     }
   }
-
-  // Handle mute button click
   function handleMuteClick(e) {
     e.stopPropagation();
     if (!isConnected || !mediaStream) return;
-
     isMuted = !isMuted;
     updateMuteButton();
   }
-
-  // Update status
   function updateStatus(status, className) {
     const statusText = statusDiv.querySelector(".status-text");
     if (statusText) {
@@ -2436,10 +1913,8 @@
     }
     statusDiv.className = `call-info-status ${className}`;
   }
-
-  // Loading animation functions
   function showLoadingStatus(message) {
-    clearLoadingStatus(); // Clear any existing animation
+    clearLoadingStatus();
     let dots = "";
     loadingInterval = setInterval(() => {
       dots = dots.length >= 3 ? "" : dots + ".";
@@ -2449,38 +1924,29 @@
       } else {
         statusDiv.textContent = `${message}${dots}`;
       }
-    }, 400); // 400ms for smooth dot animation
+    }, 400);
   }
-
   function clearLoadingStatus() {
     if (loadingInterval) {
       clearInterval(loadingInterval);
       loadingInterval = null;
     }
   }
-
-  // Call timer functions
   function startCallTimer() {
     callStartTime = Date.now();
     if (callTimerElement) {
       callTimerElement.style.display = "block";
     }
-
-    // Show UI controls when timer starts (when AI actually begins responding)
     if (muteBtn) {
       muteBtn.style.display = "flex";
     }
-
-    // Update connect button to show end call when timer starts
     connectBtn.innerHTML =
       '<svg width="26" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z" transform="rotate(135 12 12)"></path></svg>';
     connectBtn.classList.add("connected");
     connectBtn.title = "End Call";
-
     callTimerInterval = setInterval(updateCallTimer, 1000);
     updateCallTimer();
   }
-
   function stopCallTimer() {
     if (callTimerInterval) {
       clearInterval(callTimerInterval);
@@ -2492,30 +1958,20 @@
       callTimerElement.textContent = "00:00";
     }
   }
-
   function updateCallTimer() {
     if (!callStartTime || !callTimerElement) return;
-
     const elapsed = Math.floor((Date.now() - callStartTime) / 1000);
     const minutes = Math.floor(elapsed / 60);
     const seconds = elapsed % 60;
-
     callTimerElement.textContent = `${String(minutes).padStart(
       2,
       "0"
     )}:${String(seconds).padStart(2, "0")}`;
   }
-
-  // Progressive connection states with sounds from widget2
   async function showProgressiveConnectionStates() {
-    // Check connection state for optimization
-    const wasWarmedUp = false; // Could be enhanced with caching later
+    const wasWarmedUp = false;
     const hasPreloadedAudio = audioContext !== null;
-
-    // Optimize delays to match AI response time (3-4 seconds total)
-    // Total time should be ~2.5-3s to allow AI warmup time
     const baseDelay = wasWarmedUp ? 100 : 200;
-
     const states = [
       {
         text: "Connecting to AI servers...",
@@ -2524,7 +1980,7 @@
           : "Establishing secure connection",
         delay: baseDelay + 200,
         sound: true,
-      }, // 400ms
+      },
       {
         text: "Setting up voice pipeline...",
         desc: hasPreloadedAudio
@@ -2532,92 +1988,69 @@
           : "Configuring audio processing",
         delay: hasPreloadedAudio ? 150 : baseDelay + 100,
         sound: false,
-      }, // 300ms
+      },
       {
         text: "Configuring audio streams...",
         desc: "Optimizing voice quality",
         delay: baseDelay + 300,
         sound: true,
-      }, // 500ms
+      },
       {
         text: "Almost ready to talk...",
         desc: "Finalizing setup",
         delay: 400,
         sound: false,
-      }, // 400ms
+      },
       {
         text: "Connection established! 🎉",
         desc: "AI is warming up, ready in moments...",
         delay: 600,
         sound: false,
-      }, // 600ms - Total ~2.2s
+      },
     ];
-
     for (const state of states) {
-      // Update status with main text
       updateStatus(state.text, "connecting");
-
-      // Show description in loading status if available
       if (state.desc) {
         showLoadingStatus(state.desc);
       }
-
-      // Play sound if specified
       if (state.sound) {
-        playSound("connecting"); // Use connecting sound for better audio experience
+        playSound("connecting");
       }
-
-      // Wait for specified delay
       if (state.delay > 0) {
         await new Promise((resolve) => setTimeout(resolve, state.delay));
       }
     }
   }
-
-  // Add message to transcript
   function addMessage(role, text) {
-    // Remove empty state if exists
     const emptyState = messagesDiv.querySelector(".empty-state");
     if (emptyState) {
       emptyState.remove();
     }
-
     const messageDiv = document.createElement("div");
     messageDiv.className = `message ${role}`;
-
     const labelDiv = document.createElement("div");
     labelDiv.className = "message-label";
     labelDiv.textContent = role === "user" ? "You" : "Assistant";
-
     const textDiv = document.createElement("div");
     textDiv.className = "message-text";
     textDiv.textContent = text;
-
     messageDiv.appendChild(labelDiv);
     messageDiv.appendChild(textDiv);
     messagesDiv.appendChild(messageDiv);
     messagesDiv.scrollTop = messagesDiv.scrollHeight;
-
-    // Show clear button when there are messages
     if (clearBtn) {
       clearBtn.style.display = "flex";
     }
-
     return messageDiv;
   }
-
-  // Update existing message
   function updateMessage(messageDiv, text) {
     const textDiv = messageDiv.querySelector(".message-text");
     if (textDiv) {
       textDiv.textContent = text;
     }
   }
-
-  // Visualizer animation
   function animateVisualizer(active) {
     if (!visualizerBars) return;
-
     visualizerBars.forEach((bar, index) => {
       if (active) {
         const randomHeight = Math.random() * 18 + 10;
@@ -2629,22 +2062,13 @@
       }
     });
   }
-
-  // Start conversation
   async function startConversation() {
     try {
-      // Reset flags for new conversation
       hasReceivedFirstAIResponse = false;
-      shouldAutoUnmute = true; // Will auto-unmute after AI first response
-
-      // Show progressive connection states with sounds
+      shouldAutoUnmute = true;
+      audioStreamComplete = false;
       await showProgressiveConnectionStates();
-
-      // Get selected language
       const selectedLanguage = languageSelect.value;
-
-      // STEP 1: Request microphone access FIRST (instant permission prompt)
-      // Check if microphone API is available
       if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
         updateStatus("❌ Microphone not supported", "disconnected");
         alert(
@@ -2652,10 +2076,7 @@
         );
         throw new Error("getUserMedia not supported");
       }
-
-      // Get microphone access with iOS/mobile compatibility
       updateStatus("Requesting microphone...", "connecting");
-
       try {
         mediaStream = await navigator.mediaDevices.getUserMedia({
           audio: {
@@ -2663,12 +2084,10 @@
             sampleRate: 24000,
             echoCancellation: true,
             noiseSuppression: true,
-            autoGainControl: true,
+            autoGainControl: false,
           },
         });
         console.log("Microphone access granted");
-
-        // Mute microphone initially - will be unmuted after AI first response
         if (shouldAutoUnmute) {
           mediaStream.getAudioTracks().forEach((track) => {
             track.enabled = false;
@@ -2677,16 +2096,12 @@
         }
       } catch (micError) {
         console.error("Error accessing microphone:", micError);
-
-        // Try with simpler constraints for iOS/mobile fallback
         try {
           console.log("Trying fallback microphone settings...");
           mediaStream = await navigator.mediaDevices.getUserMedia({
             audio: true,
           });
           console.log("Microphone access granted with fallback settings");
-
-          // Mute microphone initially - will be unmuted after AI first response
           if (shouldAutoUnmute) {
             mediaStream.getAudioTracks().forEach((track) => {
               track.enabled = false;
@@ -2696,8 +2111,6 @@
         } catch (fallbackError) {
           console.error("Fallback microphone access failed:", fallbackError);
           updateStatus("❌ Microphone access denied", "disconnected");
-
-          // Provide helpful message based on error
           let errorMessage = "Microphone access is required for voice calls.";
           if (fallbackError.name === "NotAllowedError") {
             errorMessage +=
@@ -2706,13 +2119,10 @@
             errorMessage +=
               "\n\nNo microphone found. Please check your device.";
           }
-
           alert(errorMessage);
           throw new Error("Microphone access denied");
         }
       }
-
-      // STEP 2: Now call the API (after mic permission granted)
       statusDiv.className = "call-info-status connecting";
       updateStatus("Connecting to backend...", "connecting");
       const startCallResponse = await fetch(
@@ -2730,18 +2140,14 @@
           cache: "no-store",
         }
       );
-
       if (!startCallResponse.ok) {
         throw new Error(`Start call API failed: ${startCallResponse.status}`);
       }
-
       const startCallData = await startCallResponse.json();
       console.log("📋 [API] Full start call response:", startCallData);
-
       if (!startCallData.success || !startCallData.data) {
         throw new Error(startCallData.message || "Failed to start call");
       }
-
       const { callId, pythonServiceUrl } = startCallData.data;
       console.log(
         "✅ [API] Call started successfully - CallId:",
@@ -2749,23 +2155,17 @@
         "URL:",
         pythonServiceUrl
       );
-
-      // Store callId for later use
       window.currentCallId = callId;
       console.log(
         "💾 [STORAGE] CallId stored in window.currentCallId:",
         window.currentCallId
       );
-
-      // STEP 3: Initialize audio context with iOS-specific settings
       const audioContextOptions = {
         sampleRate: 24000,
-        latencyHint: "interactive", // Optimize for low latency
+        latencyHint: "interactive",
       };
-
-      // iOS-specific audio context settings for better volume
       if (isIOS()) {
-        audioContextOptions.latencyHint = "playback"; // Better for iOS audio volume
+        audioContextOptions.latencyHint = "playback";
         console.log(
           "🍎 [iOS] Using iOS-optimized audio settings with 20x amplification and soft clipping"
         );
@@ -2774,16 +2174,11 @@
           "🤖 [Android] Using standard audio settings with 12x amplification"
         );
       }
-
       audioContext = new (window.AudioContext || window.webkitAudioContext)(
         audioContextOptions
       );
-
-      // Resume audio context if suspended (browser autoplay policy)
       if (audioContext.state === "suspended") {
         await audioContext.resume();
-
-        // iOS: Additional resume attempts with delay
         if (isIOS() && audioContext.state === "suspended") {
           setTimeout(async () => {
             try {
@@ -2795,30 +2190,18 @@
           }, 100);
         }
       }
-
-      // Setup playback processor for smooth audio
       setupPlaybackProcessor();
-
-      // Connect to Python WebSocket service
       ws = new WebSocket(
         pythonServiceUrl || "wss://python.service.callshivai.com"
       );
-
       ws.onopen = async () => {
         console.log("🟢 [WEBSOCKET] Connected to server");
         isConnected = true;
-
-        // Keep loading until AI first response - show waiting for AI
         updateStatus("Waiting for AI response...", "connecting");
         showLoadingStatus("AI is preparing to speak...");
-
-        // Play call start sound
         playSound("call-start");
-
-        // Hide UI elements initially - will show when timer starts (when AI responds)
         if (muteBtn) {
           muteBtn.style.display = "none";
-          // Start muted internally but don't show muted UI - will auto-unmute after AI first response
           isMuted = true;
           console.log(
             "🔇 Starting with microphone muted internally - will auto-unmute after AI responds"
@@ -2826,14 +2209,8 @@
         }
         languageSelect.disabled = true;
         console.log("Connected to server");
-
-        // Get client IP address
         const clientIp = await getClientIP();
-
-        // Get agent ID from input if available
         const agentIdInput = document.getElementById("agent-id-input");
-
-        // Send configuration to WebSocket server
         ws.send(
           JSON.stringify({
             type: "config",
@@ -2843,36 +2220,25 @@
             callId: window.currentCallId || null,
           })
         );
-
         console.log(
           "📤 [WEBSOCKET] Sent config with callId:",
           window.currentCallId || "unavailable",
           "IP:",
           clientIp || "unavailable"
         );
-
-        // Start continuous audio streaming
         console.log("🎤 [AUDIO] Starting audio streaming");
         startAudioStreaming();
       };
-
       ws.onmessage = async (event) => {
         const data = JSON.parse(event.data);
         console.log("📥 [WEBSOCKET] Message received:", data.type, data);
         const eventType = data.type;
-
-        // Handle different event types
         if (eventType === "input_audio_buffer.speech_started") {
           console.log("🎤 [USER] Speech started");
           updateStatus("🎤 Listening...", "listening");
-
-          // PERFECT INTERRUPT: Stop AI audio when user starts speaking
           stopAllScheduledAudio({ preserveStatus: true });
-
-          // Reset user transcript tracking
           currentUserTranscript = "";
           lastUserMessageDiv = null;
-
           if (!visualizerInterval) {
             visualizerInterval = setInterval(
               () => animateVisualizer(true),
@@ -2888,46 +2254,35 @@
             animateVisualizer(false);
           }
         } else if (eventType === "deepgram.transcript") {
-          // Deepgram transcript - more accurate than OpenAI
           const transcript = data.transcript;
           const isFinal = data.is_final;
-
           if (transcript && transcript.trim()) {
             console.log(
               `📝 [USER ${isFinal ? "FINAL" : "INTERIM"}]:`,
               transcript
             );
-
             if (!lastUserMessageDiv) {
-              // Create new message for user
               lastUserMessageDiv = addMessage("user", transcript);
               currentUserTranscript = transcript;
             } else {
-              // Update existing message with new interim or final transcript
               if (isFinal) {
                 currentUserTranscript = transcript;
                 updateMessage(lastUserMessageDiv, transcript);
                 console.log("✅ [USER] Final transcript saved:", transcript);
-                lastUserMessageDiv = null; // Reset for next utterance
+                lastUserMessageDiv = null;
               } else {
-                // Update with interim result
                 updateMessage(lastUserMessageDiv, transcript);
               }
             }
           }
         } else if (eventType === "response.audio_transcript.delta") {
-          // AI transcript delta - accumulate
           console.log("📝 [AI DELTA]:", data.delta);
           currentAssistantTranscript += data.delta;
-
-          // Clear loading on first AI response
           if (!hasReceivedFirstAIResponse && data.delta && data.delta.trim()) {
             hasReceivedFirstAIResponse = true;
             clearLoadingStatus();
             updateStatus("🤖 AI Speaking...", "speaking");
-            startCallTimer(); // Start timer only when AI begins responding
-
-            // Auto-unmute microphone after 2.5 seconds to let AI finish initial greeting
+            startCallTimer();
             if (shouldAutoUnmute && isMuted) {
               setTimeout(() => {
                 if (isMuted && mediaStream) {
@@ -2938,34 +2293,27 @@
                   console.log("🎤 Auto-unmuted microphone after AI response");
                   updateStatus("🎤 Ready to listen", "connected");
                 }
-                shouldAutoUnmute = false; // Prevent multiple auto-unmutes
+                shouldAutoUnmute = false;
               }, 2500);
             }
-
             console.log(
               "🎉 First AI response received - loading cleared, timer started"
             );
           }
         } else if (eventType === "response.audio_transcript.done") {
-          // AI transcript completed
           if (currentAssistantTranscript && currentAssistantTranscript.trim()) {
             console.log("✅ [AI RESPONSE]:", currentAssistantTranscript);
             addMessage("assistant", currentAssistantTranscript);
           }
           currentAssistantTranscript = "";
         } else if (eventType === "response.audio.delta") {
-          // Perfect audio scheduling
           console.log("🔊 [AI AUDIO] Received audio chunk");
           scheduleAudioChunk(base64ToArrayBuffer(data.delta));
-
-          // Clear loading on first AI audio response
           if (!hasReceivedFirstAIResponse) {
             hasReceivedFirstAIResponse = true;
             clearLoadingStatus();
             updateStatus("🤖 AI Speaking...", "speaking");
-            startCallTimer(); // Start timer only when AI begins responding
-
-            // Auto-unmute microphone after 2.5 seconds to let AI finish initial greeting
+            startCallTimer();
             if (shouldAutoUnmute && isMuted) {
               setTimeout(() => {
                 if (isMuted && mediaStream) {
@@ -2976,16 +2324,16 @@
                   console.log("🎤 Auto-unmuted microphone after AI response");
                   updateStatus("🎤 Ready to listen", "connected");
                 }
-                shouldAutoUnmute = false; // Prevent multiple auto-unmutes
+                shouldAutoUnmute = false;
               }, 2500);
             }
-
             console.log(
               "🎉 First AI audio received - loading cleared, timer started"
             );
           }
         } else if (eventType === "response.done") {
           console.log("✅ [AI] Response complete");
+          audioStreamComplete = true;
           if (!assistantSpeaking) {
             updateStatus("🟢 Connected - Speak naturally!", "connected");
           }
@@ -2994,56 +2342,43 @@
           updateStatus("❌ Error occurred", "disconnected");
         }
       };
-
       ws.onerror = (error) => {
         console.error("WebSocket error:", error);
-        clearLoadingStatus(); // Stop loading animation on error
+        clearLoadingStatus();
         updateStatus("❌ Connection error", "disconnected");
         stopConversation();
       };
-
       ws.onclose = () => {
         console.log("WebSocket closed");
-        clearLoadingStatus(); // Stop loading animation on close
+        clearLoadingStatus();
         stopConversation();
       };
     } catch (error) {
       console.error("Error:", error);
-      clearLoadingStatus(); // Stop loading animation on catch
+      clearLoadingStatus();
       alert(
         "Failed to access microphone or connect to server. Please ensure:\n1. Backend server is running\n2. Microphone permissions are granted"
       );
       stopConversation();
     }
   }
-
-  // Stop conversation
   async function stopConversation() {
     console.log("🛑 stopConversation() called");
-
-    // Set all states to disconnected immediately
     isConnected = false;
     isConnecting = false;
     hasReceivedFirstAIResponse = false;
     shouldAutoUnmute = false;
     isMuted = false;
-
-    // Stop all timers and loading states immediately
     stopCallTimer();
     clearLoadingStatus();
-
-    // Play disconnect sound
     try {
       playSound("call-end");
     } catch (e) {
       console.warn("Could not play call-end sound:", e);
     }
-
-    // Call end-call API if we have a callId
     if (window.currentCallId) {
       try {
         updateStatus("Disconnecting...", "connecting");
-
         const response = await fetch(
           "https://shivai-com-backend.onrender.com/api/v1/calls/end-call",
           {
@@ -3056,7 +2391,6 @@
             }),
           }
         );
-
         if (response.ok) {
           const data = await response.json();
           console.log("Call ended successfully:", data);
@@ -3067,38 +2401,28 @@
         window.currentCallId = null;
       }
     }
-
-    // Perfect audio cleanup
     stopAllScheduledAudio();
     teardownPlaybackProcessor();
-
-    // Stop audio streaming
     if (audioWorkletNode) {
       audioWorkletNode.disconnect();
       audioWorkletNode = null;
     }
-
-    // Stop media stream and close microphone properly
     if (mediaStream) {
       console.log("Stopping microphone and closing media stream...");
       mediaStream.getTracks().forEach((track) => {
         console.log(
           `Stopping track: ${track.kind}, state: ${track.readyState}`
         );
-        track.stop(); // Stop each track
-        track.enabled = false; // Disable track
+        track.stop();
+        track.enabled = false;
       });
       mediaStream = null;
       console.log("Microphone closed successfully");
     }
-
-    // Close WebSocket
     if (ws) {
       ws.close();
       ws = null;
     }
-
-    // Close audio context properly
     if (audioContext) {
       try {
         await audioContext.close();
@@ -3107,15 +2431,11 @@
       }
       audioContext = null;
     }
-
-    // Stop visualizer
     if (visualizerInterval) {
       clearInterval(visualizerInterval);
       visualizerInterval = null;
       animateVisualizer(false);
     }
-
-    // Reset UI
     updateStatus("Ready to connect", "disconnected");
     connectBtn.innerHTML =
       '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path></svg>';
@@ -3127,22 +2447,16 @@
       isMuted = false;
     }
     languageSelect.disabled = false;
-
     console.log("Conversation stopped");
   }
-
-  // Start audio streaming - Perfect version with clean audio processing
   function startAudioStreaming() {
     const source = audioContext.createMediaStreamSource(mediaStream);
     const processor = audioContext.createScriptProcessor(4096, 1, 1);
-
     processor.onaudioprocess = (e) => {
       if (!isConnected || !ws || ws.readyState !== WebSocket.OPEN) return;
-
       const inputData = e.inputBuffer.getChannelData(0);
       const pcm16 = convertFloat32ToPCM16(inputData);
       const base64Audio = arrayBufferToBase64(pcm16);
-
       ws.send(
         JSON.stringify({
           type: "audio",
@@ -3150,13 +2464,10 @@
         })
       );
     };
-
     source.connect(processor);
     processor.connect(audioContext.destination);
     audioWorkletNode = processor;
   }
-
-  // Convert base64 to ArrayBuffer
   function base64ToArrayBuffer(base64) {
     const binaryString = atob(base64);
     const len = binaryString.length;
@@ -3166,9 +2477,6 @@
     }
     return bytes.buffer;
   }
-
-  // Convert PCM16 to WAV format
-  // Set assistant speaking state
   function setAssistantSpeaking(isSpeaking, preserveStatus = false) {
     if (assistantSpeaking === isSpeaking) {
       return;
@@ -3180,8 +2488,6 @@
       updateStatus("🟢 Connected - Speak naturally!", "connected");
     }
   }
-
-  // Setup playback processor for smooth audio
   function setupPlaybackProcessor() {
     if (!audioContext) {
       return;
@@ -3189,113 +2495,92 @@
     teardownPlaybackProcessor();
     playbackBufferQueue = [];
     playbackBufferOffset = 0;
-
-    // Create master gain node with optimized volume settings
     masterGainNode = audioContext.createGain();
-    const masterGainValue = 1.2; // Slightly increased master gain for better volume
+    const masterGainValue = 1.0;
     masterGainNode.gain.setValueAtTime(
       masterGainValue,
       audioContext.currentTime
     );
     masterGainNode.connect(audioContext.destination);
-
-    playbackProcessor = audioContext.createScriptProcessor(2048, 1, 1); // Larger buffer for smoother processing
+    playbackProcessor = audioContext.createScriptProcessor(4096, 1, 1);
     playbackProcessor.onaudioprocess = handlePlaybackProcess;
-    playbackProcessor.connect(masterGainNode); // Connect through master gain
+    playbackProcessor.connect(masterGainNode);
   }
-
-  // Teardown playback processor
   function teardownPlaybackProcessor() {
     if (playbackProcessor) {
       playbackProcessor.disconnect();
       playbackProcessor = null;
     }
   }
-
-  // Detect iOS device
   function isIOS() {
     return (
       /iPad|iPhone|iPod/.test(navigator.userAgent) ||
       (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1)
     );
   }
-
-  // Simple audio processing - removed complex gain control that caused wavy sound
-
-  // Handle continuous playback process with crystal clear audio
   function handlePlaybackProcess(event) {
     const output = event.outputBuffer.getChannelData(0);
     let offset = 0;
-
-    // Increased volume gain for better clarity and loudness
-    const baseVolumeGain = 12.0; // Higher gain for better volume
-    
+    const baseVolumeGain = 3.5;
+    const compressionThreshold = 0.7;
+    const compressionRatio = 0.5;
+    if (!audioBufferingStarted && !audioStreamComplete) {
+      for (let i = 0; i < output.length; i++) {
+        output[i] = 0;
+      }
+      return;
+    }
     while (offset < output.length) {
       if (playbackBufferQueue.length === 0) {
         for (; offset < output.length; offset++) {
           output[offset] = 0;
         }
         if (assistantSpeaking) {
+          audioBufferingStarted = false;
           setAssistantSpeaking(false);
         }
         return;
       }
-
       const currentBuffer = playbackBufferQueue[0];
       const remaining = currentBuffer.length - playbackBufferOffset;
       const samplesToCopy = Math.min(remaining, output.length - offset);
-
-      // Crystal clear audio processing with proper limiting
       for (let i = 0; i < samplesToCopy; i++) {
         const rawSample = currentBuffer[playbackBufferOffset + i];
-        let amplifiedSample = rawSample * baseVolumeGain;
-
-        // Smooth soft clipping for natural sound without distortion
-        if (amplifiedSample > 0.95) {
-          amplifiedSample = 0.95 - (amplifiedSample - 0.95) * 0.1;
-        } else if (amplifiedSample < -0.95) {
-          amplifiedSample = -0.95 - (amplifiedSample + 0.95) * 0.1;
+        let processedSample = rawSample * baseVolumeGain;
+        const absSample = Math.abs(processedSample);
+        if (absSample > compressionThreshold) {
+          const excess = absSample - compressionThreshold;
+          const compressed = compressionThreshold + (excess * compressionRatio);
+          processedSample = (processedSample > 0 ? 1 : -1) * compressed;
         }
-
-        // Final hard limit as safety
-        amplifiedSample = Math.max(-0.98, Math.min(0.98, amplifiedSample));
-
-        output[offset + i] = amplifiedSample;
+        processedSample = Math.max(-0.95, Math.min(0.95, processedSample));
+        output[offset + i] = processedSample;
       }
-
       offset += samplesToCopy;
       playbackBufferOffset += samplesToCopy;
-
       if (playbackBufferOffset >= currentBuffer.length) {
         playbackBufferQueue.shift();
         playbackBufferOffset = 0;
       }
     }
   }
-
-  // Perfect audio scheduling system
   function scheduleAudioChunk(pcmBuffer) {
     if (!audioContext) {
       return;
     }
-
     if (!playbackProcessor) {
       setupPlaybackProcessor();
     }
-
     const float32 = pcm16ToFloat32(pcmBuffer);
     if (float32.length === 0) {
       return;
     }
-
-    const wasBufferEmpty = playbackBufferQueue.length === 0;
     playbackBufferQueue.push(float32);
-    if (wasBufferEmpty) {
+    if (!audioBufferingStarted && playbackBufferQueue.length >= minBufferChunks) {
+      audioBufferingStarted = true;
       setAssistantSpeaking(true);
     }
   }
-
-  // Perfect PCM16 to Float32 conversion
   function pcm16ToFloat32(pcmBuffer) {
     const pcm16 = new Int16Array(pcmBuffer);
     const float32 = new Float32Array(pcm16.length);
@@ -3304,16 +2589,14 @@
     }
     return float32;
   }
-
-  // Perfect audio interruption system
   function stopAllScheduledAudio(options = {}) {
     const preserveStatus = options.preserveStatus === true;
     playbackBufferQueue = [];
     playbackBufferOffset = 0;
+    audioBufferingStarted = false;
+    audioStreamComplete = false;
     setAssistantSpeaking(false, preserveStatus);
   }
-
-  // Convert Float32Array to PCM16
   function convertFloat32ToPCM16(float32Array) {
     const pcm16 = new Int16Array(float32Array.length);
     for (let i = 0; i < float32Array.length; i++) {
@@ -3322,8 +2605,6 @@
     }
     return pcm16.buffer;
   }
-
-  // Convert ArrayBuffer to base64
   function arrayBufferToBase64(buffer) {
     const bytes = new Uint8Array(buffer);
     let binary = "";
@@ -3332,13 +2613,9 @@
     }
     return btoa(binary);
   }
-
-  // Clean up on page unload
   window.addEventListener("beforeunload", () => {
     stopConversation();
   });
-
-  // Initialize widget when DOM is ready
   if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", initWidget);
   } else {

@@ -24,35 +24,12 @@
   let hasReceivedFirstAIResponse = false; // Track first AI response to clear loading
   let shouldAutoUnmute = false; // Flag to auto-unmute after AI first response
 
-  // Session management variables
-  let sessionId = null;
-  let callStartTime = null;
-  let callDuration = 0;
-  let callTimerInterval = null;
-
-  // Enhanced audio processing variables
-  let rawMicStreamRef = null;
-  let triggerAudioBuffer = null;
-  let audioContextOptions = null;
-  let destinationNode = null;
-  let aiAudioElement = null; // Reference to AI audio element
-  let remoteAudioStream = null; // Remote audio stream for background playback
-
   // Playback processor variables for smooth audio
   let playbackProcessor = null;
   let playbackBufferQueue = [];
   let playbackBufferOffset = 0;
   let assistantSpeaking = false;
   let masterGainNode = null; // Master volume control
-
-  // Loading messages for better UX
-  const loadingMessages = [
-    "Establishing secure connection...",
-    "Warming up audio channels...",
-    "Initializing AI persona...",
-    "Finalizing setup...",
-  ];
-  let currentLoadingIndex = 0;
 
   // Sound effects system
   let soundContext = null;
@@ -86,212 +63,14 @@
 
   // Call timer variables
   let callTimerElement = null;
+  let callStartTime = null;
+  let callTimerInterval = null;
 
   // Initialize widget
   function initWidget() {
     createWidgetUI();
     setupEventListeners();
     initSoundContext();
-    prefetchTriggerAudio(); // Prefetch audio for better performance
-    setupBackgroundHandling(); // Setup iOS background support
-    
-    // Test iOS background audio setup after initialization
-    setTimeout(() => {
-      testIOSBackgroundAudio();
-    }, 1000);
-  }
-
-  // Setup iOS background and lock screen support with enhanced audio handling
-  function setupBackgroundHandling() {
-    // Handle visibility changes for iOS background support
-    document.addEventListener('visibilitychange', async () => {
-      if (isIOS() && isConnected && audioContext) {
-        if (document.visibilityState === 'visible') {
-          // App became visible again
-          logMessage('App visible - resuming audio context and connections', 'info');
-          
-          // Resume audio context
-          if (audioContext.state === 'suspended') {
-            try {
-              await audioContext.resume();
-              logMessage('Audio context resumed after visibility change', 'success');
-            } catch (err) {
-              logMessage('Failed to resume audio context: ' + err.message, 'error');
-            }
-          }
-          
-          // Resume AI audio element if suspended
-          if (aiAudioElement && aiAudioElement.paused && remoteAudioStream) {
-            try {
-              aiAudioElement.srcObject = remoteAudioStream;
-              await aiAudioElement.play();
-              logMessage('AI audio element resumed', 'success');
-            } catch (err) {
-              logMessage('Failed to resume AI audio element: ' + err.message, 'error');
-            }
-          }
-          
-        } else {
-          // App went to background
-          logMessage('App backgrounded - maintaining audio connection', 'info');
-          
-          // Keep audio element playing for background audio
-          if (aiAudioElement && remoteAudioStream) {
-            try {
-              aiAudioElement.srcObject = remoteAudioStream;
-              // Don't pause - let it continue in background
-              logMessage('Audio maintained for background playback', 'success');
-            } catch (err) {
-              logMessage('Failed to maintain background audio: ' + err.message, 'error');
-            }
-          }
-        }
-      }
-    });
-
-    // Handle page unload for proper cleanup
-    window.addEventListener('beforeunload', () => {
-      if (isConnected) {
-        stopConversation();
-      }
-    });
-
-    // Enhanced focus handling for iOS with audio recovery
-    if (isIOS()) {
-      window.addEventListener('focus', async () => {
-        if (isConnected) {
-          // Resume audio context
-          if (audioContext && audioContext.state === 'suspended') {
-            try {
-              await audioContext.resume();
-              logMessage('Audio context resumed on focus', 'success');
-            } catch (err) {
-              logMessage('Focus audio resume failed: ' + err.message, 'error');
-            }
-          }
-          
-          // Ensure AI audio is playing
-          if (aiAudioElement && aiAudioElement.paused && remoteAudioStream) {
-            try {
-              await aiAudioElement.play();
-              logMessage('AI audio resumed on focus', 'success');
-            } catch (err) {
-              logMessage('Focus AI audio resume failed: ' + err.message, 'error');
-            }
-          }
-        }
-      });
-      
-      // Handle audio interruptions (phone calls, etc.)
-      if (aiAudioElement) {
-        aiAudioElement.addEventListener('pause', () => {
-          if (isConnected && remoteAudioStream) {
-            logMessage('AI audio paused - attempting recovery', 'info');
-            setTimeout(async () => {
-              try {
-                if (aiAudioElement.paused && isConnected) {
-                  await aiAudioElement.play();
-                  logMessage('AI audio recovered from pause', 'success');
-                }
-              } catch (err) {
-                logMessage('Failed to recover AI audio: ' + err.message, 'error');
-              }
-            }, 1000);
-          }
-        });
-      }
-    }
-  }
-
-  // Generate session ID for analytics tracking
-  function generateSessionId() {
-    return crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2,9)}`;
-  }
-
-  // Prefetch trigger audio for better performance
-  async function prefetchTriggerAudio() {
-    try {
-      console.log('🎵 Prefetching trigger audio...');
-      const response = await fetch('/audio/call-trigger-hmm.mp3', { cache: 'force-cache' });
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
-      triggerAudioBuffer = await response.arrayBuffer();
-      console.log('🎵 Trigger audio prefetched and cached');
-    } catch (err) {
-      console.warn('⚠️ Failed to prefetch trigger audio:', err);
-    }
-  }
-
-  // Test iOS background audio functionality
-  function testIOSBackgroundAudio() {
-    if (!isIOS()) {
-      logMessage('Not an iOS device - background audio test skipped', 'info');
-      return;
-    }
-
-    logMessage('Testing iOS background audio setup...', 'info');
-    
-    const checks = {
-      audioContext: !!audioContext,
-      aiAudioElement: !!aiAudioElement,
-      remoteAudioStream: !!remoteAudioStream,
-      autoplayEnabled: aiAudioElement ? !aiAudioElement.paused : false,
-      audioContextState: audioContext ? audioContext.state : 'none'
-    };
-
-    logMessage('iOS Background Audio Checks:', 'info');
-    Object.entries(checks).forEach(([key, value]) => {
-      logMessage(`  ${key}: ${value}`, value ? 'success' : 'error');
-    });
-
-    // Test stream connection
-    if (aiAudioElement && remoteAudioStream) {
-      const tracks = remoteAudioStream.getAudioTracks();
-      logMessage(`Audio stream has ${tracks.length} audio tracks`, tracks.length > 0 ? 'success' : 'warning');
-    }
-
-    return checks;
-  }
-
-  // Enhanced status update with loading messages
-  function updateStatusWithLoading(message, type = 'info') {
-    if (type === 'connecting') {
-      currentLoadingIndex = (currentLoadingIndex + 1) % loadingMessages.length;
-      message = loadingMessages[currentLoadingIndex];
-      
-      // Set interval for cycling messages
-      if (loadingInterval) clearInterval(loadingInterval);
-      loadingInterval = setInterval(() => {
-        currentLoadingIndex = (currentLoadingIndex + 1) % loadingMessages.length;
-        updateStatus(loadingMessages[currentLoadingIndex], 'connecting');
-      }, 2500);
-    } else {
-      if (loadingInterval) {
-        clearInterval(loadingInterval);
-        loadingInterval = null;
-      }
-    }
-    
-    updateStatus(message, type);
-  }
-
-  // Log messages with enhanced formatting (from React code)
-  function logMessage(message, type = 'info') {
-    const timestamp = new Date().toLocaleTimeString();
-    const log = `[${timestamp}] ${message}`;
-
-    switch (type) {
-      case 'error':
-        console.error(log);
-        break;
-      case 'success':
-        console.log(`%c${log}`, 'color: #28a745');
-        break;
-      case 'ai':
-        console.log(`%c${log}`, 'color: #007bff');
-        break;
-      default:
-        console.info(log);
-    }
   }
 
   // Initialize sound context for call sounds
@@ -957,16 +736,6 @@
     // Append to document
     document.body.appendChild(triggerBtn);
     document.body.appendChild(widgetContainer);
-
-    // Create audio element for continuous AI audio playback (iOS background support)
-    aiAudioElement = document.createElement("audio");
-    aiAudioElement.id = "shivai-ai-audio";
-    aiAudioElement.autoplay = true;
-    aiAudioElement.setAttribute("playsinline", "");
-    aiAudioElement.style.display = "none";
-    document.body.appendChild(aiAudioElement);
-
-    logMessage('AI audio element created for background support', 'success');
 
     // Make widget draggable only (not trigger button)
     makeWidgetDraggable(widgetContainer);
@@ -2690,11 +2459,9 @@
     }
   }
 
-  // Enhanced call timer functions with better formatting
+  // Call timer functions
   function startCallTimer() {
     callStartTime = Date.now();
-    callDuration = 0;
-    
     if (callTimerElement) {
       callTimerElement.style.display = "block";
     }
@@ -2712,8 +2479,6 @@
 
     callTimerInterval = setInterval(updateCallTimer, 1000);
     updateCallTimer();
-    
-    logMessage('Call timer started', 'success');
   }
 
   function stopCallTimer() {
@@ -2721,38 +2486,24 @@
       clearInterval(callTimerInterval);
       callTimerInterval = null;
     }
-    
-    const finalDuration = callStartTime ? Math.floor((Date.now() - callStartTime) / 1000) : 0;
     callStartTime = null;
-    callDuration = 0;
-    
-    // Reset document title
-    document.title = "ShivAI Widget";
-    
     if (callTimerElement) {
       callTimerElement.style.display = "none";
       callTimerElement.textContent = "00:00";
     }
   }
 
-  // Enhanced call timer with better formatting
   function updateCallTimer() {
     if (!callStartTime || !callTimerElement) return;
 
     const elapsed = Math.floor((Date.now() - callStartTime) / 1000);
-    callDuration = elapsed;
-    
     const minutes = Math.floor(elapsed / 60);
     const seconds = elapsed % 60;
 
-    // Format as MM:SS (matching React component)
-    const formattedTime = `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
-    callTimerElement.textContent = formattedTime;
-    
-    // Also update document title for background awareness
-    if (isConnected) {
-      document.title = `ShivAI Call - ${formattedTime}`;
-    }
+    callTimerElement.textContent = `${String(minutes).padStart(
+      2,
+      "0"
+    )}:${String(seconds).padStart(2, "0")}`;
   }
 
   // Progressive connection states with sounds from widget2
@@ -3001,54 +2752,51 @@
 
       // Store callId for later use
       window.currentCallId = callId;
-      logMessage(`CallId stored: ${window.currentCallId}`, 'success');
+      console.log(
+        "💾 [STORAGE] CallId stored in window.currentCallId:",
+        window.currentCallId
+      );
 
-      // Generate session ID for analytics
-      sessionId = generateSessionId();
-      logMessage(`Session ID generated: ${sessionId}`, 'info');
-
-      // STEP 3: Initialize enhanced audio context with iOS-specific settings
-      audioContextOptions = {
+      // STEP 3: Initialize audio context with iOS-specific settings
+      const audioContextOptions = {
         sampleRate: 24000,
         latencyHint: "interactive", // Optimize for low latency
       };
 
-      // Enhanced iOS-specific audio context settings
+      // iOS-specific audio context settings for better volume
       if (isIOS()) {
         audioContextOptions.latencyHint = "playback"; // Better for iOS audio volume
-        logMessage("iOS device detected - Using optimized audio settings", 'success');
+        console.log(
+          "🍎 [iOS] Using iOS-optimized audio settings with 20x amplification and soft clipping"
+        );
       } else {
-        logMessage("Non-iOS device - Using standard audio settings", 'info');
+        console.log(
+          "🤖 [Android] Using standard audio settings with 12x amplification"
+        );
       }
 
       audioContext = new (window.AudioContext || window.webkitAudioContext)(
         audioContextOptions
       );
 
-      // Enhanced audio context resume for iOS stability
+      // Resume audio context if suspended (browser autoplay policy)
       if (audioContext.state === "suspended") {
         await audioContext.resume();
-        logMessage('Audio context resumed', 'success');
 
-        // iOS: Additional resume attempts with progressive delays for better stability
+        // iOS: Additional resume attempts with delay
         if (isIOS() && audioContext.state === "suspended") {
-          const iosResumeAttempts = [100, 250, 500];
-          for (let i = 0; i < iosResumeAttempts.length; i++) {
-            setTimeout(async () => {
-              try {
-                if (audioContext.state === "suspended") {
-                  await audioContext.resume();
-                  logMessage(`iOS audio context resumed after ${iosResumeAttempts[i]}ms delay`, 'success');
-                }
-              } catch (e) {
-                logMessage(`iOS audio resume attempt ${i + 1} failed: ${e.message}`, 'error');
-              }
-            }, iosResumeAttempts[i]);
-          }
+          setTimeout(async () => {
+            try {
+              await audioContext.resume();
+              console.log("🍎 [iOS] Audio context resumed after delay");
+            } catch (e) {
+              console.warn("🍎 [iOS] Failed to resume audio context:", e);
+            }
+          }, 100);
         }
       }
 
-      // Setup playback processor for enhanced audio
+      // Setup playback processor for smooth audio
       setupPlaybackProcessor();
 
       // Connect to Python WebSocket service
@@ -3057,42 +2805,12 @@
       );
 
       ws.onopen = async () => {
-        logMessage("WebSocket connected to server", 'success');
+        console.log("🟢 [WEBSOCKET] Connected to server");
         isConnected = true;
 
-        // Create remote audio stream for background playback
-        try {
-          if (audioContext && aiAudioElement) {
-            // Create a MediaStreamDestination for AI audio
-            const streamDestination = audioContext.createMediaStreamDestination();
-            remoteAudioStream = streamDestination.stream;
-            
-            // Connect AI audio element to the stream for background playback
-            aiAudioElement.srcObject = remoteAudioStream;
-            await aiAudioElement.play();
-            
-            logMessage('AI audio stream connected for background playback', 'success');
-          }
-        } catch (err) {
-          logMessage('Failed to setup AI audio stream: ' + err.message, 'error');
-        }
-
         // Keep loading until AI first response - show waiting for AI
-        updateStatusWithLoading("Waiting for AI response...", "connecting");
-
-        // Start session logging with backend
-        try {
-          const sessionConfig = {
-            agent: 'support', // Default agent
-            language: selectedLanguage,
-            gender: 'female'
-          };
-          
-          // You can add backend session logging here if needed
-          logMessage('Session logging initiated', 'success');
-        } catch (err) {
-          logMessage('Session logging failed: ' + err.message, 'error');
-        }
+        updateStatus("Waiting for AI response...", "connecting");
+        showLoadingStatus("AI is preparing to speak...");
 
         // Play call start sound
         playSound("call-start");
@@ -3140,12 +2858,12 @@
 
       ws.onmessage = async (event) => {
         const data = JSON.parse(event.data);
-        logMessage(`WebSocket message received: ${data.type}`, 'info');
+        console.log("📥 [WEBSOCKET] Message received:", data.type, data);
         const eventType = data.type;
 
-        // Enhanced message handling with session tracking
+        // Handle different event types
         if (eventType === "input_audio_buffer.speech_started") {
-          logMessage("User speech started", 'info');
+          console.log("🎤 [USER] Speech started");
           updateStatus("🎤 Listening...", "listening");
 
           // PERFECT INTERRUPT: Stop AI audio when user starts speaking
@@ -3162,7 +2880,7 @@
             );
           }
         } else if (eventType === "input_audio_buffer.speech_stopped") {
-          logMessage("User speech stopped", 'info');
+          console.log("🛑 [USER] Speech stopped");
           updateStatus("🤔 Processing...", "speaking");
           if (visualizerInterval) {
             clearInterval(visualizerInterval);
@@ -3170,12 +2888,15 @@
             animateVisualizer(false);
           }
         } else if (eventType === "deepgram.transcript") {
-          // Enhanced Deepgram transcript handling with session tracking
+          // Deepgram transcript - more accurate than OpenAI
           const transcript = data.transcript;
           const isFinal = data.is_final;
 
           if (transcript && transcript.trim()) {
-            logMessage(`User ${isFinal ? "FINAL" : "INTERIM"}: ${transcript}`, isFinal ? 'success' : 'info');
+            console.log(
+              `📝 [USER ${isFinal ? "FINAL" : "INTERIM"}]:`,
+              transcript
+            );
 
             if (!lastUserMessageDiv) {
               // Create new message for user
@@ -3195,23 +2916,16 @@
             }
           }
         } else if (eventType === "response.audio_transcript.delta") {
-          // Enhanced AI transcript delta handling with session tracking
-          logMessage(`AI delta: ${data.delta}`, 'ai');
+          // AI transcript delta - accumulate
+          console.log("📝 [AI DELTA]:", data.delta);
           currentAssistantTranscript += data.delta;
 
-          // Clear loading on first AI response and start call timer
+          // Clear loading on first AI response
           if (!hasReceivedFirstAIResponse && data.delta && data.delta.trim()) {
             hasReceivedFirstAIResponse = true;
             clearLoadingStatus();
             updateStatus("🤖 AI Speaking...", "speaking");
             startCallTimer(); // Start timer only when AI begins responding
-            
-            // Play enhanced trigger audio for better iOS performance
-            if (triggerAudioBuffer) {
-              playEnhancedTriggerAudio();
-            }
-
-            logMessage('First AI response received - call is now active', 'success');
 
             // Auto-unmute microphone after 2.5 seconds to let AI finish initial greeting
             if (shouldAutoUnmute && isMuted) {
@@ -3303,12 +3017,9 @@
     }
   }
 
-  // Enhanced stop conversation with session cleanup
+  // Stop conversation
   async function stopConversation() {
-    logMessage("Stopping conversation and cleaning up session", 'info');
-
-    // Calculate call duration for analytics
-    let duration = callStartTime ? Math.floor((Date.now() - callStartTime) / 1000) : 0;
+    console.log("🛑 stopConversation() called");
 
     // Set all states to disconnected immediately
     isConnected = false;
@@ -3320,29 +3031,12 @@
     // Stop all timers and loading states immediately
     stopCallTimer();
     clearLoadingStatus();
-    
-    // Clear loading interval if active
-    if (loadingInterval) {
-      clearInterval(loadingInterval);
-      loadingInterval = null;
-    }
 
     // Play disconnect sound
     try {
       playSound("call-end");
     } catch (e) {
       console.warn("Could not play call-end sound:", e);
-    }
-
-    // End session logging with backend if session exists
-    if (sessionId) {
-      try {
-        // You can add backend session logging end here
-        logMessage(`Session ${sessionId} ended after ${duration} seconds`, 'success');
-        sessionId = null;
-      } catch (err) {
-        logMessage('Failed to end session logging: ' + err.message, 'error');
-      }
     }
 
     // Call end-call API if we have a callId
@@ -3359,17 +3053,16 @@
             },
             body: JSON.stringify({
               callId: window.currentCallId,
-              duration: duration
             }),
           }
         );
 
         if (response.ok) {
           const data = await response.json();
-          logMessage("Call ended successfully", 'success');
+          console.log("Call ended successfully:", data);
         }
       } catch (error) {
-        logMessage("Error ending call: " + error.message, 'error');
+        console.error("Error ending call:", error);
       } finally {
         window.currentCallId = null;
       }
@@ -3506,22 +3199,6 @@
     );
     masterGainNode.connect(audioContext.destination);
 
-    // Also connect to remote audio stream for background playback
-    if (remoteAudioStream) {
-      try {
-        const streamDestination = audioContext.createMediaStreamDestination();
-        masterGainNode.connect(streamDestination);
-        remoteAudioStream = streamDestination.stream;
-        
-        if (aiAudioElement) {
-          aiAudioElement.srcObject = remoteAudioStream;
-          logMessage('Audio stream connected to AI element for background playback', 'success');
-        }
-      } catch (err) {
-        logMessage('Failed to connect audio stream: ' + err.message, 'error');
-      }
-    }
-
     playbackProcessor = audioContext.createScriptProcessor(2048, 1, 1); // Larger buffer for smoother processing
     playbackProcessor.onaudioprocess = handlePlaybackProcess;
     playbackProcessor.connect(masterGainNode); // Connect through master gain
@@ -3626,112 +3303,6 @@
       float32[i] = pcm16[i] / 0x8000;
     }
     return float32;
-  }
-
-  // Enhanced trigger audio for better iOS support and greeting initiation
-  async function playEnhancedTriggerAudio() {
-    try {
-      logMessage('Playing enhanced trigger audio to initiate AI greeting...', 'info');
-      const startTime = performance.now();
-      
-      // Create new audio context for trigger playback
-      const triggerContext = new (window.AudioContext || window.webkitAudioContext)();
-      
-      // Create destination for mixed audio
-      destinationNode = triggerContext.createMediaStreamDestination();
-      
-      // Connect microphone with reduced volume during trigger
-      if (mediaStream) {
-        const micSource = triggerContext.createMediaStreamSource(mediaStream);
-        const micGain = triggerContext.createGain();
-        micGain.gain.value = 0.1; // Reduce mic volume during trigger
-        micSource.connect(micGain);
-        micGain.connect(destinationNode);
-      }
-      
-      // Decode and play trigger audio
-      let audioBuffer = null;
-      if (triggerAudioBuffer) {
-        // Use prefetched buffer
-        logMessage('Using cached trigger audio buffer', 'success');
-        audioBuffer = await triggerContext.decodeAudioData(triggerAudioBuffer.slice(0));
-      } else {
-        // Fallback to direct fetch
-        logMessage('Fetching trigger audio (no cache)', 'info');
-        const response = await fetch('/audio/call-trigger-hmm.mp3');
-        const arrayBuffer = await response.arrayBuffer();
-        audioBuffer = await triggerContext.decodeAudioData(arrayBuffer);
-      }
-      
-      const triggerSource = triggerContext.createBufferSource();
-      triggerSource.buffer = audioBuffer;
-      const triggerGain = triggerContext.createGain();
-      triggerGain.gain.value = 0.8;
-      triggerSource.connect(triggerGain);
-      triggerGain.connect(destinationNode);
-      
-      // Send mixed audio to WebSocket
-      if (ws && ws.readyState === WebSocket.OPEN) {
-        // Implementation would depend on your WebSocket audio streaming setup
-        logMessage('Trigger audio prepared for WebSocket streaming', 'success');
-      }
-      
-      // Track playback completion
-      let completed = false;
-      const expectedDuration = audioBuffer.duration * 1000 + 800; // Add margin
-      
-      const onTriggerComplete = () => {
-        if (completed) return;
-        completed = true;
-        
-        const elapsed = Math.round(performance.now() - startTime);
-        logMessage(`Trigger audio completed (${elapsed}ms), restoring microphone`, 'success');
-        
-        // Restore microphone volume
-        if (mediaStream) {
-          try {
-            const tracks = mediaStream.getAudioTracks();
-            tracks.forEach(track => track.enabled = true);
-          } catch (error) {
-            console.error('Error restoring microphone:', error);
-          }
-        }
-        
-        // Clean up audio context
-        if (triggerContext.state !== 'closed') {
-          triggerContext.close();
-        }
-        
-        logMessage('AI should now respond with greeting', 'success');
-      };
-      
-      // Start playback
-      triggerSource.start(0);
-      triggerSource.onended = onTriggerComplete;
-      
-      // Fallback timeout
-      setTimeout(() => {
-        if (!completed) {
-          logMessage('Trigger audio timeout - forcing completion', 'error');
-          onTriggerComplete();
-          
-          // Send fallback message to WebSocket if available
-          if (ws && ws.readyState === WebSocket.OPEN) {
-            const fallbackMessage = {
-              type: 'play_greeting_fallback',
-              session_id: sessionId,
-              language: languageSelect?.value || 'en-US'
-            };
-            ws.send(JSON.stringify(fallbackMessage));
-            logMessage('Sent greeting fallback request', 'info');
-          }
-        }
-      }, expectedDuration);
-      
-    } catch (error) {
-      console.error('Enhanced trigger audio failed:', error);
-      logMessage(`Enhanced trigger audio failed: ${error.message}`, 'error');
-    }
   }
 
   // Perfect audio interruption system

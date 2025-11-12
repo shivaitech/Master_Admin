@@ -56,12 +56,6 @@ import {
   CreditCard,
   TrendingUp,
   CheckCircle,
-  Clock,
-  Award,
-  Eye,
-  ExternalLink,
-  MessageSquare,
-  UserCheck,
 } from "lucide-react";
 import lisitingService from "../../Redux-config/apisModel/lisitingService";
 import toast from "react-hot-toast";
@@ -155,8 +149,9 @@ const AdminDashboardContent = () => {
       return { name: "Admin User", email: "admin@shivai.com" };
     } catch (err) {
       console.error("Error fetching admin info:", err);
-      if(err?.response?.data?.statusCode === 401 && err.response.data.message === "Access token is required") {
+      if(err?.response?.data?.statusCode === 401 && err.response.data.message === "Access token is required" || err.response.data.message === "Token has expired"){ 
         toast.error("Session expired. Please log in again.");
+        localStorage.removeItem("Authorization");
         navigate("/");
       }
       return { name: "Admin User", email: "admin@shivai.com" };

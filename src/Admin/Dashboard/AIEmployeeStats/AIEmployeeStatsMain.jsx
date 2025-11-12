@@ -35,6 +35,7 @@ import {
   Grid3X3,
   List,
 } from "lucide-react";
+import axios from "axios";
 
 const AIEmployeeStatsMain = ({ onViewEmployee }) => {
   const { theme, currentTheme } = useTheme();
@@ -171,11 +172,12 @@ const AIEmployeeStatsMain = ({ onViewEmployee }) => {
         // ShivAI Widget Employee - call getAllSessionDemo with filters
         response = await listingService.getAllSessionDemo(payload);
       }
+
       console.log("API Raw Response:", response);
 
       // Extract data - handle nested structure
       const responseData =
-        response?.data?.data?.data || response?.data?.data || {};
+        response?.data?.data?.data || response?.data?.data || response?.data?.sessions;
 
       if (response?.data?.success && responseData?.sessions) {
         // Sessions array is directly in responseData.sessions
