@@ -1347,8 +1347,10 @@ const AIEmployeeStatsMain = ({ onViewEmployee }) => {
                             ZIP: {session.location.zip}
                           </span>
                         )}
+                      
                       </div>
                     </div>
+                    
 
                     {/* Tags */}
                     {session.tags && session.tags.length > 0 && (

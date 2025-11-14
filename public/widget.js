@@ -1,10 +1,9 @@
 (function () {
   "use strict";
   try {
-    localStorage.removeItem('shivai-trigger-position');
-    localStorage.removeItem('shivai-widget-position');
-  } catch (e) {
-  }
+    localStorage.removeItem("shivai-trigger-position");
+    localStorage.removeItem("shivai-widget-position");
+  } catch (e) {}
   let ws = null;
   let audioContext = null;
   let mediaStream = null;
@@ -237,9 +236,9 @@
     let isDragging = false;
     let startX, startY, initialX, initialY;
     let dragTimeout;
-    element.style.cursor = 'move';
-    element.addEventListener('mousedown', startDrag);
-    element.addEventListener('touchstart', startDrag, { passive: false });
+    element.style.cursor = "move";
+    element.addEventListener("mousedown", startDrag);
+    element.addEventListener("touchstart", startDrag, { passive: false });
     function startDrag(e) {
       e.preventDefault();
       if (dragTimeout) {
@@ -247,8 +246,8 @@
       }
       dragTimeout = setTimeout(() => {
         isDragging = true;
-        element.style.transition = 'none';
-        if (e.type === 'mousedown') {
+        element.style.transition = "none";
+        if (e.type === "mousedown") {
           startX = e.clientX;
           startY = e.clientY;
         } else {
@@ -258,18 +257,18 @@
         const rect = element.getBoundingClientRect();
         initialX = rect.left;
         initialY = rect.top;
-        document.addEventListener('mousemove', drag);
-        document.addEventListener('mouseup', stopDrag);
-        document.addEventListener('touchmove', drag, { passive: false });
-        document.addEventListener('touchend', stopDrag);
-        element.classList.add('dragging');
+        document.addEventListener("mousemove", drag);
+        document.addEventListener("mouseup", stopDrag);
+        document.addEventListener("touchmove", drag, { passive: false });
+        document.addEventListener("touchend", stopDrag);
+        element.classList.add("dragging");
       }, 100);
     }
     function drag(e) {
       if (!isDragging) return;
       e.preventDefault();
       let currentX, currentY;
-      if (e.type === 'mousemove') {
+      if (e.type === "mousemove") {
         currentX = e.clientX;
         currentY = e.clientY;
       } else {
@@ -285,11 +284,11 @@
       const maxY = window.innerHeight - elementRect.height;
       newX = Math.max(0, Math.min(newX, maxX));
       newY = Math.max(0, Math.min(newY, maxY));
-      element.style.position = 'fixed';
-      element.style.left = newX + 'px';
-      element.style.top = newY + 'px';
-      element.style.bottom = 'auto';
-      element.style.right = 'auto';
+      element.style.position = "fixed";
+      element.style.left = newX + "px";
+      element.style.top = newY + "px";
+      element.style.bottom = "auto";
+      element.style.right = "auto";
     }
     function stopDrag(e) {
       if (dragTimeout) {
@@ -298,32 +297,41 @@
       }
       if (isDragging) {
         isDragging = false;
-        element.style.transition = '';
-        element.classList.remove('dragging');
+        element.style.transition = "";
+        element.classList.remove("dragging");
       }
-      document.removeEventListener('mousemove', drag);
-      document.removeEventListener('mouseup', stopDrag);
-      document.removeEventListener('touchmove', drag);
-      document.removeEventListener('touchend', stopDrag);
+      document.removeEventListener("mousemove", drag);
+      document.removeEventListener("mouseup", stopDrag);
+      document.removeEventListener("touchmove", drag);
+      document.removeEventListener("touchend", stopDrag);
     }
   }
   function makeWidgetDraggable(widgetElement) {
     let isDragging = false;
     let startX, startY, initialX, initialY;
     let dragTimeout;
-    const headers = widgetElement.querySelectorAll('.widget-header, .call-header');
-    headers.forEach(header => {
-      header.style.cursor = 'move';
-      header.addEventListener('mousedown', startDrag);
-      header.addEventListener('touchstart', startDrag, { passive: false });
+    const headers = widgetElement.querySelectorAll(
+      ".widget-header, .call-header"
+    );
+    headers.forEach((header) => {
+      header.style.cursor = "move";
+      header.addEventListener("mousedown", startDrag);
+      header.addEventListener("touchstart", startDrag, { passive: false });
     });
     function startDrag(e) {
-      if (e.target.classList.contains('widget-close') || 
-          e.target.closest('.widget-close') || 
-          e.target.classList.contains('start-call-btn') ||
-          e.target.closest('.start-call-btn') ||
-          e.target.classList.contains('back-btn') ||
-          e.target.closest('.back-btn')) {
+      if (
+        e.target.classList.contains("widget-close") ||
+        e.target.closest(".widget-close") ||
+        e.target.classList.contains("start-call-btn") ||
+        e.target.closest(".start-call-btn") ||
+        e.target.classList.contains("back-btn") ||
+        e.target.closest(".back-btn") ||
+        e.target.classList.contains("language-select-styled-landing") ||
+        e.target.closest(".language-section-landing") ||
+        e.target.classList.contains("privacy-link") ||
+        e.target.tagName === "SELECT" ||
+        e.target.tagName === "OPTION"
+      ) {
         return;
       }
       e.preventDefault();
@@ -332,8 +340,8 @@
       }
       dragTimeout = setTimeout(() => {
         isDragging = true;
-        widgetElement.style.transition = 'none';
-        if (e.type === 'mousedown') {
+        widgetElement.style.transition = "none";
+        if (e.type === "mousedown") {
           startX = e.clientX;
           startY = e.clientY;
         } else {
@@ -343,18 +351,18 @@
         const rect = widgetElement.getBoundingClientRect();
         initialX = rect.left;
         initialY = rect.top;
-        document.addEventListener('mousemove', drag);
-        document.addEventListener('mouseup', stopDrag);
-        document.addEventListener('touchmove', drag, { passive: false });
-        document.addEventListener('touchend', stopDrag);
-        widgetElement.classList.add('dragging');
+        document.addEventListener("mousemove", drag);
+        document.addEventListener("mouseup", stopDrag);
+        document.addEventListener("touchmove", drag, { passive: false });
+        document.addEventListener("touchend", stopDrag);
+        widgetElement.classList.add("dragging");
       }, 100);
     }
     function drag(e) {
       if (!isDragging) return;
       e.preventDefault();
       let currentX, currentY;
-      if (e.type === 'mousemove') {
+      if (e.type === "mousemove") {
         currentX = e.clientX;
         currentY = e.clientY;
       } else {
@@ -370,11 +378,11 @@
       const maxY = window.innerHeight - elementRect.height;
       newX = Math.max(0, Math.min(newX, maxX));
       newY = Math.max(0, Math.min(newY, maxY));
-      widgetElement.style.position = 'fixed';
-      widgetElement.style.left = newX + 'px';
-      widgetElement.style.top = newY + 'px';
-      widgetElement.style.bottom = 'auto';
-      widgetElement.style.right = 'auto';
+      widgetElement.style.position = "fixed";
+      widgetElement.style.left = newX + "px";
+      widgetElement.style.top = newY + "px";
+      widgetElement.style.bottom = "auto";
+      widgetElement.style.right = "auto";
     }
     function stopDrag(e) {
       if (dragTimeout) {
@@ -383,13 +391,93 @@
       }
       if (isDragging) {
         isDragging = false;
-        widgetElement.style.transition = '';
-        widgetElement.classList.remove('dragging');
+        widgetElement.style.transition = "";
+        widgetElement.classList.remove("dragging");
       }
-      document.removeEventListener('mousemove', drag);
-      document.removeEventListener('mouseup', stopDrag);
-      document.removeEventListener('touchmove', drag);
-      document.removeEventListener('touchend', stopDrag);
+      document.removeEventListener("mousemove", drag);
+      document.removeEventListener("mouseup", stopDrag);
+      document.removeEventListener("touchmove", drag);
+      document.removeEventListener("touchend", stopDrag);
+    }
+  }
+  function makeTriggerBtnDraggable(btnElement) {
+    let isDragging = false;
+    let startX, startY, initialX, initialY;
+    let dragTimeout;
+    btnElement.addEventListener("mousedown", startDrag);
+    btnElement.addEventListener("touchstart", startDrag, { passive: false });
+    function startDrag(e) {
+      if (dragTimeout) {
+        clearTimeout(dragTimeout);
+      }
+      dragTimeout = setTimeout(() => {
+        isDragging = true;
+        btnElement.style.transition = "none";
+        if (e.type === "mousedown") {
+          startX = e.clientX;
+          startY = e.clientY;
+        } else {
+          startX = e.touches[0].clientX;
+          startY = e.touches[0].clientY;
+        }
+        const rect = btnElement.getBoundingClientRect();
+        initialX = rect.left;
+        initialY = rect.top;
+        document.addEventListener("mousemove", drag);
+        document.addEventListener("mouseup", stopDrag);
+        document.addEventListener("touchmove", drag, { passive: false });
+        document.addEventListener("touchend", stopDrag);
+        btnElement.classList.add("dragging");
+      }, 100);
+    }
+    function drag(e) {
+      if (!isDragging) return;
+      e.preventDefault();
+      let currentX, currentY;
+      if (e.type === "mousemove") {
+        currentX = e.clientX;
+        currentY = e.clientY;
+      } else {
+        currentX = e.touches[0].clientX;
+        currentY = e.touches[0].clientY;
+      }
+      const deltaX = currentX - startX;
+      const deltaY = currentY - startY;
+      let newX = initialX + deltaX;
+      let newY = initialY + deltaY;
+      const elementRect = btnElement.getBoundingClientRect();
+      const maxX = window.innerWidth - elementRect.width;
+      const maxY = window.innerHeight - elementRect.height;
+      newX = Math.max(0, Math.min(newX, maxX));
+      newY = Math.max(0, Math.min(newY, maxY));
+      btnElement.style.position = "fixed";
+      btnElement.style.left = newX + "px";
+      btnElement.style.top = newY + "px";
+      btnElement.style.bottom = "auto";
+      btnElement.style.right = "auto";
+      if (messageBubble) {
+        const bubbleOffset = 70;
+        messageBubble.style.left = newX - messageBubble.offsetWidth - 10 + "px";
+        messageBubble.style.top =
+          newY + elementRect.height / 2 - messageBubble.offsetHeight / 2 + "px";
+        messageBubble.style.bottom = "auto";
+        messageBubble.style.right = "auto";
+      }
+    }
+    function stopDrag(e) {
+      if (dragTimeout) {
+        clearTimeout(dragTimeout);
+        dragTimeout = null;
+      }
+      if (isDragging) {
+        isDragging = false;
+        btnElement.style.transition = "";
+        btnElement.classList.remove("dragging");
+      }
+      document.removeEventListener("mousemove", drag);
+      document.removeEventListener("mouseup", stopDrag);
+      document.removeEventListener("touchmove", drag);
+      document.removeEventListener("touchend", stopDrag);
     }
   }
   function createWidgetUI() {
@@ -407,30 +495,60 @@
     landingView.className = "landing-view";
     landingView.innerHTML = `
       <div class="widget-header">
-        <button class="widget-close" aria-label="Close widget">×</button>
-        <div class="widget-avatar">
-         <svg id="Layer_1" data-name="Layer 1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1500 1500">
-  <defs>
-    <style>
-      .cls-1 {
-        stroke-width: 0px;
-      }
-    </style>
-  </defs>
-  <path class="cls-1" d="m404.66,608.33c-9.95-7.3-50.21-35.08-105.88-29.33-26.64,2.75-47.74,12.25-62.31,21.06-14.39,8.7-26.96,20.35-35.39,34.9-12.13,20.93-15.94,45.25-9.6,67.8,4.02,14.28,11.39,25.29,18.63,33.3,6.91,7.65,15.23,13.89,24.25,18.89,25.77,14.32,51.54,28.63,77.31,42.95,11.98,7.56,18.69,20.94,17.17,34.34-.11,1.01-.27,1.98-.47,2.93-2.85,13.83-15.4,23.46-29.5,24.28-8.62.5-18.56.28-29.41-1.45-34.59-5.51-58.34-23.08-69.39-32.54-13.35,21.1-26.71,42.2-40.06,63.3,13.96,9.75,32.81,20.78,56.52,29.33,42.03,15.17,79.38,15.38,102.3,13.59,7.85-.92,45.14-6.13,72.25-39.35,1.28-1.57,2.49-3.15,3.65-4.73,27.87-38.33,23.14-92-9.89-125.97-.3-.31-.6-.62-.91-.93-17.09-17.27-35.69-27.61-51.02-33.85-19.44-7.9-38.05-17.71-55.07-29.99-.78-.56-1.56-1.12-2.33-1.68-9.66-6.97-12.29-20.21-6.03-30.34h0c7.3-11.68,22.31-17.66,37.92-15.02,8.22-.53,21.33-.36,36.48,4.29,15.34,4.71,26.38,12.07,32.91,17.17,9.3-20.98,18.6-41.97,27.9-62.95Z"/>
-  <path class="cls-1" d="m630.61,740.85c-3.86-4.46-8.41-8.89-13.76-13.05-17.19-13.34-35.56-18.29-49.77-19.92-15.45-1.76-31.19.76-45.13,7.63-.08.04-.16.08-.25.12-13.14,6.52-22.41,14.79-28.33,21.1v-169.18h-72.25v358.41h72.25v-130.44c9.49-21.4,30.88-33.36,50.51-29.8,3.55.64,6.78,1.75,9.71,3.15,14.12,6.76,22.48,21.69,22.48,37.35v119.75h73.68v-132.05c0-19.38-6.46-38.41-19.14-53.06Z"/>
-  <rect class="cls-1" x="662.56" y="712.06" width="74.4" height="213.9"/>
-  <path class="cls-1" d="m953.03,825.14c-13.76,33.61-27.52,67.21-41.28,100.82h84.42l25.75-67.96c-8.94-6.55-20.41-13.83-34.43-20.38-12.7-5.93-24.48-9.84-34.47-12.48Z"/>
-  <circle class="cls-1" cx="1270.13" cy="623.35" r="45.07"/>
-  <circle class="cls-1" cx="699.76" cy="623.35" r="45.07"/>
-  <path class="cls-1" d="m954.09,822.73l95.6-235.02h71.13l94.46,235.02c-13.9-.54-54.29-3.99-86.12-34.9-26-25.25-33.27-56.18-36.12-68.31-.48-2.06-.75-3.53-1.31-6.44-4.83-25.25-5.11-43.74-5.38-76.6-.22-27.23-.29-45.31-.45-45.31-.19,0-.33,26.01-1.25,51.3-.44,12.07-.99,22.81-.99,22.81-.31,5.8-.54,8.99-.78,14.32-.97,21.54-.88,21.8-1.44,25.22-2.48,15.29-13.28,66.99-58.46,96.77-27.62,18.21-55.44,20.82-68.92,21.15Z"/>
-  <path class="cls-1" d="m1215.73,825.86c-6.37.43-13.66,1.49-21.51,3.68-22.94,6.41-38.73,19.17-47.51,27.69,7.45,22.45,14.9,44.91,22.35,67.36h137.14v-101.86l-72.84,3.12.57,47.8-18.21-47.8Z"/>
-  <polygon class="cls-1" points="1233.94 716.32 1306.21 716.32 1306.21 825.14 1233.94 822.21 1233.94 716.32"/>
-  <path class="cls-1" d="m872.77,821c22.25.49,44.49.98,66.74,1.47,18.21-35.7,36.41-71.4,54.62-107.1l-80.12-3.31-48.65,116.61h-5.72l-51.51-116.61h-72.25v27.9l98.72,186h52.22c17.12-33.61,34.25-67.21,51.37-100.82-21.81-1.38-43.62-2.76-65.43-4.14Z"/>
-</svg>
+        <div class="header-content">
+          <button class="widget-close" aria-label="Close widget">×</button>
+          <div class="header-info">
+            <div class="widget-avatar">
+             <svg id="Layer_1" data-name="Layer 1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1500 1500">
+      <defs>
+        <style>
+          .cls-1 {
+            stroke-width: 0px;
+          }
+        </style>
+      </defs>
+      <path class="cls-1" d="m404.66,608.33c-9.95-7.3-50.21-35.08-105.88-29.33-26.64,2.75-47.74,12.25-62.31,21.06-14.39,8.7-26.96,20.35-35.39,34.9-12.13,20.93-15.94,45.25-9.6,67.8,4.02,14.28,11.39,25.29,18.63,33.3,6.91,7.65,15.23,13.89,24.25,18.89,25.77,14.32,51.54,28.63,77.31,42.95,11.98,7.56,18.69,20.94,17.17,34.34-.11,1.01-.27,1.98-.47,2.93-2.85,13.83-15.4,23.46-29.5,24.28-8.62.5-18.56.28-29.41-1.45-34.59-5.51-58.34-23.08-69.39-32.54-13.35,21.1-26.71,42.2-40.06,63.3,13.96,9.75,32.81,20.78,56.52,29.33,42.03,15.17,79.38,15.38,102.3,13.59,7.85-.92,45.14-6.13,72.25-39.35,1.28-1.57,2.49-3.15,3.65-4.73,27.87-38.33,23.14-92-9.89-125.97-.3-.31-.6-.62-.91-.93-17.09-17.27-35.69-27.61-51.02-33.85-19.44-7.9-38.05-17.71-55.07-29.99-.78-.56-1.56-1.12-2.33-1.68-9.66-6.97-12.29-20.21-6.03-30.34h0c7.3-11.68,22.31-17.66,37.92-15.02,8.22-.53,21.33-.36,36.48,4.29,15.34,4.71,26.38,12.07,32.91,17.17,9.3-20.98,18.6-41.97,27.9-62.95Z"/>
+      <path class="cls-1" d="m630.61,740.85c-3.86-4.46-8.41-8.89-13.76-13.05-17.19-13.34-35.56-18.29-49.77-19.92-15.45-1.76-31.19.76-45.13,7.63-.08.04-.16.08-.25.12-13.14,6.52-22.41,14.79-28.33,21.1v-169.18h-72.25v358.41h72.25v-130.44c9.49-21.4,30.88-33.36,50.51-29.8,3.55.64,6.78,1.75,9.71,3.15,14.12,6.76,22.48,21.69,22.48,37.35v119.75h73.68v-132.05c0-19.38-6.46-38.41-19.14-53.06Z"/>
+      <rect class="cls-1" x="662.56" y="712.06" width="74.4" height="213.9"/>
+      <path class="cls-1" d="m953.03,825.14c-13.76,33.61-27.52,67.21-41.28,100.82h84.42l25.75-67.96c-8.94-6.55-20.41-13.83-34.43-20.38-12.7-5.93-24.48-9.84-34.47-12.48Z"/>
+      <circle class="cls-1" cx="1270.13" cy="623.35" r="45.07"/>
+      <circle class="cls-1" cx="699.76" cy="623.35" r="45.07"/>
+      <path class="cls-1" d="m954.09,822.73l95.6-235.02h71.13l94.46,235.02c-13.9-.54-54.29-3.99-86.12-34.9-26-25.25-33.27-56.18-36.12-68.31-.48-2.06-.75-3.53-1.31-6.44-4.83-25.25-5.11-43.74-5.38-76.6-.22-27.23-.29-45.31-.45-45.31-.19,0-.33,26.01-1.25,51.3-.44,12.07-.99,22.81-.99,22.81-.31,5.8-.54,8.99-.78,14.32-.97,21.54-.88,21.8-1.44,25.22-2.48,15.29-13.28,66.99-58.46,96.77-27.62,18.21-55.44,20.82-68.92,21.15Z"/>
+      <path class="cls-1" d="m1215.73,825.86c-6.37.43-13.66,1.49-21.51,3.68-22.94,6.41-38.73,19.17-47.51,27.69,7.45,22.45,14.9,44.91,22.35,67.36h137.14v-101.86l-72.84,3.12.57,47.8-18.21-47.8Z"/>
+      <polygon class="cls-1" points="1233.94 716.32 1306.21 716.32 1306.21 825.14 1233.94 822.21 1233.94 716.32"/>
+      <path class="cls-1" d="m872.77,821c22.25.49,44.49.98,66.74,1.47,18.21-35.7,36.41-71.4,54.62-107.1l-80.12-3.31-48.65,116.61h-5.72l-51.51-116.61h-72.25v27.9l98.72,186h52.22c17.12-33.61,34.25-67.21,51.37-100.82-21.81-1.38-43.62-2.76-65.43-4.14Z"/>
+    </svg>
+            </div>
+            <div class="header-text">
+              <div class="widget-title">AI Employee</div>
+              <div class="widget-subtitle">ShivAI offers 24/7 voice support to handle your business calls efficiently and professionally.</div>
+            </div>
+          </div>
         </div>
-        <div class="widget-title">AI Employee</div>
-        <div class="widget-subtitle">ShivAI offers 24/7 voice support to handle your business calls efficiently and professionally.</div>
+      </div>
+      <div class="widget-body">
+        <div class="language-section-landing">
+          <label class="language-label-landing">Select your preferred language:</label>
+          <select id="shivai-language-landing" class="language-select-styled-landing">
+            <option value="ar">🇸🇦 Arabic</option>
+            <option value="zh">🇨🇳 Chinese</option>
+            <option value="nl">🇳🇱 Dutch</option>
+            <option value="en-GB">🇬🇧 English (UK)</option>
+            <option value="en-US" selected>🇺🇸 English (US)</option>
+            <option value="en-IN">🇮🇳 English (India)</option>
+            <option value="fr">🇫🇷 French</option>
+            <option value="de">🇩🇪 German</option>
+            <option value="hi">🇮🇳 Hindi</option>
+            <option value="it">🇮🇹 Italian</option>
+            <option value="ja">🇯🇵 Japanese</option>
+            <option value="ko">🇰🇷 Korean</option>
+            <option value="pt">🇵🇹 Portuguese</option>
+            <option value="pl">🇵🇱 Polish</option>
+            <option value="ru">🇷🇺 Russian</option>
+            <option value="es">🇪🇸 Spanish</option>
+            <option value="tr">🇹🇷 Turkish</option>
+          </select>
+        </div>
         <button class="start-call-btn mx-auto mb-4" id="start-call-btn">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path>
@@ -479,7 +597,7 @@
       </div>
       <div class="call-body">
       <div class="language-section">
-      <label class="language-label">Select your preferred language:</label>
+      <label class="language-label">Selected preferred language:</label>
       <select id="shivai-language" class="language-select-styled">
       <option value="ar">🇸🇦 Arabic</option>
       <option value="zh">🇨🇳 Chinese</option>
@@ -549,6 +667,7 @@
     document.body.appendChild(triggerBtn);
     document.body.appendChild(widgetContainer);
     makeWidgetDraggable(widgetContainer);
+    makeTriggerBtnDraggable(triggerBtn);
     createLiveMessageBubble();
     statusDiv = document.getElementById("shivai-status");
     connectBtn = document.getElementById("shivai-connect");
@@ -567,8 +686,8 @@
       "zh-CN": "zh",
       "zh-TW": "zh",
       en: "en",
-      "en-US": "en",
-      "en-GB": "en",
+      "en-US": "en-US",
+      "en-GB": "en-GB",
       "en-IN": "en-IN",
       fr: "fr",
       de: "de",
@@ -588,9 +707,15 @@
       const baseLang = browserLang.split("-")[0];
       detectedLang = languageMap[baseLang];
     }
-    const defaultLang = detectedLang || "en";
+    const defaultLang = detectedLang || "en-US";
     if (languageSelect) {
       languageSelect.value = defaultLang;
+    }
+    const landingLanguageSelect = document.getElementById(
+      "shivai-language-landing"
+    );
+    if (landingLanguageSelect) {
+      landingLanguageSelect.value = defaultLang;
       console.log(
         `Auto-detected language: ${defaultLang} (Browser locale: ${browserLang})`
       );
@@ -599,10 +724,21 @@
   function createLiveMessageBubble() {
     messageBubble = document.createElement("div");
     messageBubble.className = "shivai-message-bubble";
+    const isMobile = window.innerWidth <= 768;
+    const bubbleBottom = isMobile
+      ? window.innerWidth <= 420
+        ? "22px"
+        : "26px"
+      : "30px";
+    const bubbleRight = isMobile
+      ? window.innerWidth <= 420
+        ? "70px"
+        : "80px"
+      : "90px";
     messageBubble.style.cssText = `
       position: fixed;
-      bottom: 30px;
-      right: 90px;
+      bottom: ${bubbleBottom};
+      right: ${bubbleRight};
       transform: translateY(0);
       background-color: #ffffff;
       color: #374151;
@@ -734,7 +870,7 @@
       height: 60px;
       border-radius: 50%;
       border: none;
-      cursor: pointer;
+      cursor: move;
       outline: none;
       display: flex;
       align-items: center;
@@ -755,6 +891,12 @@
       transform: scale(0.95);
       background: linear-gradient(135deg, #374151 0%, #4b5563 30%, #1f2937 70%, #111827 100%);
       box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4), inset 0 2px 4px rgba(0, 0, 0, 0.25);
+      }
+      .shivai-trigger.dragging {
+      transform: scale(1.05);
+      opacity: 0.8;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3) !important;
+      transition: none !important;
       }
       .shivai-neon-pulse {
       overflow: visible;
@@ -853,11 +995,9 @@
         right: 16px;
       }
       .shivai-message-bubble {
-        bottom: 26px !important;
-        right: 80px !important;
-        font-size: 13px !important;
-        padding: 6px 10px !important;
-        max-width: 200px !important;
+        font-size: 13px;
+        padding: 6px 10px;
+        max-width: 200px;
       }
       }
       @media (max-width: 420px) {
@@ -868,11 +1008,9 @@
         right: 12px;
       }
       .shivai-message-bubble {
-        bottom: 22px !important;
-        right: 70px !important;
-        font-size: 12px !important;
-        padding: 6px 8px !important;
-        max-width: 180px !important;
+        font-size: 12px;
+        padding: 6px 8px;
+        max-width: 180px;
       }
       }
       .shivai-widget {
@@ -913,15 +1051,30 @@
       }
       .landing-view .widget-header {
       position: relative;
-      text-align: center;
-      padding: 14px 10px 16px;
-      background: #ffffff;
-      border-bottom: none;
+      text-align: left;
+      padding: 16px 14px 2px;
+      border-bottom: 1px solid #f3f4f6;
+      }
+      .header-content {
+      position: relative;
+      width: 100%;
+      }
+      .header-info {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      margin-bottom: 12px;
+      }
+      .header-text {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
       }
       .landing-view .widget-avatar {
-      width: 64px;
-      height: 64px;
-      margin: 0 auto 8px;
+      width: 42px;
+      height: 42px;
+      flex-shrink: 0;
       border-radius: 50%;
       background: transparent;
       display: flex;
@@ -929,33 +1082,36 @@
       justify-content: center;
       color: #111827;
       border: 1.5px solid #e5e7eb;
-      box-shadow: 0 3px 10px rgba(0, 0, 0, 0.08);
-      padding: 8px;
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
+      padding: 5px;
+      }
+      .landing-view .widget-avatar svg {
+      width: 100%;
+      height: 100%;
       }
       .landing-view .widget-title {
       font-weight: 600;
-      font-size: 16px;
+      font-size: 14px;
       color: #111827;
-      margin: 0 0 6px 0;
+      margin: 0;
       letter-spacing: -0.01em;
+      line-height: 1.3;
       }
       .landing-view .widget-subtitle {
-      font-size: 12px;
+      font-size: 11px;
       color: #6b7280;
-      margin: 0 0 14px 0;
+      margin: 0;
       font-weight: 400;
-      line-height: 1.5;
-      padding: 0 6px;
+      line-height: 1.4;
       }
       .start-call-btn {
-      width: 50%;
+      width: 100%;
       padding: 10px 12px;
       border: 1px solid transparent;
-      border-radius: 55px;
-      font-size: 13px;
+      border-radius: 24px;
+      font-size: 14px;
       background: linear-gradient(135deg, #4b5563 0%, #6b7280 30%, #374151 70%, #1f2937 100%);
       color: white;
-      font-size: 15px;
       font-weight: 600;
       cursor: pointer;
       display: flex;
@@ -963,6 +1119,7 @@
       justify-content: center;
       gap: 8px;
       transition: all 0.2s ease;
+      margin-bottom: 10px;
       }
       .start-call-btn:hover {
       background: linear-gradient(135deg, #6b7280 0%, #9ca3af 30%, #4b5563 70%, #374151 100%);
@@ -973,10 +1130,10 @@
       transform: translateY(0);
       }
       .privacy-text {
-      font-size: 11px;
+      font-size: 10px;
       color: #9ca3af;
       text-align: center;
-      margin: 0 0 6px 0;
+      margin: 0;
       line-height: 1.1;
       }
       .privacy-link {
@@ -1179,6 +1336,49 @@
       box-shadow: 0 0 0 3px rgba(107, 114, 128, 0.1);
       background-color: white;
       }
+      .language-section-landing {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin-bottom: 16px;
+      padding: 0;
+      }
+      .language-label-landing {
+      font-size: 12px;
+      font-weight: 500;
+      color: #374151;
+      letter-spacing: 0.3px;
+      margin: 0;
+      text-align: left;
+      }
+      .language-select-styled-landing {
+      padding: 10px 14px;
+      border-radius: 8px;
+      border: 1.5px solid #d1d5db;
+      background: white;
+      font-size: 14px;
+      color: #111827;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      background-image: url("data:image/svg+xml,%3Csvg width='12' height='12' viewBox='0 0 12 12' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M2.5 4.5L6 8L9.5 4.5' stroke='%236b7280' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 12px center;
+      padding-right: 36px;
+      appearance: none;
+      -webkit-appearance: none;
+      -moz-appearance: none;
+      font-weight: 500;
+      }
+      .language-select-styled-landing:hover {
+      border-color: #3b82f6;
+      background-color: #f9fafb;
+      }
+      .language-select-styled-landing:focus {
+      outline: none;
+      border-color: #3b82f6;
+      box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+      background-color: white;
+      }
       .call-controls-row {
       display: flex;
       align-items: stretch;
@@ -1270,8 +1470,8 @@
       }
       .widget-close {
       position: absolute;
-      top: 8px;
-      right: 16px;
+      top: -10px;
+      right: -8px;
       background: transparent;
       border: none;
       color: #9ca3af;
@@ -1296,7 +1496,7 @@
       flex: 1;
       display: flex;
       flex-direction: column;
-      gap: 16px;
+      gap: 4px;
       overflow-y: auto;
       background: #ffffff;
       }
@@ -1633,6 +1833,8 @@
       }
       .widget-header .widget-close:hover,
       .widget-header .start-call-btn:hover,
+      .widget-header .language-select-styled-landing:hover,
+      .widget-header .language-section-landing:hover,
       .call-header .widget-close:hover,
       .call-header .back-btn:hover {
         cursor: pointer;
@@ -1651,7 +1853,17 @@
     });
     const startCallBtn = document.getElementById("start-call-btn");
     if (startCallBtn) {
-      startCallBtn.addEventListener("click", switchToCallView);
+      startCallBtn.addEventListener("click", async (e) => {
+        e.preventDefault();
+        const landingLanguageSelect = document.getElementById(
+          "shivai-language-landing"
+        );
+        if (landingLanguageSelect && languageSelect) {
+          languageSelect.value = landingLanguageSelect.value;
+        }
+        switchToCallView();
+        await handleConnectClick(e);
+      });
     }
     const backBtn = document.getElementById("back-btn");
     if (backBtn) {
@@ -2220,21 +2432,13 @@
             callId: window.currentCallId || null,
           })
         );
-        console.log(
-          "📤 [WEBSOCKET] Sent config with callId:",
-          window.currentCallId || "unavailable",
-          "IP:",
-          clientIp || "unavailable"
-        );
-        console.log("🎤 [AUDIO] Starting audio streaming");
+
         startAudioStreaming();
       };
       ws.onmessage = async (event) => {
         const data = JSON.parse(event.data);
-        console.log("📥 [WEBSOCKET] Message received:", data.type, data);
         const eventType = data.type;
         if (eventType === "input_audio_buffer.speech_started") {
-          console.log("🎤 [USER] Speech started");
           updateStatus("🎤 Listening...", "listening");
           stopAllScheduledAudio({ preserveStatus: true });
           currentUserTranscript = "";
@@ -2550,7 +2754,7 @@
         const absSample = Math.abs(processedSample);
         if (absSample > compressionThreshold) {
           const excess = absSample - compressionThreshold;
-          const compressed = compressionThreshold + (excess * compressionRatio);
+          const compressed = compressionThreshold + excess * compressionRatio;
           processedSample = (processedSample > 0 ? 1 : -1) * compressed;
         }
         processedSample = Math.max(-0.95, Math.min(0.95, processedSample));
@@ -2576,7 +2780,10 @@
       return;
     }
     playbackBufferQueue.push(float32);
-    if (!audioBufferingStarted && playbackBufferQueue.length >= minBufferChunks) {
+    if (
+      !audioBufferingStarted &&
+      playbackBufferQueue.length >= minBufferChunks
+    ) {
       audioBufferingStarted = true;
       setAssistantSpeaking(true);
     }

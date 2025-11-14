@@ -55,6 +55,12 @@
   let callTimerElement = null;
   let callStartTime = null;
   let callTimerInterval = null;
+  let textModeBtn = null;
+  let textInputSection = null;
+  let textMessageInput = null;
+  let sendTextBtn = null;
+  let isTextMode = false;
+  let wasAutoMuted = false;
   function initWidget() {
     createWidgetUI();
     setupEventListeners();
@@ -392,6 +398,85 @@
       document.removeEventListener('touchend', stopDrag);
     }
   }
+  function makeTriggerBtnDraggable(btnElement) {
+    let isDragging = false;
+    let startX, startY, initialX, initialY;
+    let dragTimeout;
+    btnElement.addEventListener('mousedown', startDrag);
+    btnElement.addEventListener('touchstart', startDrag, { passive: false });
+    function startDrag(e) {
+      if (dragTimeout) {
+        clearTimeout(dragTimeout);
+      }
+      dragTimeout = setTimeout(() => {
+        isDragging = true;
+        btnElement.style.transition = 'none';
+        if (e.type === 'mousedown') {
+          startX = e.clientX;
+          startY = e.clientY;
+        } else {
+          startX = e.touches[0].clientX;
+          startY = e.touches[0].clientY;
+        }
+        const rect = btnElement.getBoundingClientRect();
+        initialX = rect.left;
+        initialY = rect.top;
+        document.addEventListener('mousemove', drag);
+        document.addEventListener('mouseup', stopDrag);
+        document.addEventListener('touchmove', drag, { passive: false });
+        document.addEventListener('touchend', stopDrag);
+        btnElement.classList.add('dragging');
+      }, 100);
+    }
+    function drag(e) {
+      if (!isDragging) return;
+      e.preventDefault();
+      let currentX, currentY;
+      if (e.type === 'mousemove') {
+        currentX = e.clientX;
+        currentY = e.clientY;
+      } else {
+        currentX = e.touches[0].clientX;
+        currentY = e.touches[0].clientY;
+      }
+      const deltaX = currentX - startX;
+      const deltaY = currentY - startY;
+      let newX = initialX + deltaX;
+      let newY = initialY + deltaY;
+      const elementRect = btnElement.getBoundingClientRect();
+      const maxX = window.innerWidth - elementRect.width;
+      const maxY = window.innerHeight - elementRect.height;
+      newX = Math.max(0, Math.min(newX, maxX));
+      newY = Math.max(0, Math.min(newY, maxY));
+      btnElement.style.position = 'fixed';
+      btnElement.style.left = newX + 'px';
+      btnElement.style.top = newY + 'px';
+      btnElement.style.bottom = 'auto';
+      btnElement.style.right = 'auto';
+      if (messageBubble) {
+        const bubbleOffset = 70;
+        messageBubble.style.left = (newX - messageBubble.offsetWidth - 10) + 'px';
+        messageBubble.style.top = (newY + (elementRect.height / 2) - (messageBubble.offsetHeight / 2)) + 'px';
+        messageBubble.style.bottom = 'auto';
+        messageBubble.style.right = 'auto';
+      }
+    }
+    function stopDrag(e) {
+      if (dragTimeout) {
+        clearTimeout(dragTimeout);
+        dragTimeout = null;
+      }
+      if (isDragging) {
+        isDragging = false;
+        btnElement.style.transition = '';
+        btnElement.classList.remove('dragging');
+      }
+      document.removeEventListener('mousemove', drag);
+      document.removeEventListener('mouseup', stopDrag);
+      document.removeEventListener('touchmove', drag);
+      document.removeEventListener('touchend', stopDrag);
+    }
+  }
   function createWidgetUI() {
     triggerBtn = document.createElement("button");
     triggerBtn.className = "shivai-trigger shivai-neon-pulse";
@@ -506,6 +591,17 @@
       <div class="empty-state-text">Start a conversation to see transcripts here</div>
       </div>
       </div>
+      <div class="text-input-section" id="text-input-section" style="display: none;">
+        <div class="text-input-container">
+          <input type="text" id="text-message-input" class="text-message-input" placeholder="Type your response here..." />
+          <button class="send-text-btn" id="send-text-btn" title="Send Message">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="22" y1="2" x2="11" y2="13"></line>
+              <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+            </svg>
+          </button>
+        </div>
+      </div>
       <div class="controls">
       <div class="call-timer" id="call-timer" style="display: none;">00:00</div>
       <button class="control-btn-icon mute" id="shivai-mute" style="display: none;" title="Mute Microphone">
@@ -520,6 +616,11 @@
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
         <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path>
       </svg>
+      </button>
+      <button class="control-btn-icon text-mode" id="text-mode-btn" style="display: none;" title="Type Message">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+        </svg>
       </button>
       </div>
       </div>
@@ -549,6 +650,7 @@
     document.body.appendChild(triggerBtn);
     document.body.appendChild(widgetContainer);
     makeWidgetDraggable(widgetContainer);
+    makeTriggerBtnDraggable(triggerBtn);
     createLiveMessageBubble();
     statusDiv = document.getElementById("shivai-status");
     connectBtn = document.getElementById("shivai-connect");
@@ -558,6 +660,10 @@
     visualizerBars = document.querySelectorAll(".visualizer-bar");
     languageSelect = document.getElementById("shivai-language");
     callTimerElement = document.getElementById("call-timer");
+    textModeBtn = document.getElementById("text-mode-btn");
+    textInputSection = document.getElementById("text-input-section");
+    textMessageInput = document.getElementById("text-message-input");
+    sendTextBtn = document.getElementById("send-text-btn");
     setDefaultLanguage();
   }
   function setDefaultLanguage() {
@@ -599,10 +705,13 @@
   function createLiveMessageBubble() {
     messageBubble = document.createElement("div");
     messageBubble.className = "shivai-message-bubble";
+    const isMobile = window.innerWidth <= 768;
+    const bubbleBottom = isMobile ? (window.innerWidth <= 420 ? '22px' : '26px') : '30px';
+    const bubbleRight = isMobile ? (window.innerWidth <= 420 ? '70px' : '80px') : '90px';
     messageBubble.style.cssText = `
       position: fixed;
-      bottom: 30px;
-      right: 90px;
+      bottom: ${bubbleBottom};
+      right: ${bubbleRight};
       transform: translateY(0);
       background-color: #ffffff;
       color: #374151;
@@ -734,7 +843,7 @@
       height: 60px;
       border-radius: 50%;
       border: none;
-      cursor: pointer;
+      cursor: move;
       outline: none;
       display: flex;
       align-items: center;
@@ -755,6 +864,12 @@
       transform: scale(0.95);
       background: linear-gradient(135deg, #374151 0%, #4b5563 30%, #1f2937 70%, #111827 100%);
       box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4), inset 0 2px 4px rgba(0, 0, 0, 0.25);
+      }
+      .shivai-trigger.dragging {
+      transform: scale(1.05);
+      opacity: 0.8;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3) !important;
+      transition: none !important;
       }
       .shivai-neon-pulse {
       overflow: visible;
@@ -853,11 +968,9 @@
         right: 16px;
       }
       .shivai-message-bubble {
-        bottom: 26px !important;
-        right: 80px !important;
-        font-size: 13px !important;
-        padding: 6px 10px !important;
-        max-width: 200px !important;
+        font-size: 13px;
+        padding: 6px 10px;
+        max-width: 200px;
       }
       }
       @media (max-width: 420px) {
@@ -868,11 +981,9 @@
         right: 12px;
       }
       .shivai-message-bubble {
-        bottom: 22px !important;
-        right: 70px !important;
-        font-size: 12px !important;
-        padding: 6px 8px !important;
-        max-width: 180px !important;
+        font-size: 12px;
+        padding: 6px 8px;
+        max-width: 180px;
       }
       }
       .shivai-widget {
@@ -1637,6 +1748,66 @@
       .call-header .back-btn:hover {
         cursor: pointer;
       }
+      .text-input-section {
+        display: none;
+        flex-direction: column;
+        gap: 0;
+        padding: 0;
+        background: transparent;
+        border-top: none;
+        border-bottom: none;
+      }
+      .text-input-container {
+        display: flex;
+        gap: 8px;
+        marginTop: 4px;
+        align-items: center;
+        // padding: 12px 16px;
+      }
+      .text-message-input {
+        flex: 1;
+        padding: 10px 12px;
+        border: 1px solid #d1d5db;
+        border-radius: 8px;
+        font-size: 14px;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        outline: none;
+        transition: all 0.2s ease;
+        background: white;
+      }
+      .text-message-input:focus {
+        border-color: #6b7280;
+        box-shadow: 0 0 0 3px rgba(107, 114, 128, 0.1);
+      }
+      .send-text-btn {
+        width: 40px;
+        height: 40px;
+        border: none;
+        border-radius: 8px;
+        background: transparent;
+        color: #4b5563;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.2s ease;
+        flex-shrink: 0;
+      }
+      .send-text-btn:hover {
+        background: transparent;
+        color: #1f2937;
+        transform: scale(1.05);
+      }
+      .send-text-btn:active {
+        transform: scale(0.95);
+      }
+      .control-btn-icon.text-mode {
+        background: linear-gradient(135deg, #4b5563 0%, #6b7280 30%, #374151 70%, #1f2937 100%);
+        color: white;
+      }
+      .control-btn-icon.text-mode:hover {
+        background: linear-gradient(135deg, #374151 0%, #4b5563 50%, #1f2937 100%);
+      }
       }
     `;
     const styleSheet = document.createElement("style");
@@ -1662,6 +1833,27 @@
     }
     if (muteBtn) {
       muteBtn.addEventListener("click", handleMuteClick);
+    }
+    if (textModeBtn) {
+      textModeBtn.addEventListener("click", handleTextModeToggle);
+    }
+    if (sendTextBtn) {
+      sendTextBtn.addEventListener("click", handleSendTextMessage);
+    }
+    if (textMessageInput) {
+      textMessageInput.addEventListener("input", (e) => {
+        if (isConnected && !isMuted && textMessageInput.value.length > 0) {
+          isMuted = true;
+          wasAutoMuted = true;
+          updateMuteButton();
+        }
+      });
+      textMessageInput.addEventListener("keypress", (e) => {
+        if (e.key === "Enter" && !e.shiftKey) {
+          e.preventDefault();
+          handleSendTextMessage();
+        }
+      });
     }
     document.addEventListener("click", (e) => {
       if (
@@ -1902,7 +2094,61 @@
     e.stopPropagation();
     if (!isConnected || !mediaStream) return;
     isMuted = !isMuted;
+    wasAutoMuted = false;
     updateMuteButton();
+  }
+  function handleTextModeToggle(e) {
+    e.stopPropagation();
+    if (!isConnected) {
+      alert("Please start the call first before using text mode.");
+      return;
+    }
+    isTextMode = !isTextMode;
+    if (isTextMode) {
+      textInputSection.style.display = "flex";
+      textModeBtn.style.opacity = "1";
+      textModeBtn.innerHTML = `
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <line x1="18" y1="6" x2="6" y2="18"></line>
+          <line x1="6" y1="6" x2="18" y2="18"></line>
+        </svg>
+      `;
+      textModeBtn.title = "Close Chat";
+      textMessageInput.focus();
+    } else {
+      textInputSection.style.display = "none";
+      textModeBtn.style.opacity = "1";
+      textModeBtn.innerHTML = `
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+        </svg>
+      `;
+      textModeBtn.title = "Type Message";
+      wasAutoMuted = false;
+    }
+  }
+  function handleSendTextMessage(e) {
+    if (e) e.stopPropagation();
+    if (!isConnected || !ws || ws.readyState !== WebSocket.OPEN) {
+      alert("Please connect to the call first.");
+      return;
+    }
+    const message = textMessageInput.value.trim();
+    if (!message) return;
+    addMessage("user", message);
+    ws.send(
+      JSON.stringify({
+        type: "text_message",
+        text: message,
+      })
+    );
+    textMessageInput.value = "";
+    if (wasAutoMuted && isMuted) {
+      isMuted = false;
+      wasAutoMuted = false;
+      updateMuteButton();
+    }
+    textMessageInput.focus();
   }
   function updateStatus(status, className) {
     const statusText = statusDiv.querySelector(".status-text");
@@ -1940,6 +2186,9 @@
     if (muteBtn) {
       muteBtn.style.display = "flex";
     }
+    if (textModeBtn) {
+      textModeBtn.style.display = "flex";
+    }
     connectBtn.innerHTML =
       '<svg width="26" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z" transform="rotate(135 12 12)"></path></svg>';
     connectBtn.classList.add("connected");
@@ -1957,6 +2206,14 @@
       callTimerElement.style.display = "none";
       callTimerElement.textContent = "00:00";
     }
+    if (textModeBtn) {
+      textModeBtn.style.display = "none";
+    }
+    if (textInputSection) {
+      textInputSection.style.display = "none";
+    }
+    isTextMode = false;
+    wasAutoMuted = false;
   }
   function updateCallTimer() {
     if (!callStartTime || !callTimerElement) return;
