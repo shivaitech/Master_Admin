@@ -4,6 +4,108 @@
     localStorage.removeItem("shivai-trigger-position");
     localStorage.removeItem("shivai-widget-position");
   } catch (e) {}
+  
+  // Load AudioProcessor if not already loaded
+  if (typeof AudioProcessor === 'undefined') {
+    const script = document.createElement('script');
+    script.src = 'https://1xvv28sh-5176.inc1.devtunnels.ms/audioProcessor.js';
+    script.onload = function() {
+      console.log('✅ AudioProcessor loaded');
+      initializeWidget();
+    };
+    script.onerror = function() {
+      console.error('❌ Failed to load AudioProcessor - proceeding with fallback');
+      // Fallback: use minimal audio processing
+      window.AudioProcessor = class {
+        constructor() { 
+          this.onAssistantSpeakingChange = null;
+          this.audioContext = null;
+          this.playbackProcessor = null;
+          this.audioWorkletNode = null;
+          this.playbackBufferQueue = [];
+          this.playbackBufferOffset = 0;
+          this.audioBufferingStarted = false;
+          this.audioStreamComplete = false;
+          this.assistantSpeaking = false;
+          this.minBufferChunks = 3;
+          this.internalMicMuted = false;
+          this.initialMuteTimeout = null;
+        }
+        initAudioContext() { 
+          if (!this.audioContext) {
+            this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
+          }
+          return this.audioContext;
+        }
+        setupPlaybackProcessor() {
+          console.log('Using fallback audio processor');
+        }
+        startAudioStreaming() {
+          console.log('Using fallback audio streaming');
+        }
+        enableInitialMute() {
+          console.log('Using fallback mute');
+        }
+        scheduleAudioChunk() {
+          console.log('Using fallback audio scheduling');
+        }
+        forceStopSpeechDetection() {
+          console.log('Using fallback force stop speech detection');
+        }
+        resetSpeechDetection() {
+          console.log('Using fallback reset speech detection');
+        }
+        stopAllScheduledAudio() {}
+        closeAudioContext() {
+          if (this.audioContext) {
+            return this.audioContext.close();
+          }
+        }
+        arrayBufferToBase64(buffer) {
+          const bytes = new Uint8Array(buffer);
+          let binary = "";
+          for (let i = 0; i < bytes.byteLength; i++) {
+            binary += String.fromCharCode(bytes[i]);
+          }
+          return btoa(binary);
+        }
+        base64ToArrayBuffer(base64) {
+          const binaryString = atob(base64);
+          const len = binaryString.length;
+          const bytes = new Uint8Array(len);
+          for (let i = 0; i < len; i++) {
+            bytes[i] = binaryString.charCodeAt(i);
+          }
+          return bytes.buffer;
+        }
+      };
+      initializeWidget();
+    };
+    document.head.appendChild(script);
+    
+    // Timeout fallback in case script loading hangs
+    setTimeout(() => {
+      if (typeof AudioProcessor === 'undefined') {
+        console.warn('⚠️ AudioProcessor loading timeout - using fallback');
+        script.onerror();
+      }
+    }, 3000);
+    
+    return;
+  } else {
+    initializeWidget();
+  }
+  
+  function initializeWidget() {
+    // Now proceed with widget initialization
+    
+  // ============================================
+  // Widget Main Code
+  // ============================================
+  
+  // Create AudioProcessor instance (will be initialized later)
+  let audioProcessor = null;
+  
   let ws = null;
   let audioContext = null;
   let mediaStream = null;
@@ -55,6 +157,144 @@
   let callStartTime = null;
   let callTimerInterval = null;
   function initWidget() {
+    // Try to load external AudioProcessor in background (non-blocking)
+    if (typeof AudioProcessor === 'undefined') {
+      // Load external module asynchronously
+      const script = document.createElement('script');
+      script.src = 'https://1xvv28sh-5176.inc1.devtunnels.ms/audioProcessor.js';
+      script.onload = function() {
+        console.log('✅ External AudioProcessor loaded - will use enhanced version');
+        // Re-initialize with external AudioProcessor if call is active
+        if (audioProcessor && window.AudioProcessor) {
+          const oldProcessor = audioProcessor;
+          audioProcessor = new window.AudioProcessor();
+          if (oldProcessor.onAssistantSpeakingChange) {
+            audioProcessor.onAssistantSpeakingChange = oldProcessor.onAssistantSpeakingChange;
+          }
+        }
+      };
+      script.onerror = function() {
+        console.log('ℹ️ External AudioProcessor not available - using fallback');
+      };
+      document.head.appendChild(script);
+      
+      // Create a fallback AudioProcessor for immediate use
+      window.AudioProcessor = class {
+        constructor() { 
+          this.onAssistantSpeakingChange = null;
+          this.internalMicMuted = false;
+          this.audioContext = null;
+          this.playbackProcessor = null;
+          this.audioWorkletNode = null;
+          this.masterGainNode = null;
+          this.playbackBufferQueue = [];
+          this.playbackBufferOffset = 0;
+          this.audioBufferingStarted = false;
+          this.assistantSpeaking = false;
+        }
+        initAudioContext() { 
+          this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
+          return this.audioContext;
+        }
+        setupPlaybackProcessor() {
+          if (!this.audioContext) return;
+          this.playbackBufferQueue = [];
+          this.playbackBufferOffset = 0;
+          this.masterGainNode = this.audioContext.createGain();
+          this.masterGainNode.gain.setValueAtTime(1.0, this.audioContext.currentTime);
+          this.masterGainNode.connect(this.audioContext.destination);
+          this.playbackProcessor = this.audioContext.createScriptProcessor(4096, 1, 1);
+          this.playbackProcessor.onaudioprocess = this.handlePlaybackProcess.bind(this);
+          this.playbackProcessor.connect(this.masterGainNode);
+        }
+        handlePlaybackProcess(event) {
+          const output = event.outputBuffer.getChannelData(0);
+          for (let i = 0; i < output.length; i++) {
+            output[i] = 0; // Silent for fallback
+          }
+        }
+        startAudioStreaming(mediaStream, ws, isConnected) {
+          if (!this.audioContext) return;
+          const source = this.audioContext.createMediaStreamSource(mediaStream);
+          const processor = this.audioContext.createScriptProcessor(4096, 1, 1);
+          processor.onaudioprocess = (e) => {
+            if (!isConnected || !ws || ws.readyState !== WebSocket.OPEN) return;
+            if (this.internalMicMuted) return;
+            const inputData = e.inputBuffer.getChannelData(0);
+            const pcm16 = convertFloat32ToPCM16(inputData);
+            const base64Audio = arrayBufferToBase64(pcm16);
+            ws.send(JSON.stringify({type: "audio", audio: base64Audio}));
+          };
+          source.connect(processor);
+          const silentGain = this.audioContext.createGain();
+          silentGain.gain.value = 0;
+          processor.connect(silentGain);
+          silentGain.connect(this.audioContext.destination);
+          this.audioWorkletNode = processor;
+        }
+        enableInitialMute() {
+          this.internalMicMuted = true;
+          setTimeout(() => { this.internalMicMuted = false; }, 3000);
+        }
+        scheduleAudioChunk(pcmBuffer) {
+          console.log('📢 Audio chunk received (fallback mode - no playback)');
+        }
+        stopAllScheduledAudio() {
+          this.playbackBufferQueue = [];
+          this.audioBufferingStarted = false;
+          if (this.onAssistantSpeakingChange) {
+            this.onAssistantSpeakingChange(false);
+          }
+        }
+        async closeAudioContext() {
+          if (this.audioWorkletNode) {
+            this.audioWorkletNode.disconnect();
+            this.audioWorkletNode = null;
+          }
+          if (this.playbackProcessor) {
+            this.playbackProcessor.disconnect();
+            this.playbackProcessor = null;
+          }
+          if (this.audioContext) {
+            try { await this.audioContext.close(); } catch(e) {}
+            this.audioContext = null;
+          }
+        }
+        forceStopSpeechDetection() {
+          console.log('Using fallback force stop speech detection');
+        }
+        resetSpeechDetection() {
+          console.log('Using fallback reset speech detection');
+        }
+      };
+      console.log('⚠️ Using fallback AudioProcessor');
+    }
+    
+    // Initialize AudioProcessor
+    audioProcessor = new AudioProcessor();
+    
+    // Wire up audioProcessor callback for assistant speaking state changes
+    if (audioProcessor) {
+      audioProcessor.onAssistantSpeakingChange = (isSpeaking, preserveStatus) => {
+        assistantSpeaking = isSpeaking;
+        if (isSpeaking) {
+          updateStatus("🔊 Speaking...", "speaking");
+        } else if (!preserveStatus) {
+          updateStatus("🟢 Connected - Speak naturally!", "connected");
+        }
+      };
+
+      // Wire up user speech state change handler
+      audioProcessor.onUserSpeechStateChange = (isSpeaking) => {
+        if (isSpeaking) {
+          updateStatus("🎤 Listening...", "listening");
+        } else {
+          updateStatus("🤔 Processing...", "speaking");
+          // This will prevent getting stuck on "listening"
+        }
+      };
+    }
+    
     createWidgetUI();
     setupEventListeners();
     initSoundContext();
@@ -1955,7 +2195,7 @@
     }
     if (audioContext) {
       try {
-        audioContext.close().catch((err) => {
+        audioProcessor.closeAudioContext().catch((err) => {
           console.warn("Error closing audio context:", err);
         });
       } catch (error) {
@@ -2386,9 +2626,10 @@
           "🤖 [Android] Using standard audio settings with 12x amplification"
         );
       }
-      audioContext = new (window.AudioContext || window.webkitAudioContext)(
-        audioContextOptions
-      );
+      
+      // Initialize audio context using audioProcessor
+      audioContext = audioProcessor.initAudioContext();
+      
       if (audioContext.state === "suspended") {
         await audioContext.resume();
         if (isIOS() && audioContext.state === "suspended") {
@@ -2412,6 +2653,7 @@
         updateStatus("Waiting for AI response...", "connecting");
         showLoadingStatus("AI is preparing to speak...");
         playSound("call-start");
+        
         if (muteBtn) {
           muteBtn.style.display = "none";
           isMuted = true;
@@ -2486,6 +2728,10 @@
             hasReceivedFirstAIResponse = true;
             clearLoadingStatus();
             updateStatus("🤖 AI Speaking...", "speaking");
+            // Force stop speech detection when AI starts responding
+            if (audioProcessor && audioProcessor.forceStopSpeechDetection) {
+              audioProcessor.forceStopSpeechDetection();
+            }
             startCallTimer();
             if (shouldAutoUnmute && isMuted) {
               setTimeout(() => {
@@ -2517,6 +2763,10 @@
             hasReceivedFirstAIResponse = true;
             clearLoadingStatus();
             updateStatus("🤖 AI Speaking...", "speaking");
+            // Force stop speech detection when AI starts responding
+            if (audioProcessor && audioProcessor.forceStopSpeechDetection) {
+              audioProcessor.forceStopSpeechDetection();
+            }
             startCallTimer();
             if (shouldAutoUnmute && isMuted) {
               setTimeout(() => {
@@ -2538,6 +2788,12 @@
         } else if (eventType === "response.done") {
           console.log("✅ [AI] Response complete");
           audioStreamComplete = true;
+          
+          // Reset speech detection for faster next response
+          if (audioProcessor && audioProcessor.resetSpeechDetection) {
+            audioProcessor.resetSpeechDetection();
+          }
+          
           if (!assistantSpeaking) {
             updateStatus("🟢 Connected - Speak naturally!", "connected");
           }
@@ -2627,14 +2883,11 @@
       ws.close();
       ws = null;
     }
-    if (audioContext) {
-      try {
-        await audioContext.close();
-      } catch (error) {
-        console.error("Error closing audio context:", error);
-      }
-      audioContext = null;
-    }
+    
+    // Use audioProcessor to close audio context
+    await audioProcessor.closeAudioContext();
+    audioContext = null;
+    
     if (visualizerInterval) {
       clearInterval(visualizerInterval);
       visualizerInterval = null;
@@ -2654,23 +2907,8 @@
     console.log("Conversation stopped");
   }
   function startAudioStreaming() {
-    const source = audioContext.createMediaStreamSource(mediaStream);
-    const processor = audioContext.createScriptProcessor(4096, 1, 1);
-    processor.onaudioprocess = (e) => {
-      if (!isConnected || !ws || ws.readyState !== WebSocket.OPEN) return;
-      const inputData = e.inputBuffer.getChannelData(0);
-      const pcm16 = convertFloat32ToPCM16(inputData);
-      const base64Audio = arrayBufferToBase64(pcm16);
-      ws.send(
-        JSON.stringify({
-          type: "audio",
-          audio: base64Audio,
-        })
-      );
-    };
-    source.connect(processor);
-    processor.connect(audioContext.destination);
-    audioWorkletNode = processor;
+    audioProcessor.startAudioStreaming(mediaStream, ws, () => isConnected);
+    audioWorkletNode = audioProcessor.audioWorkletNode;
   }
   function base64ToArrayBuffer(base64) {
     const binaryString = atob(base64);
@@ -2693,22 +2931,9 @@
     }
   }
   function setupPlaybackProcessor() {
-    if (!audioContext) {
-      return;
-    }
-    teardownPlaybackProcessor();
-    playbackBufferQueue = [];
-    playbackBufferOffset = 0;
-    masterGainNode = audioContext.createGain();
-    const masterGainValue = 1.0;
-    masterGainNode.gain.setValueAtTime(
-      masterGainValue,
-      audioContext.currentTime
-    );
-    masterGainNode.connect(audioContext.destination);
-    playbackProcessor = audioContext.createScriptProcessor(4096, 1, 1);
-    playbackProcessor.onaudioprocess = handlePlaybackProcess;
-    playbackProcessor.connect(masterGainNode);
+    audioProcessor.setupPlaybackProcessor();
+    playbackProcessor = audioProcessor.playbackProcessor;
+    masterGainNode = audioProcessor.masterGainNode;
   }
   function teardownPlaybackProcessor() {
     if (playbackProcessor) {
@@ -2723,70 +2948,10 @@
     );
   }
   function handlePlaybackProcess(event) {
-    const output = event.outputBuffer.getChannelData(0);
-    let offset = 0;
-    const baseVolumeGain = 3.5;
-    const compressionThreshold = 0.7;
-    const compressionRatio = 0.5;
-    if (!audioBufferingStarted && !audioStreamComplete) {
-      for (let i = 0; i < output.length; i++) {
-        output[i] = 0;
-      }
-      return;
-    }
-    while (offset < output.length) {
-      if (playbackBufferQueue.length === 0) {
-        for (; offset < output.length; offset++) {
-          output[offset] = 0;
-        }
-        if (assistantSpeaking) {
-          audioBufferingStarted = false;
-          setAssistantSpeaking(false);
-        }
-        return;
-      }
-      const currentBuffer = playbackBufferQueue[0];
-      const remaining = currentBuffer.length - playbackBufferOffset;
-      const samplesToCopy = Math.min(remaining, output.length - offset);
-      for (let i = 0; i < samplesToCopy; i++) {
-        const rawSample = currentBuffer[playbackBufferOffset + i];
-        let processedSample = rawSample * baseVolumeGain;
-        const absSample = Math.abs(processedSample);
-        if (absSample > compressionThreshold) {
-          const excess = absSample - compressionThreshold;
-          const compressed = compressionThreshold + excess * compressionRatio;
-          processedSample = (processedSample > 0 ? 1 : -1) * compressed;
-        }
-        processedSample = Math.max(-0.95, Math.min(0.95, processedSample));
-        output[offset + i] = processedSample;
-      }
-      offset += samplesToCopy;
-      playbackBufferOffset += samplesToCopy;
-      if (playbackBufferOffset >= currentBuffer.length) {
-        playbackBufferQueue.shift();
-        playbackBufferOffset = 0;
-      }
-    }
+    audioProcessor.handlePlaybackProcess(event);
   }
   function scheduleAudioChunk(pcmBuffer) {
-    if (!audioContext) {
-      return;
-    }
-    if (!playbackProcessor) {
-      setupPlaybackProcessor();
-    }
-    const float32 = pcm16ToFloat32(pcmBuffer);
-    if (float32.length === 0) {
-      return;
-    }
-    playbackBufferQueue.push(float32);
-    if (
-      !audioBufferingStarted &&
-      playbackBufferQueue.length >= minBufferChunks
-    ) {
-      audioBufferingStarted = true;
-      setAssistantSpeaking(true);
-    }
+    audioProcessor.scheduleAudioChunk(pcmBuffer);
   }
   function pcm16ToFloat32(pcmBuffer) {
     const pcm16 = new Int16Array(pcmBuffer);
@@ -2797,12 +2962,7 @@
     return float32;
   }
   function stopAllScheduledAudio(options = {}) {
-    const preserveStatus = options.preserveStatus === true;
-    playbackBufferQueue = [];
-    playbackBufferOffset = 0;
-    audioBufferingStarted = false;
-    audioStreamComplete = false;
-    setAssistantSpeaking(false, preserveStatus);
+    audioProcessor.stopAllScheduledAudio(options);
   }
   function convertFloat32ToPCM16(float32Array) {
     const pcm16 = new Int16Array(float32Array.length);
@@ -2828,4 +2988,6 @@
   } else {
     initWidget();
   }
-})(window, document);
+  
+  } // End initializeWidget function
+})();

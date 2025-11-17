@@ -62,4 +62,40 @@ const apiService = {
   patch: (url, data) => apiClient.patch(url, data),
 };
 
+// ShivAI Backend API Service
+const SHIVAI_BASE_URL = "https://shivai-com-backend.onrender.com/api/v1";
+
+const shivaiApiClient = axios.create({
+  baseURL: SHIVAI_BASE_URL,
+  timeout: 15000,
+});
+
+// Apply auth headers for ShivAI API
+shivaiApiClient.interceptors.request.use(setAuthHeaders);
+shivaiApiClient.interceptors.response.use((res) => res, errorCallBack);
+
+export const shivaiApiService = {
+  // Get onboarding data by user ID
+  getOnboardingByUserId: async (userId) => {
+    try {
+      const response = await shivaiApiClient.get(`/onboarding/user/${userId}`);
+      return response.data;
+    } catch (error) {
+      console.error("Error fetching onboarding data:", error);
+      throw error;
+    }
+  },
+
+  // Get all users
+  getAllUsers: async () => {
+    try {
+      const response = await shivaiApiClient.get("/users");
+      return response.data;
+    } catch (error) {
+      console.error("Error fetching users:", error);
+      throw error;
+    }
+  }
+};
+
 export default apiService;

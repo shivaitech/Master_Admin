@@ -124,7 +124,7 @@ const AdminDashboardContent = () => {
     },
   ];
 
-   useEffect(() => {
+  useEffect(() => {
     const getAdmin = async () => {
       const user = await fetchUser();
       if (user && user.name && user.email) {
@@ -135,21 +135,29 @@ const AdminDashboardContent = () => {
   }, []);
 
   console.log(adminInfo);
-  
+
   // Fetch user info (admin)
   const fetchUser = async () => {
     try {
       const response = await lisitingService.getUser();
       console.log(response);
-      
+
       if (response?.data?.statusCode === 200) {
         const { name, email } = response.data.data?.user;
-        return { name: name || "Admin User", email: email || "admin@shivai.com" };
+        return {
+          name: name || "Admin User",
+          email: email || "admin@shivai.com",
+        };
       }
       return { name: "Admin User", email: "admin@shivai.com" };
     } catch (err) {
       console.error("Error fetching admin info:", err);
-      if(err?.response?.data?.statusCode === 401 && err.response.data.message === "Access token is required" || err.response.data.message === "Token has expired"){ 
+      if (
+        (err?.response?.data?.statusCode === 401 &&
+          err.response.data.message === "Access token is required") ||
+        err.response.data.message === "Token has expired" ||
+        err.response.data.message === "User account not found or deactivated"
+      ) {
         toast.error("Session expired. Please log in again.");
         localStorage.removeItem("Authorization");
         navigate("/");
@@ -413,7 +421,9 @@ const AdminDashboardContent = () => {
                 <h2
                   className={`text-lg md:text-xl font-bold ${currentTheme.text} flex items-center gap-2`}
                 >
-                  <RiTeamLine className={`w-5 h-5 md:w-6 md:h-6 ${currentTheme.textSecondary}`} />
+                  <RiTeamLine
+                    className={`w-5 h-5 md:w-6 md:h-6 ${currentTheme.textSecondary}`}
+                  />
                   Recent Client Activity
                 </h2>
                 <button
@@ -682,8 +692,12 @@ const AdminDashboardContent = () => {
                           <button className="p-1 hover:bg-blue-500/20 rounded transition-colors">
                             <RiEyeLine className="w-3 h-3 md:w-4 md:h-4 text-blue-500" />
                           </button>
-                          <button className={`p-1 ${currentTheme.hover} rounded transition-colors hidden sm:block`}>
-                            <RiExternalLinkLine className={`w-3 h-3 md:w-4 md:h-4 ${currentTheme.textSecondary}`} />
+                          <button
+                            className={`p-1 ${currentTheme.hover} rounded transition-colors hidden sm:block`}
+                          >
+                            <RiExternalLinkLine
+                              className={`w-3 h-3 md:w-4 md:h-4 ${currentTheme.textSecondary}`}
+                            />
                           </button>
                         </div>
                       </div>
@@ -1152,7 +1166,11 @@ const AdminDashboardContent = () => {
                       ? "lg:opacity-0 lg:w-0"
                       : "lg:opacity-100"
                   }`}
-                  style={theme === "dark" ? { filter: "brightness(0) invert(1)" } : {}}
+                  style={
+                    theme === "dark"
+                      ? { filter: "brightness(0) invert(1)" }
+                      : {}
+                  }
                 />
               </div>
               <button
@@ -1350,17 +1368,25 @@ const AdminDashboardContent = () => {
       >
         <div className={`min-h-screen ${currentTheme.bg}`}>
           {/* Top Bar - Hidden on mobile, visible on desktop */}
-          <div className={`hidden lg:block ${currentTheme.topBarBg} border-b ${currentTheme.border} px-6 py-4`}>
+          <div
+            className={`hidden lg:block ${currentTheme.topBarBg} border-b ${currentTheme.border} px-6 py-4`}
+          >
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-4">
-                <div className={`text-2xl font-semibold ${theme === 'light' ? 'text-gray-800' : 'text-green-400'} capitalize`}>
+                <div
+                  className={`text-2xl font-semibold ${theme === "light" ? "text-gray-800" : "text-green-400"} capitalize`}
+                >
                   {activeSection}
                 </div>
               </div>
 
               <div className="flex items-center gap-4">
-                <button className={`p-2 ${currentTheme.hover} rounded-lg transition-colors relative`}>
-                  <RiNotificationLine className={`w-5 h-5 ${currentTheme.textSecondary}`} />
+                <button
+                  className={`p-2 ${currentTheme.hover} rounded-lg transition-colors relative`}
+                >
+                  <RiNotificationLine
+                    className={`w-5 h-5 ${currentTheme.textSecondary}`}
+                  />
                   <span className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full"></span>
                 </button>
               </div>
@@ -1368,7 +1394,9 @@ const AdminDashboardContent = () => {
           </div>
 
           {/* Content */}
-          <div className={`p-2 pt-16  md:pt-16 lg:pt-6 md:p-4 lg:p-6 ${currentTheme.bg}`}>
+          <div
+            className={`p-2 pt-16  md:pt-16 lg:pt-6 md:p-4 lg:p-6 ${currentTheme.bg}`}
+          >
             {renderContent()}
           </div>
         </div>
