@@ -54,7 +54,7 @@ const ClientManagement = () => {
   const [editData, setEditData] = useState(null);
   const [onboardingData, setOnboardingData] = useState({
     onboarded: [],
-    pending: []
+    pending: [],
   });
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -66,132 +66,130 @@ const ClientManagement = () => {
       try {
         setLoading(true);
         setError(null);
-        
+
         try {
           // Fetch all users from the API
           const usersResponse = await shivaiApiService.getAllUsers();
           console.log("Users response:", usersResponse);
-          
+
           const userData = usersResponse.data || usersResponse || [];
           const allUsers = userData?.users || [];
           console.log("All users:", allUsers);
-          
+
           // Ensure allUsers is an array before processing
           if (!Array.isArray(allUsers)) {
             console.warn("Users data is not an array:", allUsers);
             setUsers([]);
             setOnboardingData({
               pending: [],
-              onboarded: []
+              onboarded: [],
             });
             return;
           }
-          
+
           // Categorize users based on onboarding status
           const categorizedData = {
             pending: [], // isOnBoarded: false - users who haven't completed onboarding
-            onboarded: [] // isOnBoarded: true - users who completed onboarding
+            onboarded: [], // isOnBoarded: true - users who completed onboarding
           };
-          
-          allUsers.forEach(user => {
+
+          allUsers.forEach((user) => {
             // Check if user has onboarding status
             if (!user?.isOnBoarded) {
               // User hasn't completed onboarding - goes to pending
               categorizedData.pending.push({
                 _id: user?._id,
                 company_basics: {
-                  name: user?.fullName || 'Unknown',
+                  name: user?.fullName || "Unknown",
                   company_email: user?.email,
-                  company_size: 'Unknown',
-                  industry: ['Not specified']
+                  company_size: "Unknown",
+                  industry: ["Not specified"],
                 },
                 plan_details: {
-                  type: 'Not selected'
+                  type: "Not selected",
                 },
                 ai_employees: [],
                 knowledge_sources: {
-                  website_url: '',
-                  social_links: { linkedin: '' },
-                  faqs_text: '',
-                  uploaded_files: []
+                  website_url: "",
+                  social_links: { linkedin: "" },
+                  faqs_text: "",
+                  uploaded_files: [],
                 },
                 deployment_targets: {
-                  channels: []
+                  channels: [],
                 },
                 instructions: {
-                  dos_and_donts: '',
-                  fallback_contacts: ''
+                  dos_and_donts: "",
+                  fallback_contacts: "",
                 },
                 targets: {
-                  success_goals: '',
-                  success_metrics: ''
+                  success_goals: "",
+                  success_metrics: "",
                 },
                 isOnBoarded: user?.isOnBoarded,
                 createdAt: user?.createdAt,
-                userData: user // Keep original user data for reference
+                userData: user, // Keep original user data for reference
               });
             } else {
               // User has completed onboarding - goes to onboarded
               categorizedData.onboarded.push({
                 _id: user?._id,
                 company_basics: {
-                  name: user?.fullName || 'Unknown',
+                  name: user?.fullName || "Unknown",
                   company_email: user?.email,
-                  company_size: 'Unknown',
-                  industry: ['Not specified']
+                  company_size: "Unknown",
+                  industry: ["Not specified"],
                 },
                 plan_details: {
-                  type: 'Selected'
+                  type: "Selected",
                 },
                 ai_employees: [],
                 knowledge_sources: {
-                  website_url: '',
-                  social_links: { linkedin: '' },
-                  faqs_text: '',
-                  uploaded_files: []
+                  website_url: "",
+                  social_links: { linkedin: "" },
+                  faqs_text: "",
+                  uploaded_files: [],
                 },
                 deployment_targets: {
-                  channels: []
+                  channels: [],
                 },
                 instructions: {
-                  dos_and_donts: '',
-                  fallback_contacts: ''
+                  dos_and_donts: "",
+                  fallback_contacts: "",
                 },
                 targets: {
-                  success_goals: '',
-                  success_metrics: ''
+                  success_goals: "",
+                  success_metrics: "",
                 },
                 isOnBoarded: user?.isOnBoarded,
                 createdAt: user?.createdAt,
-                userData: user // Keep original user data for reference
+                userData: user, // Keep original user data for reference
               });
             }
           });
-          
+
           console.log("Categorized data:", categorizedData);
-          
+
           // Update state with categorized data
           setOnboardingData({
             pending: categorizedData.pending,
-            onboarded: categorizedData.onboarded
+            onboarded: categorizedData.onboarded,
           });
-          
+
           setUsers(allUsers);
-          
         } catch (userError) {
           console.error("Failed to fetch users:", userError);
           setUsers([]);
           setOnboardingData({
             onboarded: [],
-            pending: []
+            pending: [],
           });
         }
-
       } catch (error) {
         console.error("General error fetching data:", error);
         setOnboardingData({
           onboarded: [],
-          pending: []
+          pending: [],
         });
         setUsers([]);
       } finally {
@@ -204,7 +202,9 @@ const ClientManagement = () => {
 
   if (loading) {
     return (
-      <div className={`flex items-center justify-center min-h-[400px] ${currentTheme.bg}`}>
+      <div
+        className={`flex items-center justify-center min-h-[400px] ${currentTheme.bg}`}
+      >
         <div className={`${currentTheme.text} text-lg flex items-center gap-3`}>
           <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-500"></div>
           Loading client data...
@@ -215,20 +215,22 @@ const ClientManagement = () => {
 
   const getClientsForTab = () => {
     const onboardingClients = onboardingData[activeTab] || [];
-    
+
     // Apply search filter if search term exists
     if (searchTerm) {
-      return onboardingClients.filter(client => {
+      return onboardingClients.filter((client) => {
         const searchLower = searchTerm.toLowerCase();
         return (
           client.company_basics?.name?.toLowerCase().includes(searchLower) ||
-          client.company_basics?.company_email?.toLowerCase().includes(searchLower) ||
+          client.company_basics?.company_email
+            ?.toLowerCase()
+            .includes(searchLower) ||
           client.userData?.fullName?.toLowerCase().includes(searchLower) ||
           client.userData?.email?.toLowerCase().includes(searchLower)
         );
       });
     }
-    
+
     // Return all clients for the active tab
     return onboardingClients;
   };
@@ -239,8 +241,10 @@ const ClientManagement = () => {
   };
 
   const getTotalOnboardingCount = () => {
-    return (onboardingData.pending || []).length + 
-           (onboardingData.onboarded || []).length;
+    return (
+      (onboardingData.pending || []).length +
+      (onboardingData.onboarded || []).length
+    );
   };
 
   const getTotalCount = () => {
@@ -252,18 +256,20 @@ const ClientManagement = () => {
       setLoading(true);
       setSelectedClient(client);
       setViewMode("detail");
-      
+
       // Fetch detailed onboarding data for this user
       if (client._id) {
         console.log(`Fetching onboarding data for user: ${client._id}`);
-        const onboardingResponse = await shivaiApiService.getOnboardingByUserId(client._id);
+        const onboardingResponse = await shivaiApiService.getOnboardingByUserId(
+          client._id
+        );
         console.log("Onboarding data response:", onboardingResponse);
-        
+
         // Update the selected client with detailed onboarding data
         if (onboardingResponse?.data) {
           setSelectedClient({
             ...client,
-            onboardingDetails: onboardingResponse.data
+            onboardingDetails: onboardingResponse.data,
           });
         }
       }
@@ -291,18 +297,18 @@ const ClientManagement = () => {
     try {
       // Here you would call your API to save the edited data
       console.log("Saving edited data:", editData);
-      
+
       // TODO: Add API call to update onboarding data
       // await shivaiApiService.updateOnboardingData(editData._id, editData);
-      
+
       // For now, just update the local state
-      setOnboardingData(prev => ({
+      setOnboardingData((prev) => ({
         ...prev,
-        [activeTab]: prev[activeTab].map(client => 
+        [activeTab]: prev[activeTab].map((client) =>
           client._id === editData?._id ? editData : client
-        )
+        ),
       }));
-      
+
       // After successful save, go back to detail view
       setSelectedClient(editData);
       setViewMode("detail");
@@ -320,83 +326,88 @@ const ClientManagement = () => {
   };
 
   const updateEditData = (path, value) => {
-    setEditData(prev => {
+    setEditData((prev) => {
       const newData = { ...prev };
-      const keys = path.split('.');
+      const keys = path.split(".");
       let current = newData;
-      
+
       for (let i = 0; i < keys.length - 1; i++) {
         if (!current[keys[i]]) current[keys[i]] = {};
         current = current[keys[i]];
       }
-      
+
       current[keys[keys.length - 1]] = value;
       return newData;
     });
   };
 
   const addAIEmployee = () => {
-    setEditData(prev => ({
+    setEditData((prev) => ({
       ...prev,
-      ai_employees: [...(prev?.ai_employees || []), {
-        name: "",
-        type: "",
-        template: "",
-        preferred_language: "English",
-        voice_gender: "Gender Neutral",
-        agent_personality: "",
-        voice_style: "",
-        special_instructions: "",
-        _id: `new_${Date.now()}`
-      }]
+      ai_employees: [
+        ...(prev?.ai_employees || []),
+        {
+          name: "",
+          type: "",
+          template: "",
+          preferred_language: "English",
+          voice_gender: "Gender Neutral",
+          agent_personality: "",
+          voice_style: "",
+          special_instructions: "",
+          _id: `new_${Date.now()}`,
+        },
+      ],
     }));
   };
 
   const removeAIEmployee = (index) => {
-    setEditData(prev => ({
+    setEditData((prev) => ({
       ...prev,
-      ai_employees: (prev?.ai_employees || []).filter((_, i) => i !== index)
+      ai_employees: (prev?.ai_employees || []).filter((_, i) => i !== index),
     }));
   };
 
   const updateAIEmployee = (index, field, value) => {
-    setEditData(prev => ({
+    setEditData((prev) => ({
       ...prev,
-      ai_employees: (prev?.ai_employees || []).map((emp, i) => 
+      ai_employees: (prev?.ai_employees || []).map((emp, i) =>
         i === index ? { ...emp, [field]: value } : emp
-      )
+      ),
     }));
   };
 
   const updateIndustry = (industries) => {
-    setEditData(prev => ({
+    setEditData((prev) => ({
       ...prev,
       company_basics: {
         ...prev?.company_basics,
-        industry: industries
-      }
+        industry: industries,
+      },
     }));
   };
 
   const addChannel = (channel) => {
     if (channel && !editData?.deployment_targets?.channels?.includes(channel)) {
-      setEditData(prev => ({
+      setEditData((prev) => ({
         ...prev,
         deployment_targets: {
           ...prev?.deployment_targets,
-          channels: [...(prev?.deployment_targets?.channels || []), channel]
-        }
+          channels: [...(prev?.deployment_targets?.channels || []), channel],
+        },
       }));
     }
   };
 
   const removeChannel = (channel) => {
-    setEditData(prev => ({
+    setEditData((prev) => ({
       ...prev,
       deployment_targets: {
         ...prev?.deployment_targets,
-        channels: (prev?.deployment_targets?.channels || []).filter(c => c !== channel)
-      }
+        channels: (prev?.deployment_targets?.channels || []).filter(
+          (c) => c !== channel
+        ),
+      },
     }));
   };
 
@@ -436,7 +447,9 @@ const ClientManagement = () => {
     return (
       <div className="space-y-4 md:space-y-6 px-2 sm:px-0">
         {/* Header with Actions */}
-        <div className={`${currentTheme.cardBg} border ${currentTheme.border} rounded-xl p-4 md:p-6 shadow-xl`}>
+        <div
+          className={`${currentTheme.cardBg} border ${currentTheme.border} rounded-xl p-4 md:p-6 shadow-xl`}
+        >
           <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
             <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
               <button
@@ -446,19 +459,21 @@ const ClientManagement = () => {
                 <RiArrowLeftLine className="w-5 h-5" />
                 <span className="text-sm sm:text-base">Cancel</span>
               </button>
-              <h2 className={`text-xl md:text-2xl font-bold ${currentTheme.text} text-center sm:text-left`}>
-                Edit: {editData?.company_basics?.name || 'Client'}
+              <h2
+                className={`text-xl md:text-2xl font-bold ${currentTheme.text} text-center sm:text-left`}
+              >
+                Edit: {editData?.company_basics?.name || "Client"}
               </h2>
             </div>
             <div className="flex gap-2 sm:gap-3">
-              <button 
+              <button
                 onClick={handleCancelEdit}
                 className={`flex-1 sm:flex-none px-3 sm:px-4 py-2 border ${currentTheme.border} rounded-lg ${currentTheme.text} ${currentTheme.hover} transition-all duration-200 flex items-center justify-center gap-2 text-sm sm:text-base`}
               >
                 <RiCloseLine className="w-4 h-4" />
                 <span className="hidden sm:inline">Cancel</span>
               </button>
-              <button 
+              <button
                 onClick={handleSaveEdit}
                 className="flex-1 sm:flex-none admin-btn-primary px-3 sm:px-4 py-2 text-sm sm:text-base"
               >
@@ -472,35 +487,60 @@ const ClientManagement = () => {
         {/* Edit Form Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
           {/* Company Basics */}
-          <div className={`${currentTheme.cardBg} border ${currentTheme.border} rounded-xl p-4 md:p-6 shadow-xl`}>
-            <h3 className={`text-base md:text-lg font-bold ${currentTheme.text} mb-3 md:mb-4 flex items-center gap-2`}>
+          <div
+            className={`${currentTheme.cardBg} border ${currentTheme.border} rounded-xl p-4 md:p-6 shadow-xl`}
+          >
+            <h3
+              className={`text-base md:text-lg font-bold ${currentTheme.text} mb-3 md:mb-4 flex items-center gap-2`}
+            >
               <RiBuildingLine className="w-4 h-4 md:w-5 md:h-5" />
               Company Basics
             </h3>
             <div className="space-y-3 md:space-y-4">
               <div>
-                <label className={`text-xs ${currentTheme.textSecondary} uppercase block mb-2`}>Company Name *</label>
+                <label
+                  className={`text-xs ${currentTheme.textSecondary} uppercase block mb-2`}
+                >
+                  Company Name *
+                </label>
                 <input
                   type="text"
-                  value={editData?.company_basics?.name || ''}
-                  onChange={(e) => updateEditData('company_basics.name', e.target.value)}
+                  value={editData?.company_basics?.name || ""}
+                  onChange={(e) =>
+                    updateEditData("company_basics.name", e.target.value)
+                  }
                   className={`w-full px-3 md:px-4 py-2 text-sm md:text-base rounded-lg border ${currentTheme.border} ${currentTheme.cardBg} ${currentTheme.text} focus:outline-none focus:ring-2 focus:ring-blue-500/20`}
                 />
               </div>
               <div>
-                <label className={`text-xs ${currentTheme.textSecondary} uppercase block mb-2`}>Description</label>
+                <label
+                  className={`text-xs ${currentTheme.textSecondary} uppercase block mb-2`}
+                >
+                  Description
+                </label>
                 <textarea
-                  value={editData?.company_basics?.description || ''}
-                  onChange={(e) => updateEditData('company_basics.description', e.target.value)}
+                  value={editData?.company_basics?.description || ""}
+                  onChange={(e) =>
+                    updateEditData("company_basics.description", e.target.value)
+                  }
                   rows={3}
                   className={`w-full px-3 md:px-4 py-2 text-sm md:text-base rounded-lg border ${currentTheme.border} ${currentTheme.cardBg} ${currentTheme.text} focus:outline-none focus:ring-2 focus:ring-blue-500/20`}
                 />
               </div>
               <div>
-                <label className={`text-xs ${currentTheme.textSecondary} uppercase block mb-2`}>Company Size</label>
+                <label
+                  className={`text-xs ${currentTheme.textSecondary} uppercase block mb-2`}
+                >
+                  Company Size
+                </label>
                 <select
-                  value={editData?.company_basics?.company_size || ''}
-                  onChange={(e) => updateEditData('company_basics.company_size', e.target.value)}
+                  value={editData?.company_basics?.company_size || ""}
+                  onChange={(e) =>
+                    updateEditData(
+                      "company_basics.company_size",
+                      e.target.value
+                    )
+                  }
                   className={`w-full px-3 md:px-4 py-2 text-sm md:text-base rounded-lg border ${currentTheme.border} ${currentTheme.cardBg} ${currentTheme.text} focus:outline-none focus:ring-2 focus:ring-blue-500/20`}
                 >
                   <option value="1-10">1-10</option>
@@ -512,48 +552,92 @@ const ClientManagement = () => {
                 </select>
               </div>
               <div>
-                <label className={`text-xs ${currentTheme.textSecondary} uppercase block mb-2`}>Industry (comma separated)</label>
+                <label
+                  className={`text-xs ${currentTheme.textSecondary} uppercase block mb-2`}
+                >
+                  Industry (comma separated)
+                </label>
                 <input
                   type="text"
-                  value={(editData?.company_basics?.industry || []).join(', ')}
-                  onChange={(e) => updateIndustry(e.target.value.split(',').map(i => i.trim()).filter(i => i))}
+                  value={(editData?.company_basics?.industry || []).join(", ")}
+                  onChange={(e) =>
+                    updateIndustry(
+                      e.target.value
+                        .split(",")
+                        .map((i) => i.trim())
+                        .filter((i) => i)
+                    )
+                  }
                   className={`w-full px-3 md:px-4 py-2 text-sm md:text-base rounded-lg border ${currentTheme.border} ${currentTheme.cardBg} ${currentTheme.text} focus:outline-none focus:ring-2 focus:ring-blue-500/20`}
                   placeholder="Technology, SaaS"
                 />
               </div>
               <div>
-                <label className={`text-xs ${currentTheme.textSecondary} uppercase block mb-2`}>Website</label>
+                <label
+                  className={`text-xs ${currentTheme.textSecondary} uppercase block mb-2`}
+                >
+                  Website
+                </label>
                 <input
                   type="url"
-                  value={editData?.company_basics?.website || ''}
-                  onChange={(e) => updateEditData('company_basics.website', e.target.value)}
+                  value={editData?.company_basics?.website || ""}
+                  onChange={(e) =>
+                    updateEditData("company_basics.website", e.target.value)
+                  }
                   className={`w-full px-3 md:px-4 py-2 text-sm md:text-base rounded-lg border ${currentTheme.border} ${currentTheme.cardBg} ${currentTheme.text} focus:outline-none focus:ring-2 focus:ring-blue-500/20`}
                 />
               </div>
               <div>
-                <label className={`text-xs ${currentTheme.textSecondary} uppercase block mb-2`}>Company Email</label>
+                <label
+                  className={`text-xs ${currentTheme.textSecondary} uppercase block mb-2`}
+                >
+                  Company Email
+                </label>
                 <input
                   type="email"
-                  value={editData?.company_basics?.company_email || ''}
-                  onChange={(e) => updateEditData('company_basics.company_email', e.target.value)}
+                  value={editData?.company_basics?.company_email || ""}
+                  onChange={(e) =>
+                    updateEditData(
+                      "company_basics.company_email",
+                      e.target.value
+                    )
+                  }
                   className={`w-full px-3 md:px-4 py-2 text-sm md:text-base rounded-lg border ${currentTheme.border} ${currentTheme.cardBg} ${currentTheme.text} focus:outline-none focus:ring-2 focus:ring-blue-500/20`}
                 />
               </div>
               <div>
-                <label className={`text-xs ${currentTheme.textSecondary} uppercase block mb-2`}>Company Phone</label>
+                <label
+                  className={`text-xs ${currentTheme.textSecondary} uppercase block mb-2`}
+                >
+                  Company Phone
+                </label>
                 <input
                   type="tel"
-                  value={editData?.company_basics?.company_phone || ''}
-                  onChange={(e) => updateEditData('company_basics.company_phone', e.target.value)}
+                  value={editData?.company_basics?.company_phone || ""}
+                  onChange={(e) =>
+                    updateEditData(
+                      "company_basics.company_phone",
+                      e.target.value
+                    )
+                  }
                   className={`w-full px-3 md:px-4 py-2 text-sm md:text-base rounded-lg border ${currentTheme.border} ${currentTheme.cardBg} ${currentTheme.text} focus:outline-none focus:ring-2 focus:ring-blue-500/20`}
                 />
               </div>
               <div>
-                <label className={`text-xs ${currentTheme.textSecondary} uppercase block mb-2`}>LinkedIn Profile</label>
+                <label
+                  className={`text-xs ${currentTheme.textSecondary} uppercase block mb-2`}
+                >
+                  LinkedIn Profile
+                </label>
                 <input
                   type="url"
-                  value={editData?.company_basics?.linkedin_profile || ''}
-                  onChange={(e) => updateEditData('company_basics.linkedin_profile', e.target.value)}
+                  value={editData?.company_basics?.linkedin_profile || ""}
+                  onChange={(e) =>
+                    updateEditData(
+                      "company_basics.linkedin_profile",
+                      e.target.value
+                    )
+                  }
                   className={`w-full px-3 md:px-4 py-2 text-sm md:text-base rounded-lg border ${currentTheme.border} ${currentTheme.cardBg} ${currentTheme.text} focus:outline-none focus:ring-2 focus:ring-blue-500/20`}
                 />
               </div>
@@ -561,17 +645,27 @@ const ClientManagement = () => {
           </div>
 
           {/* Plan Details */}
-          <div className={`${currentTheme.cardBg} border ${currentTheme.border} rounded-xl p-4 md:p-6 shadow-xl`}>
-            <h3 className={`text-base md:text-lg font-bold ${currentTheme.text} mb-3 md:mb-4 flex items-center gap-2`}>
+          <div
+            className={`${currentTheme.cardBg} border ${currentTheme.border} rounded-xl p-4 md:p-6 shadow-xl`}
+          >
+            <h3
+              className={`text-base md:text-lg font-bold ${currentTheme.text} mb-3 md:mb-4 flex items-center gap-2`}
+            >
               <RiBankCardLine className="w-4 h-4 md:w-5 md:h-5" />
               Plan Details
             </h3>
             <div className="space-y-3 md:space-y-4">
               <div>
-                <label className={`text-xs ${currentTheme.textSecondary} uppercase block mb-2`}>Plan Type</label>
+                <label
+                  className={`text-xs ${currentTheme.textSecondary} uppercase block mb-2`}
+                >
+                  Plan Type
+                </label>
                 <select
-                  value={editData?.plan_details?.type || ''}
-                  onChange={(e) => updateEditData('plan_details.type', e.target.value)}
+                  value={editData?.plan_details?.type || ""}
+                  onChange={(e) =>
+                    updateEditData("plan_details.type", e.target.value)
+                  }
                   className={`w-full px-3 md:px-4 py-2 text-sm md:text-base rounded-lg border ${currentTheme.border} ${currentTheme.cardBg} ${currentTheme.text} focus:outline-none focus:ring-2 focus:ring-blue-500/20`}
                 >
                   <option value="Starter Plan">Starter Plan</option>
@@ -581,45 +675,80 @@ const ClientManagement = () => {
                 </select>
               </div>
               <div>
-                <label className={`text-xs ${currentTheme.textSecondary} uppercase block mb-2`}>Monthly Price ($)</label>
+                <label
+                  className={`text-xs ${currentTheme.textSecondary} uppercase block mb-2`}
+                >
+                  Monthly Price ($)
+                </label>
                 <input
                   type="number"
-                  value={editData?.plan_details?.monthly_price || ''}
-                  onChange={(e) => updateEditData('plan_details.monthly_price', parseFloat(e.target.value))}
+                  value={editData?.plan_details?.monthly_price || ""}
+                  onChange={(e) =>
+                    updateEditData(
+                      "plan_details.monthly_price",
+                      parseFloat(e.target.value)
+                    )
+                  }
                   className={`w-full px-3 md:px-4 py-2 text-sm md:text-base rounded-lg border ${currentTheme.border} ${currentTheme.cardBg} ${currentTheme.text} focus:outline-none focus:ring-2 focus:ring-blue-500/20`}
                 />
               </div>
               <div>
-                <label className={`text-xs ${currentTheme.textSecondary} uppercase block mb-2`}>AI Employee Limit</label>
+                <label
+                  className={`text-xs ${currentTheme.textSecondary} uppercase block mb-2`}
+                >
+                  AI Employee Limit
+                </label>
                 <input
                   type="number"
-                  value={editData?.plan_details?.ai_employee_limit || ''}
-                  onChange={(e) => updateEditData('plan_details.ai_employee_limit', parseInt(e.target.value))}
+                  value={editData?.plan_details?.ai_employee_limit || ""}
+                  onChange={(e) =>
+                    updateEditData(
+                      "plan_details.ai_employee_limit",
+                      parseInt(e.target.value)
+                    )
+                  }
                   className={`w-full px-3 md:px-4 py-2 text-sm md:text-base rounded-lg border ${currentTheme.border} ${currentTheme.cardBg} ${currentTheme.text} focus:outline-none focus:ring-2 focus:ring-blue-500/20`}
                 />
               </div>
-              
+
               <div className={`pt-4 border-t ${currentTheme.border}`}>
-                <h4 className={`text-sm font-bold ${currentTheme.text} mb-3`}>Billing Contact</h4>
+                <h4 className={`text-sm font-bold ${currentTheme.text} mb-3`}>
+                  Billing Contact
+                </h4>
                 <div className="space-y-3">
                   <input
                     type="text"
-                    value={editData?.plan_details?.billing_contact?.name || ''}
-                    onChange={(e) => updateEditData('plan_details.billing_contact.name', e.target.value)}
+                    value={editData?.plan_details?.billing_contact?.name || ""}
+                    onChange={(e) =>
+                      updateEditData(
+                        "plan_details.billing_contact.name",
+                        e.target.value
+                      )
+                    }
                     placeholder="Contact Name"
                     className={`w-full px-3 md:px-4 py-2 text-sm md:text-base rounded-lg border ${currentTheme.border} ${currentTheme.cardBg} ${currentTheme.text} focus:outline-none focus:ring-2 focus:ring-blue-500/20`}
                   />
                   <input
                     type="email"
-                    value={editData?.plan_details?.billing_contact?.email || ''}
-                    onChange={(e) => updateEditData('plan_details.billing_contact.email', e.target.value)}
+                    value={editData?.plan_details?.billing_contact?.email || ""}
+                    onChange={(e) =>
+                      updateEditData(
+                        "plan_details.billing_contact.email",
+                        e.target.value
+                      )
+                    }
                     placeholder="Contact Email"
                     className={`w-full px-3 md:px-4 py-2 text-sm md:text-base rounded-lg border ${currentTheme.border} ${currentTheme.cardBg} ${currentTheme.text} focus:outline-none focus:ring-2 focus:ring-blue-500/20`}
                   />
                   <input
                     type="tel"
-                    value={editData?.plan_details?.billing_contact?.phone || ''}
-                    onChange={(e) => updateEditData('plan_details.billing_contact.phone', e.target.value)}
+                    value={editData?.plan_details?.billing_contact?.phone || ""}
+                    onChange={(e) =>
+                      updateEditData(
+                        "plan_details.billing_contact.phone",
+                        e.target.value
+                      )
+                    }
                     placeholder="Contact Phone"
                     className={`w-full px-3 md:px-4 py-2 text-sm md:text-base rounded-lg border ${currentTheme.border} ${currentTheme.cardBg} ${currentTheme.text} focus:outline-none focus:ring-2 focus:ring-blue-500/20`}
                   />
@@ -627,27 +756,50 @@ const ClientManagement = () => {
               </div>
 
               <div className={`pt-4 border-t ${currentTheme.border}`}>
-                <h4 className={`text-sm font-bold ${currentTheme.text} mb-3`}>Billing Address</h4>
+                <h4 className={`text-sm font-bold ${currentTheme.text} mb-3`}>
+                  Billing Address
+                </h4>
                 <div className="space-y-3">
                   <input
                     type="text"
-                    value={editData?.plan_details?.billing_address?.street || ''}
-                    onChange={(e) => updateEditData('plan_details.billing_address.street', e.target.value)}
+                    value={
+                      editData?.plan_details?.billing_address?.street || ""
+                    }
+                    onChange={(e) =>
+                      updateEditData(
+                        "plan_details.billing_address.street",
+                        e.target.value
+                      )
+                    }
                     placeholder="Street Address"
                     className={`w-full px-3 md:px-4 py-2 text-sm md:text-base rounded-lg border ${currentTheme.border} ${currentTheme.cardBg} ${currentTheme.text} focus:outline-none focus:ring-2 focus:ring-blue-500/20`}
                   />
                   <div className="grid grid-cols-2 gap-3">
                     <input
                       type="text"
-                      value={editData?.plan_details?.billing_address?.city || ''}
-                      onChange={(e) => updateEditData('plan_details.billing_address.city', e.target.value)}
+                      value={
+                        editData?.plan_details?.billing_address?.city || ""
+                      }
+                      onChange={(e) =>
+                        updateEditData(
+                          "plan_details.billing_address.city",
+                          e.target.value
+                        )
+                      }
                       placeholder="City"
                       className={`w-full px-3 md:px-4 py-2 text-sm md:text-base rounded-lg border ${currentTheme.border} ${currentTheme.cardBg} ${currentTheme.text} focus:outline-none focus:ring-2 focus:ring-blue-500/20`}
                     />
                     <input
                       type="text"
-                      value={editData?.plan_details?.billing_address?.state || ''}
-                      onChange={(e) => updateEditData('plan_details.billing_address.state', e.target.value)}
+                      value={
+                        editData?.plan_details?.billing_address?.state || ""
+                      }
+                      onChange={(e) =>
+                        updateEditData(
+                          "plan_details.billing_address.state",
+                          e.target.value
+                        )
+                      }
                       placeholder="State"
                       className={`w-full px-3 md:px-4 py-2 text-sm md:text-base rounded-lg border ${currentTheme.border} ${currentTheme.cardBg} ${currentTheme.text} focus:outline-none focus:ring-2 focus:ring-blue-500/20`}
                     />
@@ -655,15 +807,30 @@ const ClientManagement = () => {
                   <div className="grid grid-cols-2 gap-3">
                     <input
                       type="text"
-                      value={editData?.plan_details?.billing_address?.postal_code || ''}
-                      onChange={(e) => updateEditData('plan_details.billing_address.postal_code', e.target.value)}
+                      value={
+                        editData?.plan_details?.billing_address?.postal_code ||
+                        ""
+                      }
+                      onChange={(e) =>
+                        updateEditData(
+                          "plan_details.billing_address.postal_code",
+                          e.target.value
+                        )
+                      }
                       placeholder="Postal Code"
                       className={`w-full px-3 md:px-4 py-2 text-sm md:text-base rounded-lg border ${currentTheme.border} ${currentTheme.cardBg} ${currentTheme.text} focus:outline-none focus:ring-2 focus:ring-blue-500/20`}
                     />
                     <input
                       type="text"
-                      value={editData?.plan_details?.billing_address?.country || ''}
-                      onChange={(e) => updateEditData('plan_details.billing_address.country', e.target.value)}
+                      value={
+                        editData?.plan_details?.billing_address?.country || ""
+                      }
+                      onChange={(e) =>
+                        updateEditData(
+                          "plan_details.billing_address.country",
+                          e.target.value
+                        )
+                      }
                       placeholder="Country"
                       className={`w-full px-3 md:px-4 py-2 text-sm md:text-base rounded-lg border ${currentTheme.border} ${currentTheme.cardBg} ${currentTheme.text} focus:outline-none focus:ring-2 focus:ring-blue-500/20`}
                     />
@@ -674,9 +841,13 @@ const ClientManagement = () => {
           </div>
 
           {/* AI Employees */}
-          <div className={`${currentTheme.cardBg} border ${currentTheme.border} rounded-xl p-4 md:p-6 shadow-xl lg:col-span-2`}>
+          <div
+            className={`${currentTheme.cardBg} border ${currentTheme.border} rounded-xl p-4 md:p-6 shadow-xl lg:col-span-2`}
+          >
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
-              <h3 className={`text-base md:text-lg font-bold ${currentTheme.text} flex items-center gap-2`}>
+              <h3
+                className={`text-base md:text-lg font-bold ${currentTheme.text} flex items-center gap-2`}
+              >
                 <RiUserVoiceLine className="w-4 h-4 md:w-5 md:h-5" />
                 AI Employees ({(editData?.ai_employees || []).length})
               </h3>
@@ -690,9 +861,14 @@ const ClientManagement = () => {
             </div>
             <div className="space-y-4">
               {(editData?.ai_employees || []).map((ai, idx) => (
-                <div key={idx} className={`p-4 rounded-lg border ${currentTheme.border} ${currentTheme.hover}`}>
+                <div
+                  key={idx}
+                  className={`p-4 rounded-lg border ${currentTheme.border} ${currentTheme.hover}`}
+                >
                   <div className="flex items-center justify-between mb-4">
-                    <h4 className={`${currentTheme.text} font-bold`}>AI Employee #{idx + 1}</h4>
+                    <h4 className={`${currentTheme.text} font-bold`}>
+                      AI Employee #{idx + 1}
+                    </h4>
                     {(editData?.ai_employees || []).length > 1 && (
                       <button
                         onClick={() => removeAIEmployee(idx)}
@@ -704,46 +880,80 @@ const ClientManagement = () => {
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                     <div>
-                      <label className={`text-xs ${currentTheme.textSecondary} uppercase block mb-1`}>Name</label>
+                      <label
+                        className={`text-xs ${currentTheme.textSecondary} uppercase block mb-1`}
+                      >
+                        Name
+                      </label>
                       <input
                         type="text"
-                        value={ai?.name || ''}
-                        onChange={(e) => updateAIEmployee(idx, 'name', e.target.value)}
+                        value={ai?.name || ""}
+                        onChange={(e) =>
+                          updateAIEmployee(idx, "name", e.target.value)
+                        }
                         className={`w-full px-3 py-2 rounded-lg border ${currentTheme.border} ${currentTheme.cardBg} ${currentTheme.text} text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20`}
                       />
                     </div>
                     <div>
-                      <label className={`text-xs ${currentTheme.textSecondary} uppercase block mb-1`}>Type</label>
+                      <label
+                        className={`text-xs ${currentTheme.textSecondary} uppercase block mb-1`}
+                      >
+                        Type
+                      </label>
                       <input
                         type="text"
-                        value={ai?.type || ''}
-                        onChange={(e) => updateAIEmployee(idx, 'type', e.target.value)}
+                        value={ai?.type || ""}
+                        onChange={(e) =>
+                          updateAIEmployee(idx, "type", e.target.value)
+                        }
                         className={`w-full px-3 py-2 rounded-lg border ${currentTheme.border} ${currentTheme.cardBg} ${currentTheme.text} text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20`}
                       />
                     </div>
                     <div>
-                      <label className={`text-xs ${currentTheme.textSecondary} uppercase block mb-1`}>Template</label>
+                      <label
+                        className={`text-xs ${currentTheme.textSecondary} uppercase block mb-1`}
+                      >
+                        Template
+                      </label>
                       <input
                         type="text"
-                        value={ai?.template || ''}
-                        onChange={(e) => updateAIEmployee(idx, 'template', e.target.value)}
+                        value={ai?.template || ""}
+                        onChange={(e) =>
+                          updateAIEmployee(idx, "template", e.target.value)
+                        }
                         className={`w-full px-3 py-2 rounded-lg border ${currentTheme.border} ${currentTheme.cardBg} ${currentTheme.text} text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20`}
                       />
                     </div>
                     <div>
-                      <label className={`text-xs ${currentTheme.textSecondary} uppercase block mb-1`}>Language</label>
+                      <label
+                        className={`text-xs ${currentTheme.textSecondary} uppercase block mb-1`}
+                      >
+                        Language
+                      </label>
                       <input
                         type="text"
-                        value={ai?.preferred_language || ''}
-                        onChange={(e) => updateAIEmployee(idx, 'preferred_language', e.target.value)}
+                        value={ai?.preferred_language || ""}
+                        onChange={(e) =>
+                          updateAIEmployee(
+                            idx,
+                            "preferred_language",
+                            e.target.value
+                          )
+                        }
                         className={`w-full px-3 py-2 rounded-lg border ${currentTheme.border} ${currentTheme.cardBg} ${currentTheme.text} text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20`}
                       />
                     </div>
                     <div>
-                      <label className={`text-xs ${currentTheme.textSecondary} uppercase block mb-1`}>Voice Gender</label>
+                      <label
+                        className={`text-xs ${currentTheme.textSecondary} uppercase block mb-1`}
+                      >
+                        Voice Gender
+                      </label>
                       <select
-                        value={ai?.voice_gender || ''}
-                        onChange={(e) => updateAIEmployee(idx, 'voice_gender', e.target.value)}
+                        value={ai?.voice_gender || ""}
+                        onChange={(e) =>
+                          updateAIEmployee(idx, "voice_gender", e.target.value)
+                        }
                         className={`w-full px-3 py-2 rounded-lg border ${currentTheme.border} ${currentTheme.cardBg} ${currentTheme.text} text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20`}
                       >
                         <option value="Male">Male</option>
@@ -752,19 +962,39 @@ const ClientManagement = () => {
                       </select>
                     </div>
                     <div>
-                      <label className={`text-xs ${currentTheme.textSecondary} uppercase block mb-1`}>Personality</label>
+                      <label
+                        className={`text-xs ${currentTheme.textSecondary} uppercase block mb-1`}
+                      >
+                        Personality
+                      </label>
                       <input
                         type="text"
-                        value={ai?.agent_personality || ''}
-                        onChange={(e) => updateAIEmployee(idx, 'agent_personality', e.target.value)}
+                        value={ai?.agent_personality || ""}
+                        onChange={(e) =>
+                          updateAIEmployee(
+                            idx,
+                            "agent_personality",
+                            e.target.value
+                          )
+                        }
                         className={`w-full px-3 py-2 rounded-lg border ${currentTheme.border} ${currentTheme.cardBg} ${currentTheme.text} text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20`}
                       />
                     </div>
                     <div className="md:col-span-2">
-                      <label className={`text-xs ${currentTheme.textSecondary} uppercase block mb-1`}>Special Instructions</label>
+                      <label
+                        className={`text-xs ${currentTheme.textSecondary} uppercase block mb-1`}
+                      >
+                        Special Instructions
+                      </label>
                       <textarea
-                        value={ai?.special_instructions || ''}
-                        onChange={(e) => updateAIEmployee(idx, 'special_instructions', e.target.value)}
+                        value={ai?.special_instructions || ""}
+                        onChange={(e) =>
+                          updateAIEmployee(
+                            idx,
+                            "special_instructions",
+                            e.target.value
+                          )
+                        }
                         rows={2}
                         className={`w-full px-3 py-2 rounded-lg border ${currentTheme.border} ${currentTheme.cardBg} ${currentTheme.text} text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20`}
                       />
@@ -776,35 +1006,68 @@ const ClientManagement = () => {
           </div>
 
           {/* Knowledge Sources */}
-          <div className={`${currentTheme.cardBg} border ${currentTheme.border} rounded-xl p-6 shadow-xl`}>
-            <h3 className={`text-lg font-bold ${currentTheme.text} mb-4 flex items-center gap-2`}>
+          <div
+            className={`${currentTheme.cardBg} border ${currentTheme.border} rounded-xl p-6 shadow-xl`}
+          >
+            <h3
+              className={`text-lg font-bold ${currentTheme.text} mb-4 flex items-center gap-2`}
+            >
               <RiBookOpenLine className="w-5 h-5" />
               Knowledge Sources
             </h3>
             <div className="space-y-4">
               <div>
-                <label className={`text-xs ${currentTheme.textSecondary} uppercase block mb-2`}>Website URL</label>
+                <label
+                  className={`text-xs ${currentTheme.textSecondary} uppercase block mb-2`}
+                >
+                  Website URL
+                </label>
                 <input
                   type="url"
-                  value={editData?.knowledge_sources?.website_url || ''}
-                  onChange={(e) => updateEditData('knowledge_sources.website_url', e.target.value)}
+                  value={editData?.knowledge_sources?.website_url || ""}
+                  onChange={(e) =>
+                    updateEditData(
+                      "knowledge_sources.website_url",
+                      e.target.value
+                    )
+                  }
                   className={`w-full px-4 py-2 rounded-lg border ${currentTheme.border} ${currentTheme.cardBg} ${currentTheme.text} focus:outline-none focus:ring-2 focus:ring-blue-500/20`}
                 />
               </div>
               <div>
-                <label className={`text-xs ${currentTheme.textSecondary} uppercase block mb-2`}>LinkedIn</label>
+                <label
+                  className={`text-xs ${currentTheme.textSecondary} uppercase block mb-2`}
+                >
+                  LinkedIn
+                </label>
                 <input
                   type="url"
-                  value={editData?.knowledge_sources?.social_links?.linkedin || ''}
-                  onChange={(e) => updateEditData('knowledge_sources.social_links.linkedin', e.target.value)}
+                  value={
+                    editData?.knowledge_sources?.social_links?.linkedin || ""
+                  }
+                  onChange={(e) =>
+                    updateEditData(
+                      "knowledge_sources.social_links.linkedin",
+                      e.target.value
+                    )
+                  }
                   className={`w-full px-4 py-2 rounded-lg border ${currentTheme.border} ${currentTheme.cardBg} ${currentTheme.text} focus:outline-none focus:ring-2 focus:ring-blue-500/20`}
                 />
               </div>
               <div>
-                <label className={`text-xs ${currentTheme.textSecondary} uppercase block mb-2`}>FAQs</label>
+                <label
+                  className={`text-xs ${currentTheme.textSecondary} uppercase block mb-2`}
+                >
+                  FAQs
+                </label>
                 <textarea
-                  value={editData?.knowledge_sources?.faqs_text || ''}
-                  onChange={(e) => updateEditData('knowledge_sources.faqs_text', e.target.value)}
+                  value={editData?.knowledge_sources?.faqs_text || ""}
+                  onChange={(e) =>
+                    updateEditData(
+                      "knowledge_sources.faqs_text",
+                      e.target.value
+                    )
+                  }
                   rows={4}
                   className={`w-full px-4 py-2 rounded-lg border ${currentTheme.border} ${currentTheme.cardBg} ${currentTheme.text} focus:outline-none focus:ring-2 focus:ring-blue-500/20`}
                   placeholder="Q: Question?\nA: Answer"
@@ -814,44 +1077,75 @@ const ClientManagement = () => {
           </div>
 
           {/* Instructions & Targets */}
-          <div className={`${currentTheme.cardBg} border ${currentTheme.border} rounded-xl p-6 shadow-xl`}>
-            <h3 className={`text-lg font-bold ${currentTheme.text} mb-4 flex items-center gap-2`}>
+          <div
+            className={`${currentTheme.cardBg} border ${currentTheme.border} rounded-xl p-6 shadow-xl`}
+          >
+            <h3
+              className={`text-lg font-bold ${currentTheme.text} mb-4 flex items-center gap-2`}
+            >
               <RiLightbulbLine className="w-5 h-5" />
               Instructions & Targets
             </h3>
             <div className="space-y-4">
               <div>
-                <label className={`text-xs ${currentTheme.textSecondary} uppercase block mb-2`}>Do's and Don'ts</label>
+                <label
+                  className={`text-xs ${currentTheme.textSecondary} uppercase block mb-2`}
+                >
+                  Do's and Don'ts
+                </label>
                 <textarea
-                  value={editData?.instructions?.dos_and_donts || ''}
-                  onChange={(e) => updateEditData('instructions.dos_and_donts', e.target.value)}
+                  value={editData?.instructions?.dos_and_donts || ""}
+                  onChange={(e) =>
+                    updateEditData("instructions.dos_and_donts", e.target.value)
+                  }
                   rows={3}
                   className={`w-full px-4 py-2 rounded-lg border ${currentTheme.border} ${currentTheme.cardBg} ${currentTheme.text} focus:outline-none focus:ring-2 focus:ring-blue-500/20`}
                 />
               </div>
               <div>
-                <label className={`text-xs ${currentTheme.textSecondary} uppercase block mb-2`}>Fallback Contacts</label>
+                <label
+                  className={`text-xs ${currentTheme.textSecondary} uppercase block mb-2`}
+                >
+                  Fallback Contacts
+                </label>
                 <input
                   type="text"
-                  value={editData?.instructions?.fallback_contacts || ''}
-                  onChange={(e) => updateEditData('instructions.fallback_contacts', e.target.value)}
+                  value={editData?.instructions?.fallback_contacts || ""}
+                  onChange={(e) =>
+                    updateEditData(
+                      "instructions.fallback_contacts",
+                      e.target.value
+                    )
+                  }
                   className={`w-full px-4 py-2 rounded-lg border ${currentTheme.border} ${currentTheme.cardBg} ${currentTheme.text} focus:outline-none focus:ring-2 focus:ring-blue-500/20`}
                 />
               </div>
               <div>
-                <label className={`text-xs ${currentTheme.textSecondary} uppercase block mb-2`}>Success Goals</label>
+                <label
+                  className={`text-xs ${currentTheme.textSecondary} uppercase block mb-2`}
+                >
+                  Success Goals
+                </label>
                 <textarea
-                  value={editData?.targets?.success_goals || ''}
-                  onChange={(e) => updateEditData('targets.success_goals', e.target.value)}
+                  value={editData?.targets?.success_goals || ""}
+                  onChange={(e) =>
+                    updateEditData("targets.success_goals", e.target.value)
+                  }
                   rows={2}
                   className={`w-full px-4 py-2 rounded-lg border ${currentTheme.border} ${currentTheme.cardBg} ${currentTheme.text} focus:outline-none focus:ring-2 focus:ring-blue-500/20`}
                 />
               </div>
               <div>
-                <label className={`text-xs ${currentTheme.textSecondary} uppercase block mb-2`}>Success Metrics</label>
+                <label
+                  className={`text-xs ${currentTheme.textSecondary} uppercase block mb-2`}
+                >
+                  Success Metrics
+                </label>
                 <textarea
-                  value={editData?.targets?.success_metrics || ''}
-                  onChange={(e) => updateEditData('targets.success_metrics', e.target.value)}
+                  value={editData?.targets?.success_metrics || ""}
+                  onChange={(e) =>
+                    updateEditData("targets.success_metrics", e.target.value)
+                  }
                   rows={2}
                   className={`w-full px-4 py-2 rounded-lg border ${currentTheme.border} ${currentTheme.cardBg} ${currentTheme.text} focus:outline-none focus:ring-2 focus:ring-blue-500/20`}
                 />
@@ -860,29 +1154,42 @@ const ClientManagement = () => {
           </div>
 
           {/* Deployment */}
-          <div className={`${currentTheme.cardBg} border ${currentTheme.border} rounded-xl p-6 shadow-xl lg:col-span-2`}>
-            <h3 className={`text-lg font-bold ${currentTheme.text} mb-4 flex items-center gap-2`}>
+          <div
+            className={`${currentTheme.cardBg} border ${currentTheme.border} rounded-xl p-6 shadow-xl lg:col-span-2`}
+          >
+            <h3
+              className={`text-lg font-bold ${currentTheme.text} mb-4 flex items-center gap-2`}
+            >
               <RiRocketLine className="w-5 h-5" />
               Deployment
             </h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className={`text-xs ${currentTheme.textSecondary} uppercase block mb-2`}>Channels</label>
+                <label
+                  className={`text-xs ${currentTheme.textSecondary} uppercase block mb-2`}
+                >
+                  Channels
+                </label>
                 <div className="flex flex-wrap gap-2 mb-2">
-                  {(editData?.deployment_targets?.channels || []).map((channel, idx) => (
-                    <span
-                      key={idx}
-                      className={`px-3 py-1 rounded-full text-sm font-medium ${currentTheme.activeBg} ${currentTheme.text} flex items-center gap-2`}
-                    >
-                      {channel}
-                      <button onClick={() => removeChannel(channel)}>
-                        <RiCloseLine className="w-4 h-4" />
-                      </button>
-                    </span>
-                  ))}
+                  {(editData?.deployment_targets?.channels || []).map(
+                    (channel, idx) => (
+                      <span
+                        key={idx}
+                        className={`px-3 py-1 rounded-full text-sm font-medium ${currentTheme.activeBg} ${currentTheme.text} flex items-center gap-2`}
+                      >
+                        {channel}
+                        <button onClick={() => removeChannel(channel)}>
+                          <RiCloseLine className="w-4 h-4" />
+                        </button>
+                      </span>
+                    )
+                  )}
                 </div>
                 <select
-                  onChange={(e) => { addChannel(e.target.value); e.target.value = ''; }}
+                  onChange={(e) => {
+                    addChannel(e.target.value);
+                    e.target.value = "";
+                  }}
                   className={`w-full px-4 py-2 rounded-lg border ${currentTheme.border} ${currentTheme.cardBg} ${currentTheme.text} focus:outline-none focus:ring-2 focus:ring-blue-500/20`}
                 >
                   <option value="">Add Channel...</option>
@@ -894,19 +1201,37 @@ const ClientManagement = () => {
                 </select>
               </div>
               <div>
-                <label className={`text-xs ${currentTheme.textSecondary} uppercase block mb-2`}>Service Type</label>
+                <label
+                  className={`text-xs ${currentTheme.textSecondary} uppercase block mb-2`}
+                >
+                  Service Type
+                </label>
                 <input
                   type="text"
-                  value={editData?.deployment_service?.service_type || ''}
-                  onChange={(e) => updateEditData('deployment_service.service_type', e.target.value)}
+                  value={editData?.deployment_service?.service_type || ""}
+                  onChange={(e) =>
+                    updateEditData(
+                      "deployment_service.service_type",
+                      e.target.value
+                    )
+                  }
                   className={`w-full px-4 py-2 rounded-lg border ${currentTheme.border} ${currentTheme.cardBg} ${currentTheme.text} focus:outline-none focus:ring-2 focus:ring-blue-500/20`}
                 />
               </div>
               <div className="md:col-span-2">
-                <label className={`text-xs ${currentTheme.textSecondary} uppercase block mb-2`}>Deployment Notes</label>
+                <label
+                  className={`text-xs ${currentTheme.textSecondary} uppercase block mb-2`}
+                >
+                  Deployment Notes
+                </label>
                 <textarea
-                  value={editData?.deployment_targets?.deployment_notes || ''}
-                  onChange={(e) => updateEditData('deployment_targets.deployment_notes', e.target.value)}
+                  value={editData?.deployment_targets?.deployment_notes || ""}
+                  onChange={(e) =>
+                    updateEditData(
+                      "deployment_targets.deployment_notes",
+                      e.target.value
+                    )
+                  }
                   rows={3}
                   className={`w-full px-4 py-2 rounded-lg border ${currentTheme.border} ${currentTheme.cardBg} ${currentTheme.text} focus:outline-none focus:ring-2 focus:ring-blue-500/20`}
                 />
@@ -915,18 +1240,33 @@ const ClientManagement = () => {
           </div>
 
           {/* Consent Options */}
-          <div className={`${currentTheme.cardBg} border ${currentTheme.border} rounded-xl p-6 shadow-xl lg:col-span-2`}>
-            <h3 className={`text-lg font-bold ${currentTheme.text} mb-4`}>Consent & Privacy</h3>
+          <div
+            className={`${currentTheme.cardBg} border ${currentTheme.border} rounded-xl p-6 shadow-xl lg:col-span-2`}
+          >
+            <h3 className={`text-lg font-bold ${currentTheme.text} mb-4`}>
+              Consent & Privacy
+            </h3>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className={`p-4 rounded-lg border ${currentTheme.border}`}>
-                <label className={`text-xs ${currentTheme.textSecondary} uppercase block mb-2`}>Recording Enabled</label>
+                <label
+                  className={`text-xs ${currentTheme.textSecondary} uppercase block mb-2`}
+                >
+                  Recording Enabled
+                </label>
                 <div className="flex items-center gap-4">
                   <label className="flex items-center gap-2 cursor-pointer">
                     <input
                       type="radio"
                       name="recording"
-                      checked={editData?.consent_options?.recording_enabled === true}
-                      onChange={() => updateEditData('consent_options.recording_enabled', true)}
+                      checked={
+                        editData?.consent_options?.recording_enabled === true
+                      }
+                      onChange={() =>
+                        updateEditData(
+                          "consent_options.recording_enabled",
+                          true
+                        )
+                      }
                       className="w-4 h-4"
                     />
                     <span className={currentTheme.text}>Yes</span>
@@ -935,8 +1275,15 @@ const ClientManagement = () => {
                     <input
                       type="radio"
                       name="recording"
-                      checked={editData?.consent_options?.recording_enabled === false}
-                      onChange={() => updateEditData('consent_options.recording_enabled', false)}
+                      checked={
+                        editData?.consent_options?.recording_enabled === false
+                      }
+                      onChange={() =>
+                        updateEditData(
+                          "consent_options.recording_enabled",
+                          false
+                        )
+                      }
                       className="w-4 h-4"
                     />
                     <span className={currentTheme.text}>No</span>
@@ -944,14 +1291,26 @@ const ClientManagement = () => {
                 </div>
               </div>
               <div className={`p-4 rounded-lg border ${currentTheme.border}`}>
-                <label className={`text-xs ${currentTheme.textSecondary} uppercase block mb-2`}>Transcript Email Opt-in</label>
+                <label
+                  className={`text-xs ${currentTheme.textSecondary} uppercase block mb-2`}
+                >
+                  Transcript Email Opt-in
+                </label>
                 <div className="flex items-center gap-4">
                   <label className="flex items-center gap-2 cursor-pointer">
                     <input
                       type="radio"
                       name="transcript"
-                      checked={editData?.consent_options?.transcript_email_optin === true}
-                      onChange={() => updateEditData('consent_options.transcript_email_optin', true)}
+                      checked={
+                        editData?.consent_options?.transcript_email_optin ===
+                        true
+                      }
+                      onChange={() =>
+                        updateEditData(
+                          "consent_options.transcript_email_optin",
+                          true
+                        )
+                      }
                       className="w-4 h-4"
                     />
                     <span className={currentTheme.text}>Yes</span>
@@ -960,8 +1319,16 @@ const ClientManagement = () => {
                     <input
                       type="radio"
                       name="transcript"
-                      checked={editData?.consent_options?.transcript_email_optin === false}
-                      onChange={() => updateEditData('consent_options.transcript_email_optin', false)}
+                      checked={
+                        editData?.consent_options?.transcript_email_optin ===
+                        false
+                      }
+                      onChange={() =>
+                        updateEditData(
+                          "consent_options.transcript_email_optin",
+                          false
+                        )
+                      }
                       className="w-4 h-4"
                     />
                     <span className={currentTheme.text}>No</span>
@@ -969,11 +1336,20 @@ const ClientManagement = () => {
                 </div>
               </div>
               <div className={`p-4 rounded-lg border ${currentTheme.border}`}>
-                <label className={`text-xs ${currentTheme.textSecondary} uppercase block mb-2`}>Privacy Notes</label>
+                <label
+                  className={`text-xs ${currentTheme.textSecondary} uppercase block mb-2`}
+                >
+                  Privacy Notes
+                </label>
                 <input
                   type="text"
-                  value={editData?.consent_options?.privacy_notes || ''}
-                  onChange={(e) => updateEditData('consent_options.privacy_notes', e.target.value)}
+                  value={editData?.consent_options?.privacy_notes || ""}
+                  onChange={(e) =>
+                    updateEditData(
+                      "consent_options.privacy_notes",
+                      e.target.value
+                    )
+                  }
                   className={`w-full px-3 py-2 rounded-lg border ${currentTheme.border} ${currentTheme.cardBg} ${currentTheme.text} text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20`}
                 />
               </div>
@@ -982,19 +1358,23 @@ const ClientManagement = () => {
         </div>
 
         {/* Sticky Save Bar */}
-        <div className={`${currentTheme.cardBg} border ${currentTheme.border} rounded-xl p-3 md:p-4 shadow-xl sticky bottom-4 z-10`}>
+        <div
+          className={`${currentTheme.cardBg} border ${currentTheme.border} rounded-xl p-3 md:p-4 shadow-xl sticky bottom-4 z-10`}
+        >
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-            <p className={`${currentTheme.textSecondary} text-xs sm:text-sm text-center sm:text-left`}>
+            <p
+              className={`${currentTheme.textSecondary} text-xs sm:text-sm text-center sm:text-left`}
+            >
               Make sure all required fields are filled before saving
             </p>
             <div className="flex gap-2 sm:gap-3">
-              <button 
+              <button
                 onClick={handleCancelEdit}
                 className={`flex-1 sm:flex-none px-4 sm:px-6 py-2 border ${currentTheme.border} rounded-lg ${currentTheme.text} ${currentTheme.hover} transition-all duration-200 text-sm`}
               >
                 Cancel
               </button>
-              <button 
+              <button
                 onClick={handleSaveEdit}
                 className="flex-1 sm:flex-none admin-btn-primary px-4 sm:px-6 py-2 text-sm"
               >
@@ -1022,9 +1402,13 @@ const ClientManagement = () => {
 
         {/* Loading indicator for onboarding data */}
         {loading && (
-          <div className={`${currentTheme.cardBg} border ${currentTheme.border} rounded-xl p-4 md:p-6 shadow-xl`}>
+          <div
+            className={`${currentTheme.cardBg} border ${currentTheme.border} rounded-xl p-4 md:p-6 shadow-xl`}
+          >
             <div className={`flex items-center justify-center py-8`}>
-              <div className={`${currentTheme.text} text-sm flex items-center gap-3`}>
+              <div
+                className={`${currentTheme.text} text-sm flex items-center gap-3`}
+              >
                 <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-500"></div>
                 Loading detailed client data...
               </div>
@@ -1034,8 +1418,12 @@ const ClientManagement = () => {
 
         {/* Error indicator for onboarding data */}
         {error && (
-          <div className={`${currentTheme.cardBg} border border-red-300 bg-red-50 dark:bg-red-900/20 rounded-xl p-4 md:p-6`}>
-            <div className={`flex items-center gap-3 text-red-600 dark:text-red-400`}>
+          <div
+            className={`${currentTheme.cardBg} border border-red-300 bg-red-50 dark:bg-red-900/20 rounded-xl p-4 md:p-6`}
+          >
+            <div
+              className={`flex items-center gap-3 text-red-600 dark:text-red-400`}
+            >
               <RiAlarmWarningLine className="w-5 h-5" />
               <span className="text-sm">{error}</span>
             </div>
@@ -1043,40 +1431,51 @@ const ClientManagement = () => {
         )}
 
         {/* Client Details Header */}
-        <div className={`${currentTheme.cardBg} border ${currentTheme.border} rounded-xl p-4 md:p-6 shadow-xl`}>
+        <div
+          className={`${currentTheme.cardBg} border ${currentTheme.border} rounded-xl p-4 md:p-6 shadow-xl`}
+        >
           <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between mb-4 md:mb-6">
             <div className="flex flex-col sm:flex-row items-center sm:items-start gap-4">
-              <div className={`w-14 h-14 md:w-16 md:h-16 ${currentTheme.activeBg} rounded-full flex items-center justify-center flex-shrink-0`}>
-                <RiBuildingLine className={`w-7 h-7 md:w-8 md:h-8 ${currentTheme.text}`} />
+              <div
+                className={`w-14 h-14 md:w-16 md:h-16 ${currentTheme.activeBg} rounded-full flex items-center justify-center flex-shrink-0`}
+              >
+                <RiBuildingLine
+                  className={`w-7 h-7 md:w-8 md:h-8 ${currentTheme.text}`}
+                />
               </div>
               <div className="text-center sm:text-left">
-                <h2 className={`text-xl md:text-2xl font-bold ${currentTheme.text} mb-1`}>
-                  {selectedClient.company_basics?.name || 'Unknown Company'}
+                <h2
+                  className={`text-xl md:text-2xl font-bold ${currentTheme.text} mb-1`}
+                >
+                  {selectedClient.company_basics?.name || "Unknown Company"}
                 </h2>
                 <p className={`${currentTheme.textSecondary} text-sm`}>
-                  {selectedClient.company_basics?.description || 'No description available'}
+                  {selectedClient.company_basics?.description ||
+                    "No description available"}
                 </p>
                 <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2 mt-2">
-                  {(selectedClient.company_basics?.industry || []).map((ind, idx) => (
-                    <span
-                      key={idx}
-                      className={`px-2 py-1 rounded text-xs font-medium ${currentTheme.activeBg} ${currentTheme.text}`}
-                    >
-                      {ind}
-                    </span>
-                  ))}
+                  {(selectedClient.company_basics?.industry || []).map(
+                    (ind, idx) => (
+                      <span
+                        key={idx}
+                        className={`px-2 py-1 rounded text-xs font-medium ${currentTheme.activeBg} ${currentTheme.text}`}
+                      >
+                        {ind}
+                      </span>
+                    )
+                  )}
                 </div>
               </div>
             </div>
             <div className="flex items-center justify-center gap-3 w-full md:w-auto">
               <span
                 className={`px-3 md:px-4 py-2 rounded-full text-xs md:text-sm font-medium ${
-                  selectedClient?.isOnBoarded 
-                    ? 'bg-green-100 text-green-800 border-green-200' 
-                    : 'bg-yellow-100 text-yellow-800 border-yellow-200'
+                  selectedClient?.isOnBoarded
+                    ? "bg-green-100 text-green-800 border-green-200"
+                    : "bg-yellow-100 text-yellow-800 border-yellow-200"
                 }`}
               >
-                {selectedClient?.isOnBoarded ? 'Onboarded' : 'Pending'}
+                {selectedClient?.isOnBoarded ? "Onboarded" : "Pending"}
               </span>
             </div>
           </div>
@@ -1087,11 +1486,13 @@ const ClientManagement = () => {
               <RiCheckLine className="w-4 h-4" />
               <span className="ml-2">Approve</span>
             </button>
-            <button className={`px-4 py-2 border ${currentTheme.border} rounded-lg ${currentTheme.text} ${currentTheme.hover} transition-all duration-200 flex items-center justify-center gap-2 w-full sm:w-auto`}>
+            <button
+              className={`px-4 py-2 border ${currentTheme.border} rounded-lg ${currentTheme.text} ${currentTheme.hover} transition-all duration-200 flex items-center justify-center gap-2 w-full sm:w-auto`}
+            >
               <RiCloseLine className="w-4 h-4" />
               Reject
             </button>
-            <button 
+            <button
               onClick={() => handleEditClient(selectedClient)}
               className={`px-4 py-2 ${currentTheme.border} border rounded-lg ${currentTheme.text} ${currentTheme.hover} transition-all duration-200 flex items-center justify-center gap-2 w-full sm:w-auto`}
             >
@@ -1101,48 +1502,93 @@ const ClientManagement = () => {
           </div>
         </div>
 
-        {console.log('Rendering detail view for client:', selectedClient)}
+        {console.log("Rendering detail view for client:", selectedClient)}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
           {/* Company Basics */}
-          <div className={`${currentTheme.cardBg} border ${currentTheme.border} rounded-xl p-4 md:p-6 shadow-xl`}>
-            <h3 className={`text-base md:text-lg font-bold ${currentTheme.text} mb-3 md:mb-4 flex items-center gap-2`}>
+          <div
+            className={`${currentTheme.cardBg} border ${currentTheme.border} rounded-xl p-4 md:p-6 shadow-xl`}
+          >
+            <h3
+              className={`text-base md:text-lg font-bold ${currentTheme.text} mb-3 md:mb-4 flex items-center gap-2`}
+            >
               <RiBuildingLine className="w-4 h-4 md:w-5 md:h-5" />
               Company Basics
             </h3>
             <div className="space-y-3">
               <div>
-                <label className={`text-xs ${currentTheme.textSecondary} uppercase`}>Company Size</label>
-                <p className={`${currentTheme.text} font-medium`}>{selectedClient.company_basics?.company_size || 'Not specified'}</p>
+                <label
+                  className={`text-xs ${currentTheme.textSecondary} uppercase`}
+                >
+                  Company Size
+                </label>
+                <p className={`${currentTheme.text} font-medium`}>
+                  {selectedClient.company_basics?.company_size ||
+                    "Not specified"}
+                </p>
               </div>
               <div>
-                <label className={`text-xs ${currentTheme.textSecondary} uppercase`}>Website</label>
+                <label
+                  className={`text-xs ${currentTheme.textSecondary} uppercase`}
+                >
+                  Website
+                </label>
                 {selectedClient.company_basics?.website ? (
-                  <a href={selectedClient?.company_basics?.website} target="_blank" rel="noopener noreferrer" className={`${currentTheme.text} hover:underline flex items-center gap-1`}>
+                  <a
+                    href={selectedClient?.company_basics?.website}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className={`${currentTheme.text} hover:underline flex items-center gap-1`}
+                  >
                     <RiGlobalLine className="w-4 h-4" />
                     {selectedClient?.company_basics?.website}
                   </a>
                 ) : (
-                  <p className={`${currentTheme.textSecondary}`}>Not provided</p>
+                  <p className={`${currentTheme.textSecondary}`}>
+                    Not provided
+                  </p>
                 )}
               </div>
               <div>
-                <label className={`text-xs ${currentTheme.textSecondary} uppercase`}>Email</label>
-                <p className={`${currentTheme.text} font-medium flex items-center gap-1`}>
+                <label
+                  className={`text-xs ${currentTheme.textSecondary} uppercase`}
+                >
+                  Email
+                </label>
+                <p
+                  className={`${currentTheme.text} font-medium flex items-center gap-1`}
+                >
                   <RiMailLine className="w-4 h-4" />
-                  {selectedClient.company_basics?.company_email || 'Not provided'}
+                  {selectedClient.company_basics?.company_email ||
+                    "Not provided"}
                 </p>
               </div>
               <div>
-                <label className={`text-xs ${currentTheme.textSecondary} uppercase`}>Phone</label>
-                <p className={`${currentTheme.text} font-medium flex items-center gap-1`}>
+                <label
+                  className={`text-xs ${currentTheme.textSecondary} uppercase`}
+                >
+                  Phone
+                </label>
+                <p
+                  className={`${currentTheme.text} font-medium flex items-center gap-1`}
+                >
                   <RiPhoneLine className="w-4 h-4" />
-                  {selectedClient.company_basics?.company_phone || 'Not provided'}
+                  {selectedClient.company_basics?.company_phone ||
+                    "Not provided"}
                 </p>
               </div>
               {selectedClient.company_basics?.linkedin_profile && (
                 <div>
-                  <label className={`text-xs ${currentTheme.textSecondary} uppercase`}>LinkedIn</label>
-                  <a href={selectedClient?.company_basics?.linkedin_profile} target="_blank" rel="noopener noreferrer" className={`${currentTheme.text} hover:underline flex items-center gap-1`}>
+                  <label
+                    className={`text-xs ${currentTheme.textSecondary} uppercase`}
+                  >
+                    LinkedIn
+                  </label>
+                  <a
+                    href={selectedClient?.company_basics?.linkedin_profile}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className={`${currentTheme.text} hover:underline flex items-center gap-1`}
+                  >
                     <RiLinkedinLine className="w-4 h-4" />
                     LinkedIn Profile
                   </a>
@@ -1152,38 +1598,92 @@ const ClientManagement = () => {
           </div>
 
           {/* Plan Details */}
-          <div className={`${currentTheme.cardBg} border ${currentTheme.border} rounded-xl p-4 md:p-6 shadow-xl`}>
-            <h3 className={`text-base md:text-lg font-bold ${currentTheme.text} mb-3 md:mb-4 flex items-center gap-2`}>
+          <div
+            className={`${currentTheme.cardBg} border ${currentTheme.border} rounded-xl p-4 md:p-6 shadow-xl`}
+          >
+            <h3
+              className={`text-base md:text-lg font-bold ${currentTheme.text} mb-3 md:mb-4 flex items-center gap-2`}
+            >
               <RiBankCardLine className="w-4 h-4 md:w-5 md:h-5" />
               Plan Details
             </h3>
             <div className="space-y-3">
               <div>
-                <label className={`text-xs ${currentTheme.textSecondary} uppercase`}>Plan Type</label>
-                <p className={`${currentTheme.text} font-medium text-lg`}>{selectedClient.plan_details?.type || 'Not selected'}</p>
+                <label
+                  className={`text-xs ${currentTheme.textSecondary} uppercase`}
+                >
+                  Plan Type
+                </label>
+                <p className={`${currentTheme.text} font-medium text-lg`}>
+                  {selectedClient.plan_details?.type || "Not selected"}
+                </p>
               </div>
               <div>
-                <label className={`text-xs ${currentTheme.textSecondary} uppercase`}>Monthly Price</label>
-                <p className={`${currentTheme.text} font-bold text-xl md:text-2xl`}>${selectedClient.plan_details?.monthly_price || 0}/mo</p>
+                <label
+                  className={`text-xs ${currentTheme.textSecondary} uppercase`}
+                >
+                  Monthly Price
+                </label>
+                <p
+                  className={`${currentTheme.text} font-bold text-xl md:text-2xl`}
+                >
+                  ${selectedClient.plan_details?.monthly_price || 0}/mo
+                </p>
               </div>
               <div>
-                <label className={`text-xs ${currentTheme.textSecondary} uppercase`}>AI Employee Limit</label>
-                <p className={`${currentTheme.text} font-medium`}>{selectedClient.plan_details?.ai_employee_limit || 0} AI Employees</p>
+                <label
+                  className={`text-xs ${currentTheme.textSecondary} uppercase`}
+                >
+                  AI Employee Limit
+                </label>
+                <p className={`${currentTheme.text} font-medium`}>
+                  {selectedClient.plan_details?.ai_employee_limit || 0} AI
+                  Employees
+                </p>
               </div>
               <div className="pt-3 border-t border-gray-200 dark:border-gray-700">
-                <label className={`text-xs ${currentTheme.textSecondary} uppercase mb-2 block`}>Billing Contact</label>
-                <p className={`${currentTheme.text} font-medium`}>{selectedClient.plan_details?.billing_contact?.name || 'Not provided'}</p>
-                <p className={`${currentTheme.textSecondary} text-sm`}>{selectedClient.plan_details?.billing_contact?.email || 'Not provided'}</p>
-                <p className={`${currentTheme.textSecondary} text-sm`}>{selectedClient.plan_details?.billing_contact?.phone || 'Not provided'}</p>
+                <label
+                  className={`text-xs ${currentTheme.textSecondary} uppercase mb-2 block`}
+                >
+                  Billing Contact
+                </label>
+                <p className={`${currentTheme.text} font-medium`}>
+                  {selectedClient.plan_details?.billing_contact?.name ||
+                    "Not provided"}
+                </p>
+                <p className={`${currentTheme.textSecondary} text-sm`}>
+                  {selectedClient.plan_details?.billing_contact?.email ||
+                    "Not provided"}
+                </p>
+                <p className={`${currentTheme.textSecondary} text-sm`}>
+                  {selectedClient.plan_details?.billing_contact?.phone ||
+                    "Not provided"}
+                </p>
               </div>
               <div>
-                <label className={`text-xs ${currentTheme.textSecondary} uppercase mb-2 block`}>Billing Address</label>
-                <p className={`${currentTheme.text} text-sm flex items-start gap-1`}>
+                <label
+                  className={`text-xs ${currentTheme.textSecondary} uppercase mb-2 block`}
+                >
+                  Billing Address
+                </label>
+                <p
+                  className={`${currentTheme.text} text-sm flex items-start gap-1`}
+                >
                   <RiMapPinLine className="w-4 h-4 mt-0.5" />
                   <span>
-                    {selectedClient.plan_details?.billing_address?.street || 'Not provided'}<br />
-                    {selectedClient.plan_details?.billing_address?.city || 'N/A'}, {selectedClient.plan_details?.billing_address?.state || 'N/A'} {selectedClient.plan_details?.billing_address?.postal_code || 'N/A'}<br />
-                    {selectedClient.plan_details?.billing_address?.country || 'Not provided'}
+                    {selectedClient.plan_details?.billing_address?.street ||
+                      "Not provided"}
+                    <br />
+                    {selectedClient.plan_details?.billing_address?.city ||
+                      "N/A"}
+                    ,{" "}
+                    {selectedClient.plan_details?.billing_address?.state ||
+                      "N/A"}{" "}
+                    {selectedClient.plan_details?.billing_address
+                      ?.postal_code || "N/A"}
+                    <br />
+                    {selectedClient.plan_details?.billing_address?.country ||
+                      "Not provided"}
                   </span>
                 </p>
               </div>
@@ -1191,52 +1691,93 @@ const ClientManagement = () => {
           </div>
 
           {/* AI Employees */}
-          <div className={`${currentTheme.cardBg} border ${currentTheme.border} rounded-xl p-4 md:p-6 shadow-xl lg:col-span-2`}>
-            <h3 className={`text-base md:text-lg font-bold ${currentTheme.text} mb-3 md:mb-4 flex items-center gap-2`}>
+          <div
+            className={`${currentTheme.cardBg} border ${currentTheme.border} rounded-xl p-4 md:p-6 shadow-xl lg:col-span-2`}
+          >
+            <h3
+              className={`text-base md:text-lg font-bold ${currentTheme.text} mb-3 md:mb-4 flex items-center gap-2`}
+            >
               <RiUserVoiceLine className="w-4 h-4 md:w-5 md:h-5" />
               AI Employees ({(selectedClient.ai_employees || []).length})
             </h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {(selectedClient.ai_employees || []).map((ai, idx) => (
-                <div key={idx} className={`p-4 rounded-lg border ${currentTheme.border} ${currentTheme.hover}`}>
+                <div
+                  key={idx}
+                  className={`p-4 rounded-lg border ${currentTheme.border} ${currentTheme.hover}`}
+                >
                   <div className="flex items-start justify-between mb-3">
                     <div>
-                      <h4 className={`${currentTheme.text} font-bold text-lg`}>{ai?.name || 'Unnamed AI'}</h4>
-                      <p className={`${currentTheme.textSecondary} text-sm`}>{ai?.type || 'No type specified'}</p>
+                      <h4 className={`${currentTheme.text} font-bold text-lg`}>
+                        {ai?.name || "Unnamed AI"}
+                      </h4>
+                      <p className={`${currentTheme.textSecondary} text-sm`}>
+                        {ai?.type || "No type specified"}
+                      </p>
                     </div>
                     <span
                       className={`px-2 py-1 rounded text-xs font-medium ${currentTheme.activeBg} ${currentTheme.text}`}
                     >
-                      {ai?.voice_gender || 'Not specified'}
+                      {ai?.voice_gender || "Not specified"}
                     </span>
                   </div>
                   <div className="space-y-2">
                     {ai?.template && (
                       <div>
-                        <label className={`text-xs ${currentTheme.textSecondary} uppercase`}>Template</label>
-                        <p className={`${currentTheme.text} text-sm`}>{ai?.template}</p>
+                        <label
+                          className={`text-xs ${currentTheme.textSecondary} uppercase`}
+                        >
+                          Template
+                        </label>
+                        <p className={`${currentTheme.text} text-sm`}>
+                          {ai?.template}
+                        </p>
                       </div>
                     )}
                     <div>
-                      <label className={`text-xs ${currentTheme.textSecondary} uppercase`}>Language</label>
-                      <p className={`${currentTheme.text} text-sm`}>{ai?.preferred_language || 'Not specified'}</p>
+                      <label
+                        className={`text-xs ${currentTheme.textSecondary} uppercase`}
+                      >
+                        Language
+                      </label>
+                      <p className={`${currentTheme.text} text-sm`}>
+                        {ai?.preferred_language || "Not specified"}
+                      </p>
                     </div>
                     {ai?.agent_personality && (
                       <div>
-                        <label className={`text-xs ${currentTheme.textSecondary} uppercase`}>Personality</label>
-                        <p className={`${currentTheme.text} text-sm`}>{ai.agent_personality}</p>
+                        <label
+                          className={`text-xs ${currentTheme.textSecondary} uppercase`}
+                        >
+                          Personality
+                        </label>
+                        <p className={`${currentTheme.text} text-sm`}>
+                          {ai.agent_personality}
+                        </p>
                       </div>
                     )}
                     {ai?.voice_style && (
                       <div>
-                        <label className={`text-xs ${currentTheme.textSecondary} uppercase`}>Voice Style</label>
-                        <p className={`${currentTheme.text} text-sm`}>{ai.voice_style}</p>
+                        <label
+                          className={`text-xs ${currentTheme.textSecondary} uppercase`}
+                        >
+                          Voice Style
+                        </label>
+                        <p className={`${currentTheme.text} text-sm`}>
+                          {ai.voice_style}
+                        </p>
                       </div>
                     )}
                     {ai?.special_instructions && (
                       <div>
-                        <label className={`text-xs ${currentTheme.textSecondary} uppercase`}>Special Instructions</label>
-                        <p className={`${currentTheme.text} text-sm`}>{ai.special_instructions}</p>
+                        <label
+                          className={`text-xs ${currentTheme.textSecondary} uppercase`}
+                        >
+                          Special Instructions
+                        </label>
+                        <p className={`${currentTheme.text} text-sm`}>
+                          {ai.special_instructions}
+                        </p>
                       </div>
                     )}
                   </div>
@@ -1246,27 +1787,55 @@ const ClientManagement = () => {
           </div>
 
           {/* Knowledge Sources */}
-          <div className={`${currentTheme.cardBg} border ${currentTheme.border} rounded-xl p-4 md:p-6 shadow-xl`}>
-            <h3 className={`text-base md:text-lg font-bold ${currentTheme.text} mb-3 md:mb-4 flex items-center gap-2`}>
+          <div
+            className={`${currentTheme.cardBg} border ${currentTheme.border} rounded-xl p-4 md:p-6 shadow-xl`}
+          >
+            <h3
+              className={`text-base md:text-lg font-bold ${currentTheme.text} mb-3 md:mb-4 flex items-center gap-2`}
+            >
               <RiBookOpenLine className="w-4 h-4 md:w-5 md:h-5" />
               Knowledge Sources
             </h3>
             <div className="space-y-3">
               <div>
-                <label className={`text-xs ${currentTheme.textSecondary} uppercase`}>Website URL</label>
+                <label
+                  className={`text-xs ${currentTheme.textSecondary} uppercase`}
+                >
+                  Website URL
+                </label>
                 {selectedClient.knowledge_sources?.website_url ? (
-                  <a href={selectedClient.knowledge_sources.website_url} target="_blank" rel="noopener noreferrer" className={`${currentTheme.text} hover:underline flex items-center gap-1 break-all`}>
+                  <a
+                    href={selectedClient.knowledge_sources.website_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className={`${currentTheme.text} hover:underline flex items-center gap-1 break-all`}
+                  >
                     <RiGlobalLine className="w-4 h-4 flex-shrink-0" />
-                    <span className="text-sm">{selectedClient.knowledge_sources.website_url}</span>
+                    <span className="text-sm">
+                      {selectedClient.knowledge_sources.website_url}
+                    </span>
                   </a>
                 ) : (
-                  <p className={`${currentTheme.textSecondary} text-sm`}>Not provided</p>
+                  <p className={`${currentTheme.textSecondary} text-sm`}>
+                    Not provided
+                  </p>
                 )}
               </div>
               {selectedClient.knowledge_sources?.social_links?.linkedin && (
                 <div>
-                  <label className={`text-xs ${currentTheme.textSecondary} uppercase`}>LinkedIn</label>
-                  <a href={selectedClient.knowledge_sources.social_links.linkedin} target="_blank" rel="noopener noreferrer" className={`${currentTheme.text} hover:underline flex items-center gap-1`}>
+                  <label
+                    className={`text-xs ${currentTheme.textSecondary} uppercase`}
+                  >
+                    LinkedIn
+                  </label>
+                  <a
+                    href={
+                      selectedClient.knowledge_sources.social_links.linkedin
+                    }
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className={`${currentTheme.text} hover:underline flex items-center gap-1`}
+                  >
                     <RiLinkedinLine className="w-4 h-4" />
                     Company LinkedIn
                   </a>
@@ -1274,16 +1843,27 @@ const ClientManagement = () => {
               )}
               {selectedClient.knowledge_sources?.faqs_text && (
                 <div>
-                  <label className={`text-xs ${currentTheme.textSecondary} uppercase`}>FAQs</label>
-                  <pre className={`${currentTheme.text} text-sm whitespace-pre-wrap ${currentTheme.cardBg} border ${currentTheme.border} p-3 rounded-lg`}>
+                  <label
+                    className={`text-xs ${currentTheme.textSecondary} uppercase`}
+                  >
+                    FAQs
+                  </label>
+                  <pre
+                    className={`${currentTheme.text} text-sm whitespace-pre-wrap ${currentTheme.cardBg} border ${currentTheme.border} p-3 rounded-lg`}
+                  >
                     {selectedClient.knowledge_sources.faqs_text}
                   </pre>
                 </div>
               )}
               <div>
-                <label className={`text-xs ${currentTheme.textSecondary} uppercase`}>Uploaded Files</label>
+                <label
+                  className={`text-xs ${currentTheme.textSecondary} uppercase`}
+                >
+                  Uploaded Files
+                </label>
                 <p className={`${currentTheme.text} text-sm`}>
-                  {(selectedClient.knowledge_sources?.uploaded_files || []).length > 0 
+                  {(selectedClient.knowledge_sources?.uploaded_files || [])
+                    .length > 0
                     ? `${(selectedClient.knowledge_sources?.uploaded_files || []).length} files`
                     : "No files uploaded"}
                 </p>
@@ -1292,108 +1872,212 @@ const ClientManagement = () => {
           </div>
 
           {/* Instructions & Targets */}
-          <div className={`${currentTheme.cardBg} border ${currentTheme.border} rounded-xl p-4 md:p-6 shadow-xl`}>
-            <h3 className={`text-base md:text-lg font-bold ${currentTheme.text} mb-3 md:mb-4 flex items-center gap-2`}>
+          <div
+            className={`${currentTheme.cardBg} border ${currentTheme.border} rounded-xl p-4 md:p-6 shadow-xl`}
+          >
+            <h3
+              className={`text-base md:text-lg font-bold ${currentTheme.text} mb-3 md:mb-4 flex items-center gap-2`}
+            >
               <RiLightbulbLine className="w-4 h-4 md:w-5 md:h-5" />
               Instructions & Targets
             </h3>
             <div className="space-y-3">
               <div>
-                <label className={`text-xs ${currentTheme.textSecondary} uppercase`}>Do's and Don'ts</label>
-                <p className={`${currentTheme.text} text-sm`}>{selectedClient?.instructions?.dos_and_donts || 'Not specified'}</p>
+                <label
+                  className={`text-xs ${currentTheme.textSecondary} uppercase`}
+                >
+                  Do's and Don'ts
+                </label>
+                <p className={`${currentTheme.text} text-sm`}>
+                  {selectedClient?.instructions?.dos_and_donts ||
+                    "Not specified"}
+                </p>
               </div>
               <div>
-                <label className={`text-xs ${currentTheme.textSecondary} uppercase`}>Fallback Contacts</label>
-                <p className={`${currentTheme.text} text-sm break-all`}>{selectedClient?.instructions?.fallback_contacts || 'Not specified'}</p>
+                <label
+                  className={`text-xs ${currentTheme.textSecondary} uppercase`}
+                >
+                  Fallback Contacts
+                </label>
+                <p className={`${currentTheme.text} text-sm break-all`}>
+                  {selectedClient?.instructions?.fallback_contacts ||
+                    "Not specified"}
+                </p>
               </div>
               <div className={`pt-3 border-t ${currentTheme.border}`}>
-                <label className={`text-xs ${currentTheme.textSecondary} uppercase`}>Success Goals</label>
-                <p className={`${currentTheme.text} text-sm`}>{selectedClient?.targets?.success_goals || 'Not specified'}</p>
+                <label
+                  className={`text-xs ${currentTheme.textSecondary} uppercase`}
+                >
+                  Success Goals
+                </label>
+                <p className={`${currentTheme.text} text-sm`}>
+                  {selectedClient?.targets?.success_goals || "Not specified"}
+                </p>
               </div>
               <div>
-                <label className={`text-xs ${currentTheme.textSecondary} uppercase`}>Success Metrics</label>
-                <p className={`${currentTheme.text} text-sm`}>{selectedClient?.targets?.success_metrics || 'Not specified'}</p>
+                <label
+                  className={`text-xs ${currentTheme.textSecondary} uppercase`}
+                >
+                  Success Metrics
+                </label>
+                <p className={`${currentTheme.text} text-sm`}>
+                  {selectedClient?.targets?.success_metrics || "Not specified"}
+                </p>
               </div>
             </div>
           </div>
 
           {/* Deployment */}
-          <div className={`${currentTheme.cardBg} border ${currentTheme.border} rounded-xl p-4 md:p-6 shadow-xl lg:col-span-2`}>
-            <h3 className={`text-base md:text-lg font-bold ${currentTheme.text} mb-3 md:mb-4 flex items-center gap-2`}>
+          <div
+            className={`${currentTheme.cardBg} border ${currentTheme.border} rounded-xl p-4 md:p-6 shadow-xl lg:col-span-2`}
+          >
+            <h3
+              className={`text-base md:text-lg font-bold ${currentTheme.text} mb-3 md:mb-4 flex items-center gap-2`}
+            >
               <RiRocketLine className="w-4 h-4 md:w-5 md:h-5" />
               Deployment
             </h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className={`text-xs ${currentTheme.textSecondary} uppercase mb-2 block`}>Channels</label>
+                <label
+                  className={`text-xs ${currentTheme.textSecondary} uppercase mb-2 block`}
+                >
+                  Channels
+                </label>
                 <div className="flex flex-wrap gap-2">
-                  {selectedClient?.deployment_targets?.channels?.map((channel, idx) => (
-                    <span
-                      key={idx}
-                      className={`px-3 py-1 rounded-full text-xs md:text-sm font-medium ${currentTheme.activeBg} ${currentTheme.text}`}
-                    >
-                      {channel}
+                  {selectedClient?.deployment_targets?.channels?.map(
+                    (channel, idx) => (
+                      <span
+                        key={idx}
+                        className={`px-3 py-1 rounded-full text-xs md:text-sm font-medium ${currentTheme.activeBg} ${currentTheme.text}`}
+                      >
+                        {channel}
+                      </span>
+                    )
+                  ) || (
+                    <span className={currentTheme.textSecondary}>
+                      No channels specified
                     </span>
-                  )) || <span className={currentTheme.textSecondary}>No channels specified</span>}
+                  )}
                 </div>
               </div>
               <div>
-                <label className={`text-xs ${currentTheme.textSecondary} uppercase`}>Service Type</label>
-                <p className={`${currentTheme.text} font-medium`}>{selectedClient?.deployment_service?.service_type}</p>
+                <label
+                  className={`text-xs ${currentTheme.textSecondary} uppercase`}
+                >
+                  Service Type
+                </label>
+                <p className={`${currentTheme.text} font-medium`}>
+                  {selectedClient?.deployment_service?.service_type}
+                </p>
               </div>
               <div className="md:col-span-2">
-                <label className={`text-xs ${currentTheme.textSecondary} uppercase`}>Deployment Notes</label>
-                <p className={`${currentTheme.text} text-sm`}>{selectedClient?.deployment_targets?.deployment_notes}</p>
+                <label
+                  className={`text-xs ${currentTheme.textSecondary} uppercase`}
+                >
+                  Deployment Notes
+                </label>
+                <p className={`${currentTheme.text} text-sm`}>
+                  {selectedClient?.deployment_targets?.deployment_notes}
+                </p>
               </div>
             </div>
           </div>
 
           {/* Consent Options */}
-          <div className={`${currentTheme.cardBg} border ${currentTheme.border} rounded-xl p-6 shadow-xl lg:col-span-2`}>
-            <h3 className={`text-lg font-bold ${currentTheme.text} mb-4`}>Consent & Privacy</h3>
+          <div
+            className={`${currentTheme.cardBg} border ${currentTheme.border} rounded-xl p-6 shadow-xl lg:col-span-2`}
+          >
+            <h3 className={`text-lg font-bold ${currentTheme.text} mb-4`}>
+              Consent & Privacy
+            </h3>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className={`p-3 rounded-lg ${currentTheme.hover} border ${currentTheme.border}`}>
-                <label className={`text-xs ${currentTheme.textSecondary} uppercase mb-1 block`}>Recording Enabled</label>
-                <p className={`${currentTheme.text} font-medium flex items-center gap-2`}>
+              <div
+                className={`p-3 rounded-lg ${currentTheme.hover} border ${currentTheme.border}`}
+              >
+                <label
+                  className={`text-xs ${currentTheme.textSecondary} uppercase mb-1 block`}
+                >
+                  Recording Enabled
+                </label>
+                <p
+                  className={`${currentTheme.text} font-medium flex items-center gap-2`}
+                >
                   {selectedClient?.consent_options?.recording_enabled ? (
-                    <><RiCheckLine className="w-5 h-5" /> Yes</>
+                    <>
+                      <RiCheckLine className="w-5 h-5" /> Yes
+                    </>
                   ) : (
-                    <><RiCloseLine className="w-5 h-5" /> No</>
+                    <>
+                      <RiCloseLine className="w-5 h-5" /> No
+                    </>
                   )}
                 </p>
               </div>
-              <div className={`p-3 rounded-lg ${currentTheme.hover} border ${currentTheme.border}`}>
-                <label className={`text-xs ${currentTheme.textSecondary} uppercase mb-1 block`}>Transcript Email Opt-in</label>
-                <p className={`${currentTheme.text} font-medium flex items-center gap-2`}>
+              <div
+                className={`p-3 rounded-lg ${currentTheme.hover} border ${currentTheme.border}`}
+              >
+                <label
+                  className={`text-xs ${currentTheme.textSecondary} uppercase mb-1 block`}
+                >
+                  Transcript Email Opt-in
+                </label>
+                <p
+                  className={`${currentTheme.text} font-medium flex items-center gap-2`}
+                >
                   {selectedClient?.consent_options?.transcript_email_optin ? (
-                    <><RiCheckLine className="w-5 h-5" /> Yes</>
+                    <>
+                      <RiCheckLine className="w-5 h-5" /> Yes
+                    </>
                   ) : (
-                    <><RiCloseLine className="w-5 h-5" /> No</>
+                    <>
+                      <RiCloseLine className="w-5 h-5" /> No
+                    </>
                   )}
                 </p>
               </div>
-              <div className={`p-3 rounded-lg ${currentTheme.hover} border ${currentTheme.border}`}>
-                <label className={`text-xs ${currentTheme.textSecondary} uppercase mb-1 block`}>Privacy Notes</label>
-                <p className={`${currentTheme.text} text-sm`}>{selectedClient?.consent_options?.privacy_notes}</p>
+              <div
+                className={`p-3 rounded-lg ${currentTheme.hover} border ${currentTheme.border}`}
+              >
+                <label
+                  className={`text-xs ${currentTheme.textSecondary} uppercase mb-1 block`}
+                >
+                  Privacy Notes
+                </label>
+                <p className={`${currentTheme.text} text-sm`}>
+                  {selectedClient?.consent_options?.privacy_notes}
+                </p>
               </div>
             </div>
           </div>
 
           {/* Timestamps */}
-          <div className={`${currentTheme.cardBg} border ${currentTheme.border} rounded-xl p-4 md:p-6 shadow-xl lg:col-span-2`}>
-            <h3 className={`text-base md:text-lg font-bold ${currentTheme.text} mb-3 md:mb-4 flex items-center gap-2`}>
+          <div
+            className={`${currentTheme.cardBg} border ${currentTheme.border} rounded-xl p-4 md:p-6 shadow-xl lg:col-span-2`}
+          >
+            <h3
+              className={`text-base md:text-lg font-bold ${currentTheme.text} mb-3 md:mb-4 flex items-center gap-2`}
+            >
               <RiTimeLine className="w-4 h-4 md:w-5 md:h-5" />
               Timestamps
             </h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className={`text-xs ${currentTheme.textSecondary} uppercase`}>Created At</label>
+                <label
+                  className={`text-xs ${currentTheme.textSecondary} uppercase`}
+                >
+                  Created At
+                </label>
                 <p className={`${currentTheme.text} font-medium`}>
                   {new Date(selectedClient?.created_at).toLocaleString()}
                 </p>
               </div>
               <div>
-                <label className={`text-xs ${currentTheme.textSecondary} uppercase`}>Updated At</label>
+                <label
+                  className={`text-xs ${currentTheme.textSecondary} uppercase`}
+                >
+                  Updated At
+                </label>
                 <p className={`${currentTheme.text} font-medium`}>
                   {new Date(selectedClient?.updated_at).toLocaleString()}
                 </p>
@@ -1405,80 +2089,180 @@ const ClientManagement = () => {
           {selectedClient?.onboardingDetails && (
             <div className="space-y-6">
               {/* AI Employees Section */}
-              {selectedClient.onboardingDetails.onboarding?.ai_employees && selectedClient.onboardingDetails.onboarding.ai_employees.length > 0 && (
-                <div className={`${currentTheme.cardBg} border ${currentTheme.border} rounded-xl p-4 md:p-6 shadow-xl`}>
-                  <h3 className={`text-lg font-semibold ${currentTheme.text} mb-4 flex items-center gap-2`}>
-                    <RiRobotLine className="w-5 h-5" />
-                    AI Employees ({selectedClient.onboardingDetails.onboarding.ai_employees.length})
-                  </h3>
-                  <div className="space-y-4">
-                    {selectedClient.onboardingDetails.onboarding.ai_employees.map((employee, index) => (
-                      <div key={index} className={`p-4 rounded-lg ${currentTheme.searchBg} border ${currentTheme.border}`}>
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                          <div>
-                            <label className={`text-xs ${currentTheme.textSecondary} uppercase mb-1 block`}>Name</label>
-                            <p className={`${currentTheme.text} font-medium`}>{employee.name || 'Not specified'}</p>
+              {selectedClient.onboardingDetails.onboarding?.ai_employees &&
+                selectedClient.onboardingDetails.onboarding.ai_employees
+                  .length > 0 && (
+                  <div
+                    className={`${currentTheme.cardBg} border ${currentTheme.border} rounded-xl p-4 md:p-6 shadow-xl`}
+                  >
+                    <h3
+                      className={`text-lg font-semibold ${currentTheme.text} mb-4 flex items-center gap-2`}
+                    >
+                      <RiRobotLine className="w-5 h-5" />
+                      AI Employees (
+                      {
+                        selectedClient.onboardingDetails.onboarding.ai_employees
+                          .length
+                      }
+                      )
+                    </h3>
+                    <div className="space-y-4">
+                      {selectedClient.onboardingDetails.onboarding.ai_employees.map(
+                        (employee, index) => (
+                          <div
+                            key={index}
+                            className={`p-4 rounded-lg ${currentTheme.searchBg} border ${currentTheme.border}`}
+                          >
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                              <div>
+                                <label
+                                  className={`text-xs ${currentTheme.textSecondary} uppercase mb-1 block`}
+                                >
+                                  Name
+                                </label>
+                                <p
+                                  className={`${currentTheme.text} font-medium`}
+                                >
+                                  {employee.name || "Not specified"}
+                                </p>
+                              </div>
+                              <div>
+                                <label
+                                  className={`text-xs ${currentTheme.textSecondary} uppercase mb-1 block`}
+                                >
+                                  Type
+                                </label>
+                                <p
+                                  className={`${currentTheme.text} font-medium`}
+                                >
+                                  {employee.type || "Not specified"}
+                                </p>
+                              </div>
+                              <div>
+                                <label
+                                  className={`text-xs ${currentTheme.textSecondary} uppercase mb-1 block`}
+                                >
+                                  Template
+                                </label>
+                                <p
+                                  className={`${currentTheme.text} font-medium`}
+                                >
+                                  {employee.template || "Not specified"}
+                                </p>
+                              </div>
+                              <div>
+                                <label
+                                  className={`text-xs ${currentTheme.textSecondary} uppercase mb-1 block`}
+                                >
+                                  Language
+                                </label>
+                                <p
+                                  className={`${currentTheme.text} font-medium`}
+                                >
+                                  {employee.preferred_language ||
+                                    "Not specified"}
+                                </p>
+                              </div>
+                              <div>
+                                <label
+                                  className={`text-xs ${currentTheme.textSecondary} uppercase mb-1 block`}
+                                >
+                                  Voice Gender
+                                </label>
+                                <p
+                                  className={`${currentTheme.text} font-medium`}
+                                >
+                                  {employee.voice_gender || "Not specified"}
+                                </p>
+                              </div>
+                              <div>
+                                <label
+                                  className={`text-xs ${currentTheme.textSecondary} uppercase mb-1 block`}
+                                >
+                                  Personality
+                                </label>
+                                <p
+                                  className={`${currentTheme.text} font-medium`}
+                                >
+                                  {employee.agent_personality ||
+                                    "Not specified"}
+                                </p>
+                              </div>
+                            </div>
+                            {employee.special_instructions && (
+                              <div className="mt-3">
+                                <label
+                                  className={`text-xs ${currentTheme.textSecondary} uppercase mb-1 block`}
+                                >
+                                  Special Instructions
+                                </label>
+                                <p
+                                  className={`${currentTheme.text} text-sm p-2 rounded ${currentTheme.cardBg}`}
+                                >
+                                  {employee.special_instructions}
+                                </p>
+                              </div>
+                            )}
                           </div>
-                          <div>
-                            <label className={`text-xs ${currentTheme.textSecondary} uppercase mb-1 block`}>Type</label>
-                            <p className={`${currentTheme.text} font-medium`}>{employee.type || 'Not specified'}</p>
-                          </div>
-                          <div>
-                            <label className={`text-xs ${currentTheme.textSecondary} uppercase mb-1 block`}>Template</label>
-                            <p className={`${currentTheme.text} font-medium`}>{employee.template || 'Not specified'}</p>
-                          </div>
-                          <div>
-                            <label className={`text-xs ${currentTheme.textSecondary} uppercase mb-1 block`}>Language</label>
-                            <p className={`${currentTheme.text} font-medium`}>{employee.preferred_language || 'Not specified'}</p>
-                          </div>
-                          <div>
-                            <label className={`text-xs ${currentTheme.textSecondary} uppercase mb-1 block`}>Voice Gender</label>
-                            <p className={`${currentTheme.text} font-medium`}>{employee.voice_gender || 'Not specified'}</p>
-                          </div>
-                          <div>
-                            <label className={`text-xs ${currentTheme.textSecondary} uppercase mb-1 block`}>Personality</label>
-                            <p className={`${currentTheme.text} font-medium`}>{employee.agent_personality || 'Not specified'}</p>
-                          </div>
-                        </div>
-                        {employee.special_instructions && (
-                          <div className="mt-3">
-                            <label className={`text-xs ${currentTheme.textSecondary} uppercase mb-1 block`}>Special Instructions</label>
-                            <p className={`${currentTheme.text} text-sm p-2 rounded ${currentTheme.cardBg}`}>
-                              {employee.special_instructions}
-                            </p>
-                          </div>
-                        )}
-                      </div>
-                    ))}
+                        )
+                      )}
+                    </div>
                   </div>
-                </div>
-              )}
+                )}
 
               {/* Consent Options Section */}
               {selectedClient.onboardingDetails.onboarding?.consent_options && (
-                <div className={`${currentTheme.cardBg} border ${currentTheme.border} rounded-xl p-4 md:p-6 shadow-xl`}>
-                  <h3 className={`text-lg font-semibold ${currentTheme.text} mb-4 flex items-center gap-2`}>
+                <div
+                  className={`${currentTheme.cardBg} border ${currentTheme.border} rounded-xl p-4 md:p-6 shadow-xl`}
+                >
+                  <h3
+                    className={`text-lg font-semibold ${currentTheme.text} mb-4 flex items-center gap-2`}
+                  >
                     <RiShieldCheckLine className="w-5 h-5" />
                     Consent & Privacy Options
                   </h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                      <label className={`text-xs ${currentTheme.textSecondary} uppercase mb-1 block`}>Recording Enabled</label>
+                      <label
+                        className={`text-xs ${currentTheme.textSecondary} uppercase mb-1 block`}
+                      >
+                        Recording Enabled
+                      </label>
                       <p className={`${currentTheme.text} font-medium`}>
-                        {selectedClient.onboardingDetails.onboarding.consent_options.recording_enabled ? 'Yes' : 'No'}
+                        {selectedClient.onboardingDetails.onboarding
+                          .consent_options.recording_enabled
+                          ? "Yes"
+                          : "No"}
                       </p>
                     </div>
                     <div>
-                      <label className={`text-xs ${currentTheme.textSecondary} uppercase mb-1 block`}>Transcript Email Opt-in</label>
+                      <label
+                        className={`text-xs ${currentTheme.textSecondary} uppercase mb-1 block`}
+                      >
+                        Transcript Email Opt-in
+                      </label>
                       <p className={`${currentTheme.text} font-medium`}>
-                        {selectedClient.onboardingDetails.onboarding.consent_options.transcript_email_optin ? 'Yes' : 'No'}
+                        {selectedClient.onboardingDetails.onboarding
+                          .consent_options.transcript_email_optin
+                          ? "Yes"
+                          : "No"}
                       </p>
                     </div>
-                    {selectedClient.onboardingDetails.onboarding.consent_options.privacy_notes && (
+                    {selectedClient.onboardingDetails.onboarding.consent_options
+                      .privacy_notes && (
                       <div className="md:col-span-2">
-                        <label className={`text-xs ${currentTheme.textSecondary} uppercase mb-1 block`}>Privacy Notes</label>
-                        <p className={`${currentTheme.text} text-sm p-2 rounded ${currentTheme.searchBg}`}>
-                          {selectedClient.onboardingDetails.onboarding.consent_options.privacy_notes}
+                        <label
+                          className={`text-xs ${currentTheme.textSecondary} uppercase mb-1 block`}
+                        >
+                          Privacy Notes
+                        </label>
+                        <p
+                          className={`${currentTheme.text} text-sm p-2 rounded ${currentTheme.searchBg}`}
+                        >
+                          {
+                            selectedClient.onboardingDetails.onboarding
+                              .consent_options.privacy_notes
+                          }
                         </p>
                       </div>
                     )}
@@ -1487,43 +2271,71 @@ const ClientManagement = () => {
               )}
 
               {/* Deployment Configuration */}
-              {selectedClient.onboardingDetails.onboarding?.deployment_service && (
-                <div className={`${currentTheme.cardBg} border ${currentTheme.border} rounded-xl p-4 md:p-6 shadow-xl`}>
-                  <h3 className={`text-lg font-semibold ${currentTheme.text} mb-4 flex items-center gap-2`}>
+              {selectedClient.onboardingDetails.onboarding
+                ?.deployment_service && (
+                <div
+                  className={`${currentTheme.cardBg} border ${currentTheme.border} rounded-xl p-4 md:p-6 shadow-xl`}
+                >
+                  <h3
+                    className={`text-lg font-semibold ${currentTheme.text} mb-4 flex items-center gap-2`}
+                  >
                     <RiCloudLine className="w-5 h-5" />
                     Deployment Configuration
                   </h3>
                   <div className="space-y-4">
                     <div>
-                      <label className={`text-xs ${currentTheme.textSecondary} uppercase mb-1 block`}>Service Type</label>
+                      <label
+                        className={`text-xs ${currentTheme.textSecondary} uppercase mb-1 block`}
+                      >
+                        Service Type
+                      </label>
                       <p className={`${currentTheme.text} font-medium`}>
-                        {selectedClient.onboardingDetails.onboarding.deployment_service.service_type || 'Not specified'}
+                        {selectedClient.onboardingDetails.onboarding
+                          .deployment_service.service_type || "Not specified"}
                       </p>
                     </div>
-                    
-                    {selectedClient.onboardingDetails.onboarding.deployment_targets && (
+
+                    {selectedClient.onboardingDetails.onboarding
+                      .deployment_targets && (
                       <>
-                        {selectedClient.onboardingDetails.onboarding.deployment_targets.channels && (
+                        {selectedClient.onboardingDetails.onboarding
+                          .deployment_targets.channels && (
                           <div>
-                            <label className={`text-xs ${currentTheme.textSecondary} uppercase mb-2 block`}>Channels</label>
+                            <label
+                              className={`text-xs ${currentTheme.textSecondary} uppercase mb-2 block`}
+                            >
+                              Channels
+                            </label>
                             <div className="flex flex-wrap gap-2">
-                              {selectedClient.onboardingDetails.onboarding.deployment_targets.channels.map((channel, idx) => (
-                                <span
-                                  key={idx}
-                                  className={`px-3 py-1 rounded-full text-xs font-medium ${currentTheme.activeBg} ${currentTheme.text}`}
-                                >
-                                  {channel}
-                                </span>
-                              ))}
+                              {selectedClient.onboardingDetails.onboarding.deployment_targets.channels.map(
+                                (channel, idx) => (
+                                  <span
+                                    key={idx}
+                                    className={`px-3 py-1 rounded-full text-xs font-medium ${currentTheme.activeBg} ${currentTheme.text}`}
+                                  >
+                                    {channel}
+                                  </span>
+                                )
+                              )}
                             </div>
                           </div>
                         )}
-                        
-                        {selectedClient.onboardingDetails.onboarding.deployment_targets.deployment_notes && (
+
+                        {selectedClient.onboardingDetails.onboarding
+                          .deployment_targets.deployment_notes && (
                           <div>
-                            <label className={`text-xs ${currentTheme.textSecondary} uppercase mb-1 block`}>Deployment Notes</label>
-                            <p className={`${currentTheme.text} text-sm p-2 rounded ${currentTheme.searchBg}`}>
-                              {selectedClient.onboardingDetails.onboarding.deployment_targets.deployment_notes}
+                            <label
+                              className={`text-xs ${currentTheme.textSecondary} uppercase mb-1 block`}
+                            >
+                              Deployment Notes
+                            </label>
+                            <p
+                              className={`${currentTheme.text} text-sm p-2 rounded ${currentTheme.searchBg}`}
+                            >
+                              {
+                                selectedClient.onboardingDetails.onboarding
+                                  .deployment_targets.deployment_notes
+                              }
                             </p>
                           </div>
                         )}
@@ -1535,25 +2347,49 @@ const ClientManagement = () => {
 
               {/* Instructions & Guidelines */}
               {selectedClient.onboardingDetails.onboarding?.instructions && (
-                <div className={`${currentTheme.cardBg} border ${currentTheme.border} rounded-xl p-4 md:p-6 shadow-xl`}>
-                  <h3 className={`text-lg font-semibold ${currentTheme.text} mb-4 flex items-center gap-2`}>
+                <div
+                  className={`${currentTheme.cardBg} border ${currentTheme.border} rounded-xl p-4 md:p-6 shadow-xl`}
+                >
+                  <h3
+                    className={`text-lg font-semibold ${currentTheme.text} mb-4 flex items-center gap-2`}
+                  >
                     <RiFileTextLine className="w-5 h-5" />
                     Instructions & Guidelines
                   </h3>
                   <div className="space-y-4">
-                    {selectedClient.onboardingDetails.onboarding.instructions.dos_and_donts && (
+                    {selectedClient.onboardingDetails.onboarding.instructions
+                      .dos_and_donts && (
                       <div>
-                        <label className={`text-xs ${currentTheme.textSecondary} uppercase mb-1 block`}>Do's and Don'ts</label>
-                        <p className={`${currentTheme.text} text-sm p-3 rounded ${currentTheme.searchBg}`}>
-                          {selectedClient.onboardingDetails.onboarding.instructions.dos_and_donts}
+                        <label
+                          className={`text-xs ${currentTheme.textSecondary} uppercase mb-1 block`}
+                        >
+                          Do's and Don'ts
+                        </label>
+                        <p
+                          className={`${currentTheme.text} text-sm p-3 rounded ${currentTheme.searchBg}`}
+                        >
+                          {
+                            selectedClient.onboardingDetails.onboarding
+                              .instructions.dos_and_donts
+                          }
                         </p>
                       </div>
                     )}
-                    {selectedClient.onboardingDetails.onboarding.instructions.fallback_contacts && (
+                    {selectedClient.onboardingDetails.onboarding.instructions
+                      .fallback_contacts && (
                       <div>
-                        <label className={`text-xs ${currentTheme.textSecondary} uppercase mb-1 block`}>Fallback Contacts</label>
-                        <p className={`${currentTheme.text} text-sm p-3 rounded ${currentTheme.searchBg}`}>
-                          {selectedClient.onboardingDetails.onboarding.instructions.fallback_contacts}
+                        <label
+                          className={`text-xs ${currentTheme.textSecondary} uppercase mb-1 block`}
+                        >
+                          Fallback Contacts
+                        </label>
+                        <p
+                          className={`${currentTheme.text} text-sm p-3 rounded ${currentTheme.searchBg}`}
+                        >
+                          {
+                            selectedClient.onboardingDetails.onboarding
+                              .instructions.fallback_contacts
+                          }
                         </p>
                       </div>
                     )}
@@ -1562,46 +2398,83 @@ const ClientManagement = () => {
               )}
 
               {/* Knowledge Sources */}
-              {selectedClient.onboardingDetails.onboarding?.knowledge_sources && (
-                <div className={`${currentTheme.cardBg} border ${currentTheme.border} rounded-xl p-4 md:p-6 shadow-xl`}>
-                  <h3 className={`text-lg font-semibold ${currentTheme.text} mb-4 flex items-center gap-2`}>
+              {selectedClient.onboardingDetails.onboarding
+                ?.knowledge_sources && (
+                <div
+                  className={`${currentTheme.cardBg} border ${currentTheme.border} rounded-xl p-4 md:p-6 shadow-xl`}
+                >
+                  <h3
+                    className={`text-lg font-semibold ${currentTheme.text} mb-4 flex items-center gap-2`}
+                  >
                     <RiBookLine className="w-5 h-5" />
                     Knowledge Sources
                   </h3>
                   <div className="space-y-4">
-                    {selectedClient.onboardingDetails.onboarding.knowledge_sources.website_url && (
+                    {selectedClient.onboardingDetails.onboarding
+                      .knowledge_sources.website_url && (
                       <div>
-                        <label className={`text-xs ${currentTheme.textSecondary} uppercase mb-1 block`}>Website URL</label>
-                        <a 
-                          href={selectedClient.onboardingDetails.onboarding.knowledge_sources.website_url}
+                        <label
+                          className={`text-xs ${currentTheme.textSecondary} uppercase mb-1 block`}
+                        >
+                          Website URL
+                        </label>
+                        <a
+                          href={
+                            selectedClient.onboardingDetails.onboarding
+                              .knowledge_sources.website_url
+                          }
                           target="_blank"
                           rel="noopener noreferrer"
                           className={`${currentTheme.text} hover:underline`}
                         >
-                          {selectedClient.onboardingDetails.onboarding.knowledge_sources.website_url}
+                          {
+                            selectedClient.onboardingDetails.onboarding
+                              .knowledge_sources.website_url
+                          }
                         </a>
                       </div>
                     )}
-                    
-                    {selectedClient.onboardingDetails.onboarding.knowledge_sources.social_links?.linkedin && (
+
+                    {selectedClient.onboardingDetails.onboarding
+                      .knowledge_sources.social_links?.linkedin && (
                       <div>
-                        <label className={`text-xs ${currentTheme.textSecondary} uppercase mb-1 block`}>LinkedIn Profile</label>
-                        <a 
-                          href={selectedClient.onboardingDetails.onboarding.knowledge_sources.social_links.linkedin}
+                        <label
+                          className={`text-xs ${currentTheme.textSecondary} uppercase mb-1 block`}
+                        >
+                          LinkedIn Profile
+                        </label>
+                        <a
+                          href={
+                            selectedClient.onboardingDetails.onboarding
+                              .knowledge_sources.social_links.linkedin
+                          }
                           target="_blank"
                           rel="noopener noreferrer"
                           className={`${currentTheme.text} hover:underline`}
                         >
-                          {selectedClient.onboardingDetails.onboarding.knowledge_sources.social_links.linkedin}
+                          {
+                            selectedClient.onboardingDetails.onboarding
+                              .knowledge_sources.social_links.linkedin
+                          }
                         </a>
                       </div>
                     )}
-                    
-                    {selectedClient.onboardingDetails.onboarding.knowledge_sources.faqs_text && (
+
+                    {selectedClient.onboardingDetails.onboarding
+                      .knowledge_sources.faqs_text && (
                       <div>
-                        <label className={`text-xs ${currentTheme.textSecondary} uppercase mb-1 block`}>FAQ Text</label>
-                        <p className={`${currentTheme.text} text-sm p-3 rounded ${currentTheme.searchBg} max-h-40 overflow-auto`}>
-                          {selectedClient.onboardingDetails.onboarding.knowledge_sources.faqs_text}
+                        <label
+                          className={`text-xs ${currentTheme.textSecondary} uppercase mb-1 block`}
+                        >
+                          FAQ Text
+                        </label>
+                        <p
+                          className={`${currentTheme.text} text-sm p-3 rounded ${currentTheme.searchBg} max-h-40 overflow-auto`}
+                        >
+                          {
+                            selectedClient.onboardingDetails.onboarding
+                              .knowledge_sources.faqs_text
+                          }
                         </p>
                       </div>
                     )}
@@ -1611,45 +2484,85 @@ const ClientManagement = () => {
 
               {/* Plan Details */}
               {selectedClient.onboardingDetails.onboarding?.plan_details && (
-                <div className={`${currentTheme.cardBg} border ${currentTheme.border} rounded-xl p-4 md:p-6 shadow-xl`}>
-                  <h3 className={`text-lg font-semibold ${currentTheme.text} mb-4 flex items-center gap-2`}>
+                <div
+                  className={`${currentTheme.cardBg} border ${currentTheme.border} rounded-xl p-4 md:p-6 shadow-xl`}
+                >
+                  <h3
+                    className={`text-lg font-semibold ${currentTheme.text} mb-4 flex items-center gap-2`}
+                  >
                     <RiPriceTag3Line className="w-5 h-5" />
                     Plan & Billing Details
                   </h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                      <label className={`text-xs ${currentTheme.textSecondary} uppercase mb-1 block`}>Monthly Price</label>
+                      <label
+                        className={`text-xs ${currentTheme.textSecondary} uppercase mb-1 block`}
+                      >
+                        Monthly Price
+                      </label>
                       <p className={`${currentTheme.text} font-medium text-lg`}>
-                        ${selectedClient.onboardingDetails.onboarding.plan_details.monthly_price || 0}/month
+                        $
+                        {selectedClient.onboardingDetails.onboarding
+                          .plan_details.monthly_price || 0}
+                        /month
                       </p>
                     </div>
                     <div>
-                      <label className={`text-xs ${currentTheme.textSecondary} uppercase mb-1 block`}>AI Employee Limit</label>
+                      <label
+                        className={`text-xs ${currentTheme.textSecondary} uppercase mb-1 block`}
+                      >
+                        AI Employee Limit
+                      </label>
                       <p className={`${currentTheme.text} font-medium`}>
-                        {selectedClient.onboardingDetails.onboarding.plan_details.ai_employee_limit || 0} employees
+                        {selectedClient.onboardingDetails.onboarding
+                          .plan_details.ai_employee_limit || 0}{" "}
+                        employees
                       </p>
                     </div>
-                    
-                    {selectedClient.onboardingDetails.onboarding.plan_details.billing_contact && (
+
+                    {selectedClient.onboardingDetails.onboarding.plan_details
+                      .billing_contact && (
                       <div className="md:col-span-2">
-                        <label className={`text-xs ${currentTheme.textSecondary} uppercase mb-2 block`}>Billing Contact</label>
+                        <label
+                          className={`text-xs ${currentTheme.textSecondary} uppercase mb-2 block`}
+                        >
+                          Billing Contact
+                        </label>
                         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 p-3 rounded ${currentTheme.searchBg}">
                           <div>
-                            <label className={`text-xs ${currentTheme.textSecondary} uppercase mb-1 block`}>Name</label>
+                            <label
+                              className={`text-xs ${currentTheme.textSecondary} uppercase mb-1 block`}
+                            >
+                              Name
+                            </label>
                             <p className={`${currentTheme.text} font-medium`}>
-                              {selectedClient.onboardingDetails.onboarding.plan_details.billing_contact.name || 'Not provided'}
+                              {selectedClient.onboardingDetails.onboarding
+                                .plan_details.billing_contact.name ||
+                                "Not provided"}
                             </p>
                           </div>
                           <div>
-                            <label className={`text-xs ${currentTheme.textSecondary} uppercase mb-1 block`}>Email</label>
+                            <label
+                              className={`text-xs ${currentTheme.textSecondary} uppercase mb-1 block`}
+                            >
+                              Email
+                            </label>
                             <p className={`${currentTheme.text} font-medium`}>
-                              {selectedClient.onboardingDetails.onboarding.plan_details.billing_contact.email || 'Not provided'}
+                              {selectedClient.onboardingDetails.onboarding
+                                .plan_details.billing_contact.email ||
+                                "Not provided"}
                             </p>
                           </div>
                           <div>
-                            <label className={`text-xs ${currentTheme.textSecondary} uppercase mb-1 block`}>Phone</label>
+                            <label
+                              className={`text-xs ${currentTheme.textSecondary} uppercase mb-1 block`}
+                            >
+                              Phone
+                            </label>
                             <p className={`${currentTheme.text} font-medium`}>
-                              {selectedClient.onboardingDetails.onboarding.plan_details.billing_contact.phone || 'Not provided'}
+                              {selectedClient.onboardingDetails.onboarding
+                                .plan_details.billing_contact.phone ||
+                                "Not provided"}
                             </p>
                           </div>
                         </div>
@@ -1661,25 +2574,49 @@ const ClientManagement = () => {
 
               {/* Success Targets */}
               {selectedClient.onboardingDetails.onboarding?.targets && (
-                <div className={`${currentTheme.cardBg} border ${currentTheme.border} rounded-xl p-4 md:p-6 shadow-xl`}>
-                  <h3 className={`text-lg font-semibold ${currentTheme.text} mb-4 flex items-center gap-2`}>
+                <div
+                  className={`${currentTheme.cardBg} border ${currentTheme.border} rounded-xl p-4 md:p-6 shadow-xl`}
+                >
+                  <h3
+                    className={`text-lg font-semibold ${currentTheme.text} mb-4 flex items-center gap-2`}
+                  >
                     <Target className="w-5 h-5" />
                     Success Targets
                   </h3>
                   <div className="space-y-4">
-                    {selectedClient.onboardingDetails.onboarding.targets.success_goals && (
+                    {selectedClient.onboardingDetails.onboarding.targets
+                      .success_goals && (
                       <div>
-                        <label className={`text-xs ${currentTheme.textSecondary} uppercase mb-1 block`}>Success Goals</label>
-                        <p className={`${currentTheme.text} text-sm p-3 rounded ${currentTheme.searchBg}`}>
-                          {selectedClient.onboardingDetails.onboarding.targets.success_goals}
+                        <label
+                          className={`text-xs ${currentTheme.textSecondary} uppercase mb-1 block`}
+                        >
+                          Success Goals
+                        </label>
+                        <p
+                          className={`${currentTheme.text} text-sm p-3 rounded ${currentTheme.searchBg}`}
+                        >
+                          {
+                            selectedClient.onboardingDetails.onboarding.targets
+                              .success_goals
+                          }
                         </p>
                       </div>
                     )}
-                    {selectedClient.onboardingDetails.onboarding.targets.success_metrics && (
+                    {selectedClient.onboardingDetails.onboarding.targets
+                      .success_metrics && (
                       <div>
-                        <label className={`text-xs ${currentTheme.textSecondary} uppercase mb-1 block`}>Success Metrics</label>
-                        <p className={`${currentTheme.text} text-sm p-3 rounded ${currentTheme.searchBg}`}>
-                          {selectedClient.onboardingDetails.onboarding.targets.success_metrics}
+                        <label
+                          className={`text-xs ${currentTheme.textSecondary} uppercase mb-1 block`}
+                        >
+                          Success Metrics
+                        </label>
+                        <p
+                          className={`${currentTheme.text} text-sm p-3 rounded ${currentTheme.searchBg}`}
+                        >
+                          {
+                            selectedClient.onboardingDetails.onboarding.targets
+                              .success_metrics
+                          }
                         </p>
                       </div>
                     )}
@@ -1688,55 +2625,92 @@ const ClientManagement = () => {
               )}
 
               {/* Meta Information */}
-              <div className={`${currentTheme.cardBg} border ${currentTheme.border} rounded-xl p-4 md:p-6 shadow-xl`}>
-                <h3 className={`text-lg font-semibold ${currentTheme.text} mb-4 flex items-center gap-2`}>
+              <div
+                className={`${currentTheme.cardBg} border ${currentTheme.border} rounded-xl p-4 md:p-6 shadow-xl`}
+              >
+                <h3
+                  className={`text-lg font-semibold ${currentTheme.text} mb-4 flex items-center gap-2`}
+                >
                   <RiInformationLine className="w-5 h-5" />
                   Onboarding Metadata
                 </h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <label className={`text-xs ${currentTheme.textSecondary} uppercase mb-1 block`}>User ID</label>
+                    <label
+                      className={`text-xs ${currentTheme.textSecondary} uppercase mb-1 block`}
+                    >
+                      User ID
+                    </label>
                     <p className={`${currentTheme.text} font-mono text-sm`}>
-                      {selectedClient.onboardingDetails.onboarding?.userId || 'Not specified'}
+                      {selectedClient.onboardingDetails.onboarding?.userId ||
+                        "Not specified"}
                     </p>
                   </div>
                   <div>
-                    <label className={`text-xs ${currentTheme.textSecondary} uppercase mb-1 block`}>Status</label>
-                    <span className={`inline-flex px-3 py-1 rounded-full text-xs font-medium ${
-                      selectedClient.onboardingDetails.onboarding?.status === 'pending' 
-                        ? 'bg-yellow-100 text-yellow-800' 
-                        : 'bg-green-100 text-green-800'
-                    }`}>
-                      {selectedClient.onboardingDetails.onboarding?.status || 'Unknown'}
+                    <label
+                      className={`text-xs ${currentTheme.textSecondary} uppercase mb-1 block`}
+                    >
+                      Status
+                    </label>
+                    <span
+                      className={`inline-flex px-3 py-1 rounded-full text-xs font-medium ${
+                        selectedClient.onboardingDetails.onboarding?.status ===
+                        "pending"
+                          ? "bg-yellow-100 text-yellow-800"
+                          : "bg-green-100 text-green-800"
+                      }`}
+                    >
+                      {selectedClient.onboardingDetails.onboarding?.status ||
+                        "Unknown"}
                     </span>
                   </div>
                   <div>
-                    <label className={`text-xs ${currentTheme.textSecondary} uppercase mb-1 block`}>Created At</label>
+                    <label
+                      className={`text-xs ${currentTheme.textSecondary} uppercase mb-1 block`}
+                    >
+                      Created At
+                    </label>
                     <p className={`${currentTheme.text} text-sm`}>
-                      {selectedClient.onboardingDetails.onboarding?.created_at 
-                        ? new Date(selectedClient.onboardingDetails.onboarding.created_at).toLocaleDateString() 
-                        : 'Not specified'}
+                      {selectedClient.onboardingDetails.onboarding?.created_at
+                        ? new Date(
+                            selectedClient.onboardingDetails.onboarding.created_at
+                          ).toLocaleDateString()
+                        : "Not specified"}
                     </p>
                   </div>
                   <div>
-                    <label className={`text-xs ${currentTheme.textSecondary} uppercase mb-1 block`}>Updated At</label>
+                    <label
+                      className={`text-xs ${currentTheme.textSecondary} uppercase mb-1 block`}
+                    >
+                      Updated At
+                    </label>
                     <p className={`${currentTheme.text} text-sm`}>
-                      {selectedClient.onboardingDetails.onboarding?.updated_at 
-                        ? new Date(selectedClient.onboardingDetails.onboarding.updated_at).toLocaleDateString() 
-                        : 'Not specified'}
+                      {selectedClient.onboardingDetails.onboarding?.updated_at
+                        ? new Date(
+                            selectedClient.onboardingDetails.onboarding.updated_at
+                          ).toLocaleDateString()
+                        : "Not specified"}
                     </p>
                   </div>
                 </div>
               </div>
 
               {/* Raw API Response (Collapsible) */}
-              <details className={`${currentTheme.cardBg} border ${currentTheme.border} rounded-xl p-4 md:p-6 shadow-xl`}>
-                <summary className={`cursor-pointer text-lg font-semibold ${currentTheme.text} mb-4 flex items-center gap-2`}>
+              <details
+                className={`${currentTheme.cardBg} border ${currentTheme.border} rounded-xl p-4 md:p-6 shadow-xl`}
+              >
+                <summary
+                  className={`cursor-pointer text-lg font-semibold ${currentTheme.text} mb-4 flex items-center gap-2`}
+                >
                   <RiCodeLine className="w-5 h-5" />
                   Raw API Response
                 </summary>
-                <div className={`mt-4 p-4 rounded-lg ${currentTheme.searchBg} border ${currentTheme.border} max-h-96 overflow-auto`}>
-                  <pre className={`text-xs ${currentTheme.text} whitespace-pre-wrap`}>
+                <div
+                  className={`mt-4 p-4 rounded-lg ${currentTheme.searchBg} border ${currentTheme.border} max-h-96 overflow-auto`}
+                >
+                  <pre
+                    className={`text-xs ${currentTheme.text} whitespace-pre-wrap`}
+                  >
                     {JSON.stringify(selectedClient.onboardingDetails, null, 2)}
                   </pre>
                 </div>
@@ -1752,23 +2726,62 @@ const ClientManagement = () => {
     <div className="space-y-3 md:space-y-4 lg:space-y-6">
       {viewMode === "list" && (
         <>
-          {/* Stats Overview Cards - Mobile Optimized */}
-          {/* Mobile: Horizontal Scroll */}
           <div className="lg:hidden overflow-x-auto scrollbar-hide -mx-2 px-2">
             <div className="flex gap-3 pb-2" style={{ width: "max-content" }}>
-              {/* Pending Card */}
+
               <div className="group flex-shrink-0 w-36 sm:w-40">
-                <div className={`${currentTheme.cardBg} border ${currentTheme.border} rounded-lg p-3 hover:scale-[1.02] transition-all duration-200 shadow-lg`}>
+                <div
+                  className={`${currentTheme.cardBg} border ${currentTheme.border} rounded-lg p-3 hover:scale-[1.02] transition-all duration-200 shadow-lg`}
+                >
                   <div className="flex items-center justify-between mb-2">
-                    <div className={`w-8 h-8 rounded-lg ${currentTheme.searchBg} flex items-center justify-center`}>
-                      <RiTimeLine className={`w-4 h-4 ${currentTheme.textSecondary}`} />
+                    <div
+                      className={`w-8 h-8 rounded-lg ${currentTheme.searchBg} flex items-center justify-center`}
+                    >
+                      <RiTeamLine
+                        className={`w-4 h-4 ${currentTheme.textSecondary}`}
+                      />
                     </div>
-                    <span className="text-xs font-medium text-yellow-500">Pending</span>
+                    <span className="text-xs font-medium text-blue-500">
+                      Total
+                    </span>
                   </div>
-                  <h3 className={`text-xl font-semibold ${currentTheme.text} mb-0.5`}>
-                    {getCount('pending')}
+                  <h3
+                    className={`text-xl font-semibold ${currentTheme.text} mb-0.5`}
+                  >
+                    {getCount("pending") + getCount("onboarded")}
                   </h3>
-                  <p className={`text-xs font-medium ${currentTheme.text} leading-tight`}>
+                  <p
+                    className={`text-xs font-medium ${currentTheme.text} leading-tight`}
+                  >
+                    All Clients
+                  </p>
+                </div>
+              </div>
+
+              <div className="group flex-shrink-0 w-36 sm:w-40">
+                <div
+                  className={`${currentTheme.cardBg} border ${currentTheme.border} rounded-lg p-3 hover:scale-[1.02] transition-all duration-200 shadow-lg`}
+                >
+                  <div className="flex items-center justify-between mb-2">
+                    <div
+                      className={`w-8 h-8 rounded-lg ${currentTheme.searchBg} flex items-center justify-center`}
+                    >
+                      <RiTimeLine
+                        className={`w-4 h-4 ${currentTheme.textSecondary}`}
+                      />
+                    </div>
+                    <span className="text-xs font-medium text-yellow-500">
+                      Pending
+                    </span>
+                  </div>
+                  <h3
+                    className={`text-xl font-semibold ${currentTheme.text} mb-0.5`}
+                  >
+                    {getCount("pending")}
+                  </h3>
+                  <p
+                    className={`text-xs font-medium ${currentTheme.text} leading-tight`}
+                  >
                     Awaiting Review
                   </p>
                 </div>
@@ -1776,54 +2789,30 @@ const ClientManagement = () => {
 
               {/* Approved Card */}
               <div className="group flex-shrink-0 w-36 sm:w-40">
-                <div className={`${currentTheme.cardBg} border ${currentTheme.border} rounded-lg p-3 hover:scale-[1.02] transition-all duration-200 shadow-lg`}>
+                <div
+                  className={`${currentTheme.cardBg} border ${currentTheme.border} rounded-lg p-3 hover:scale-[1.02] transition-all duration-200 shadow-lg`}
+                >
                   <div className="flex items-center justify-between mb-2">
-                    <div className={`w-8 h-8 rounded-lg ${currentTheme.searchBg} flex items-center justify-center`}>
-                      <RiCheckLine className={`w-4 h-4 ${currentTheme.textSecondary}`} />
+                    <div
+                      className={`w-8 h-8 rounded-lg ${currentTheme.searchBg} flex items-center justify-center`}
+                    >
+                      <RiCheckLine
+                        className={`w-4 h-4 ${currentTheme.textSecondary}`}
+                      />
                     </div>
-                    <span className="text-xs font-medium text-green-500">Active</span>
+                    <span className="text-xs font-medium text-green-500">
+                      Active
+                    </span>
                   </div>
-                  <h3 className={`text-xl font-semibold ${currentTheme.text} mb-0.5`}>
-                    {getCount('approved')}
+                  <h3
+                    className={`text-xl font-semibold ${currentTheme.text} mb-0.5`}
+                  >
+                    {getCount("approved")}
                   </h3>
-                  <p className={`text-xs font-medium ${currentTheme.text} leading-tight`}>
+                  <p
+                    className={`text-xs font-medium ${currentTheme.text} leading-tight`}
+                  >
                     Approved
-                  </p>
-                </div>
-              </div>
-
-              {/* Rejected Card */}
-              <div className="group flex-shrink-0 w-36 sm:w-40">
-                <div className={`${currentTheme.cardBg} border ${currentTheme.border} rounded-lg p-3 hover:scale-[1.02] transition-all duration-200 shadow-lg`}>
-                  <div className="flex items-center justify-between mb-2">
-                    <div className={`w-8 h-8 rounded-lg ${currentTheme.searchBg} flex items-center justify-center`}>
-                      <RiCloseLine className={`w-4 h-4 ${currentTheme.textSecondary}`} />
-                    </div>
-                    <span className="text-xs font-medium text-red-500">Declined</span>
-                  </div>
-                  <h3 className={`text-xl font-semibold ${currentTheme.text} mb-0.5`}>
-                    {getCount('onboarded')}
-                  </h3>
-                  <p className={`text-xs font-medium ${currentTheme.text} leading-tight`}>
-                    Completed
-                  </p>
-                </div>
-              </div>
-
-              {/* Total Card */}
-              <div className="group flex-shrink-0 w-36 sm:w-40">
-                <div className={`${currentTheme.cardBg} border ${currentTheme.border} rounded-lg p-3 hover:scale-[1.02] transition-all duration-200 shadow-lg`}>
-                  <div className="flex items-center justify-between mb-2">
-                    <div className={`w-8 h-8 rounded-lg ${currentTheme.searchBg} flex items-center justify-center`}>
-                      <RiTeamLine className={`w-4 h-4 ${currentTheme.textSecondary}`} />
-                    </div>
-                    <span className="text-xs font-medium text-blue-500">Total</span>
-                  </div>
-                  <h3 className={`text-xl font-semibold ${currentTheme.text} mb-0.5`}>
-                    {getCount('pending') + getCount('onboarded')}
-                  </h3>
-                  <p className={`text-xs font-medium ${currentTheme.text} leading-tight`}>
-                    All Clients
                   </p>
                 </div>
               </div>
@@ -1833,21 +2822,70 @@ const ClientManagement = () => {
           {/* Desktop: Grid Layout */}
           <div className="hidden lg:grid lg:grid-cols-3 gap-4">
             {/* Pending Clients Card */}
+
             <div className="group">
-              <div className={`${currentTheme.cardBg} border ${currentTheme.border} rounded-lg p-4 hover:scale-[1.02] transition-all duration-200 ${currentTheme.cardShadow || "shadow-lg"}`}>
+              <div
+                className={`${currentTheme.cardBg} border ${currentTheme.border} rounded-lg p-4 hover:scale-[1.02] transition-all duration-200 ${currentTheme.cardShadow || "shadow-lg"}`}
+              >
                 <div className="flex items-center justify-between mb-3">
-                  <div className={`w-10 h-10 rounded-lg ${currentTheme.searchBg} flex items-center justify-center`}>
-                    <RiTimeLine className={`w-5 h-5 ${currentTheme.textSecondary}`} />
+                  <div
+                    className={`w-10 h-10 rounded-lg ${currentTheme.searchBg} flex items-center justify-center`}
+                  >
+                    <RiTeamLine
+                      className={`w-5 h-5 ${currentTheme.textSecondary}`}
+                    />
                   </div>
-                  <span className="text-xs font-medium text-yellow-500">Pending</span>
+                  <span className="text-xs font-medium text-blue-500">
+                    Total
+                  </span>
                 </div>
-                <h3 className={`text-2xl font-semibold ${currentTheme.text} mb-1`}>
-                  {getCount('pending')}
+                <h3
+                  className={`text-2xl font-semibold ${currentTheme.text} mb-1`}
+                >
+                  {getCount("pending") + getCount("onboarded")}
                 </h3>
-                <p className={`text-sm font-medium ${currentTheme.text} mb-1 leading-tight`}>
+                <p
+                  className={`text-sm font-medium ${currentTheme.text} mb-1 leading-tight`}
+                >
+                  All Clients
+                </p>
+                <p
+                  className={`text-xs ${currentTheme.textSecondary} leading-tight`}
+                >
+                  Total submissions
+                </p>
+              </div>
+            </div>
+
+            <div className="group">
+              <div
+                className={`${currentTheme.cardBg} border ${currentTheme.border} rounded-lg p-4 hover:scale-[1.02] transition-all duration-200 ${currentTheme.cardShadow || "shadow-lg"}`}
+              >
+                <div className="flex items-center justify-between mb-3">
+                  <div
+                    className={`w-10 h-10 rounded-lg ${currentTheme.searchBg} flex items-center justify-center`}
+                  >
+                    <RiTimeLine
+                      className={`w-5 h-5 ${currentTheme.textSecondary}`}
+                    />
+                  </div>
+                  <span className="text-xs font-medium text-yellow-500">
+                    Pending
+                  </span>
+                </div>
+                <h3
+                  className={`text-2xl font-semibold ${currentTheme.text} mb-1`}
+                >
+                  {getCount("pending")}
+                </h3>
+                <p
+                  className={`text-sm font-medium ${currentTheme.text} mb-1 leading-tight`}
+                >
                   Awaiting Review
                 </p>
-                <p className={`text-xs ${currentTheme.textSecondary} leading-tight`}>
+                <p
+                  className={`text-xs ${currentTheme.textSecondary} leading-tight`}
+                >
                   Needs approval
                 </p>
               </div>
@@ -1855,88 +2893,67 @@ const ClientManagement = () => {
 
             {/* Approved Clients Card */}
             <div className="group">
-              <div className={`${currentTheme.cardBg} border ${currentTheme.border} rounded-lg p-4 hover:scale-[1.02] transition-all duration-200 ${currentTheme.cardShadow || "shadow-lg"}`}>
+              <div
+                className={`${currentTheme.cardBg} border ${currentTheme.border} rounded-lg p-4 hover:scale-[1.02] transition-all duration-200 ${currentTheme.cardShadow || "shadow-lg"}`}
+              >
                 <div className="flex items-center justify-between mb-3">
-                  <div className={`w-10 h-10 rounded-lg ${currentTheme.searchBg} flex items-center justify-center`}>
-                    <RiCheckLine className={`w-5 h-5 ${currentTheme.textSecondary}`} />
+                  <div
+                    className={`w-10 h-10 rounded-lg ${currentTheme.searchBg} flex items-center justify-center`}
+                  >
+                    <RiCheckLine
+                      className={`w-5 h-5 ${currentTheme.textSecondary}`}
+                    />
                   </div>
-                  <span className="text-xs font-medium text-green-500">Active</span>
+                  <span className="text-xs font-medium text-green-500">
+                    Active
+                  </span>
                 </div>
-                <h3 className={`text-2xl font-semibold ${currentTheme.text} mb-1`}>
-                  {getCount('approved')}
+                <h3
+                  className={`text-2xl font-semibold ${currentTheme.text} mb-1`}
+                >
+                  {getCount("approved")}
                 </h3>
-                <p className={`text-sm font-medium ${currentTheme.text} mb-1 leading-tight`}>
+                <p
+                  className={`text-sm font-medium ${currentTheme.text} mb-1 leading-tight`}
+                >
                   Approved Clients
                 </p>
-                <p className={`text-xs ${currentTheme.textSecondary} leading-tight`}>
+                <p
+                  className={`text-xs ${currentTheme.textSecondary} leading-tight`}
+                >
                   Active accounts
                 </p>
               </div>
             </div>
 
-            {/* Rejected Clients Card */}
-            <div className="group">
-              <div className={`${currentTheme.cardBg} border ${currentTheme.border} rounded-lg p-4 hover:scale-[1.02] transition-all duration-200 ${currentTheme.cardShadow || "shadow-lg"}`}>
-                <div className="flex items-center justify-between mb-3">
-                  <div className={`w-10 h-10 rounded-lg ${currentTheme.searchBg} flex items-center justify-center`}>
-                    <RiCloseLine className={`w-5 h-5 ${currentTheme.textSecondary}`} />
-                  </div>
-                  <span className="text-xs font-medium text-red-500">Declined</span>
-                </div>
-                <h3 className={`text-2xl font-semibold ${currentTheme.text} mb-1`}>
-                  {getCount('onboarded')}
-                </h3>
-                <p className={`text-sm font-medium ${currentTheme.text} mb-1 leading-tight`}>
-                  Completed Onboarding
-                </p>
-                <p className={`text-xs ${currentTheme.textSecondary} leading-tight`}>
-                  Ready to use platform
-                </p>
-              </div>
-            </div>
-
-            {/* Total Clients Card */}
-            <div className="group">
-              <div className={`${currentTheme.cardBg} border ${currentTheme.border} rounded-lg p-4 hover:scale-[1.02] transition-all duration-200 ${currentTheme.cardShadow || "shadow-lg"}`}>
-                <div className="flex items-center justify-between mb-3">
-                  <div className={`w-10 h-10 rounded-lg ${currentTheme.searchBg} flex items-center justify-center`}>
-                    <RiTeamLine className={`w-5 h-5 ${currentTheme.textSecondary}`} />
-                  </div>
-                  <span className="text-xs font-medium text-blue-500">Total</span>
-                </div>
-                <h3 className={`text-2xl font-semibold ${currentTheme.text} mb-1`}>
-                  {getCount('pending') + getCount('onboarded')}
-                </h3>
-                <p className={`text-sm font-medium ${currentTheme.text} mb-1 leading-tight`}>
-                  All Clients
-                </p>
-                <p className={`text-xs ${currentTheme.textSecondary} leading-tight`}>
-                  Total submissions
-                </p>
-              </div>
-            </div>
           </div>
 
           {/* Main Content Card - Mobile Optimized */}
-          <div className={`${currentTheme.cardBg} border ${currentTheme.border} rounded-lg p-3 sm:p-4 md:p-6 ${currentTheme.cardShadow || "shadow-lg"}`}>
+          <div
+            className={`${currentTheme.cardBg} border ${currentTheme.border} rounded-lg p-3 sm:p-4 md:p-6 ${currentTheme.cardShadow || "shadow-lg"}`}
+          >
             {/* Header with Search - Mobile Optimized */}
             <div className="flex flex-col gap-3 mb-3 sm:mb-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <h2 className={`text-base sm:text-lg md:text-xl font-semibold ${currentTheme.text} flex items-center gap-2`}>
+                  <h2
+                    className={`text-base sm:text-lg md:text-xl font-semibold ${currentTheme.text} flex items-center gap-2`}
+                  >
                     <RiTeamLine className="w-4 h-4 sm:w-5 sm:h-5" />
                     <span className="hidden sm:inline">Client Requests</span>
                     <span className="sm:hidden">Clients</span>
                   </h2>
                   <p className={`${currentTheme.textSecondary} text-xs mt-0.5`}>
-                    ({getCount('pending') + getCount('onboarded')} total)
+                    ({getCount("pending") + getCount("onboarded")} total)
                   </p>
                 </div>
               </div>
-              
+
               {/* Search Bar - Mobile Optimized */}
               <div className="relative">
-                <RiSearchLine className={`hidden lg:absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 ${currentTheme.textSecondary}`} />
+                <RiSearchLine
+                  className={`hidden lg:absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 ${currentTheme.textSecondary}`}
+                />
                 <input
                   type="text"
                   placeholder="Search clients..."
@@ -1948,7 +2965,9 @@ const ClientManagement = () => {
             </div>
 
             {/* Tabs - Mobile Optimized with Icons */}
-            <div className={`flex gap-1 mb-3 sm:mb-4 border-b ${currentTheme.border} overflow-x-auto scrollbar-hide`}>
+            <div
+              className={`flex gap-1 mb-3 sm:mb-4 border-b ${currentTheme.border} overflow-x-auto scrollbar-hide`}
+            >
               <button
                 onClick={() => setActiveTab("pending")}
                 className={`flex-shrink-0 px-3 sm:px-4 py-2 font-medium transition-all duration-200 border-b-2 whitespace-nowrap text-xs sm:text-sm ${
@@ -1960,12 +2979,14 @@ const ClientManagement = () => {
                 <div className="flex items-center gap-1.5">
                   <RiTimeLine className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                   <span>Pending</span>
-                  <span className={`px-1.5 py-0.5 rounded-full text-xs ${
-                    activeTab === "pending"
-                      ? `${currentTheme.activeBg} ${currentTheme.text}`
-                      : `${currentTheme.textSecondary}`
-                  }`}>
-                    {getCount('pending')}
+                  <span
+                    className={`px-1.5 py-0.5 rounded-full text-xs ${
+                      activeTab === "pending"
+                        ? `${currentTheme.activeBg} ${currentTheme.text}`
+                        : `${currentTheme.textSecondary}`
+                    }`}
+                  >
+                    {getCount("pending")}
                   </span>
                 </div>
               </button>
@@ -1980,12 +3001,14 @@ const ClientManagement = () => {
                 <div className="flex items-center gap-1.5">
                   <RiCheckLine className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                   <span>Onboarded</span>
-                  <span className={`px-1.5 py-0.5 rounded-full text-xs ${
-                    activeTab === "onboarded"
-                      ? `${currentTheme.activeBg} ${currentTheme.text}`
-                      : `${currentTheme.textSecondary}`
-                  }`}>
-                    {getCount('onboarded')}
+                  <span
+                    className={`px-1.5 py-0.5 rounded-full text-xs ${
+                      activeTab === "onboarded"
+                        ? `${currentTheme.activeBg} ${currentTheme.text}`
+                        : `${currentTheme.textSecondary}`
+                    }`}
+                  >
+                    {getCount("onboarded")}
                   </span>
                 </div>
               </button>
@@ -1994,22 +3017,36 @@ const ClientManagement = () => {
             {/* Client List - Mobile App-like Cards */}
             <div className="space-y-2 sm:space-y-3">
               {getClientsForTab().length === 0 ? (
-                <div className={`text-center py-8 sm:py-12 rounded-lg ${currentTheme.cardBg} border ${currentTheme.border}`}>
-                  <RiUserLine className={`w-10 h-10 sm:w-12 sm:h-12 mx-auto mb-2 sm:mb-3 ${currentTheme.textSecondary}`} />
-                  <h3 className={`text-base sm:text-lg font-semibold ${currentTheme.text} mb-1 sm:mb-2`}>
-                    {searchTerm ? "No matching clients" : 
-                     (users || []).length > 0 ? "No client requests yet" : "No data available"}
+                <div
+                  className={`text-center py-8 sm:py-12 rounded-lg ${currentTheme.cardBg} border ${currentTheme.border}`}
+                >
+                  <RiUserLine
+                    className={`w-10 h-10 sm:w-12 sm:h-12 mx-auto mb-2 sm:mb-3 ${currentTheme.textSecondary}`}
+                  />
+                  <h3
+                    className={`text-base sm:text-lg font-semibold ${currentTheme.text} mb-1 sm:mb-2`}
+                  >
+                    {searchTerm
+                      ? "No matching clients"
+                      : (users || []).length > 0
+                        ? "No client requests yet"
+                        : "No data available"}
                   </h3>
-                  <p className={`text-xs sm:text-sm ${currentTheme.textSecondary}`}>
+                  <p
+                    className={`text-xs sm:text-sm ${currentTheme.textSecondary}`}
+                  >
                     {searchTerm
                       ? "Try adjusting your search criteria"
-                      : (users || []).length > 0 
+                      : (users || []).length > 0
                         ? `${(users || []).length} registered users but no ${activeTab} client requests`
                         : `No ${activeTab} client requests available`}
                   </p>
                   {/* Debug info */}
-                  <div className={`mt-2 text-xs ${currentTheme.textSecondary} opacity-60`}>
-                    Debug: {(users || []).length} users, {getTotalOnboardingCount()} onboarding records
+                  <div
+                    className={`mt-2 text-xs ${currentTheme.textSecondary} opacity-60`}
+                  >
+                    Debug: {(users || []).length} users,{" "}
+                    {getTotalOnboardingCount()} onboarding records
                   </div>
                 </div>
               ) : (
@@ -2021,27 +3058,36 @@ const ClientManagement = () => {
                     {/* Header Row - Compact on Mobile */}
                     <div className="flex items-start justify-between mb-2 sm:mb-3">
                       <div className="flex items-center gap-2 flex-1 min-w-0">
-                        <div className={`w-8 h-8 sm:w-9 sm:h-9 rounded-lg ${currentTheme.activeBg} flex items-center justify-center flex-shrink-0`}>
-                          <RiBuildingLine className={`w-4 h-4 sm:w-5 sm:h-5 ${currentTheme.text}`} />
+                        <div
+                          className={`w-8 h-8 sm:w-9 sm:h-9 rounded-lg ${currentTheme.activeBg} flex items-center justify-center flex-shrink-0`}
+                        >
+                          <RiBuildingLine
+                            className={`w-4 h-4 sm:w-5 sm:h-5 ${currentTheme.text}`}
+                          />
                         </div>
                         <div className="flex-1 min-w-0">
-                          <h4 className={`font-semibold ${currentTheme.text} text-sm sm:text-base truncate`}>
-                            {client?.company_basics?.name || 'Unknown'}
+                          <h4
+                            className={`font-semibold ${currentTheme.text} text-sm sm:text-base truncate`}
+                          >
+                            {client?.company_basics?.name || "Unknown"}
                           </h4>
-                          <p className={`text-xs ${currentTheme.textSecondary} truncate`}>
-                            {client?.company_basics?.company_email || 'No email'}
+                          <p
+                            className={`text-xs ${currentTheme.textSecondary} truncate`}
+                          >
+                            {client?.company_basics?.company_email ||
+                              "No email"}
                           </p>
                         </div>
                       </div>
                       <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0 ml-2">
-                        <button 
+                        <button
                           onClick={() => handleViewClient(client)}
                           className={`p-1.5 sm:p-2 flex items-center justify-center ${currentTheme.textSecondary} rounded-lg ${currentTheme.activeBg} hover:scale-105 active:scale-95 transition-all duration-200`}
                           title="View Details"
                         >
                           <RiEyeLine className="w-4 h-4" />
                         </button>
-                        <button 
+                        <button
                           onClick={() => handleEditClient(client)}
                           className={`p-1.5 sm:p-2 flex items-center justify-center ${currentTheme.textSecondary} rounded-lg ${currentTheme.activeBg} hover:scale-105 active:scale-95 transition-all duration-200`}
                           title="Edit Client"
@@ -2054,27 +3100,54 @@ const ClientManagement = () => {
                     {/* Info Grid - Responsive Columns */}
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3">
                       <div className="space-y-0.5">
-                        <p className={`text-xs ${currentTheme.textSecondary} uppercase`}>Plan</p>
-                        <p className={`${currentTheme.text} font-medium text-xs sm:text-sm leading-tight truncate`}>
-                          {client?.plan_details?.type || 'No plan'}
+                        <p
+                          className={`text-xs ${currentTheme.textSecondary} uppercase`}
+                        >
+                          Plan
+                        </p>
+                        <p
+                          className={`${currentTheme.text} font-medium text-xs sm:text-sm leading-tight truncate`}
+                        >
+                          {client?.plan_details?.type || "No plan"}
                         </p>
                       </div>
                       <div className="space-y-0.5">
-                        <p className={`text-xs ${currentTheme.textSecondary} uppercase`}>Size</p>
-                        <p className={`${currentTheme.text} font-medium text-xs sm:text-sm leading-tight`}>
-                          {client?.company_basics?.company_size || 'Unknown'}
+                        <p
+                          className={`text-xs ${currentTheme.textSecondary} uppercase`}
+                        >
+                          Size
+                        </p>
+                        <p
+                          className={`${currentTheme.text} font-medium text-xs sm:text-sm leading-tight`}
+                        >
+                          {client?.company_basics?.company_size || "Unknown"}
                         </p>
                       </div>
                       <div className="space-y-0.5">
-                        <p className={`text-xs ${currentTheme.textSecondary} uppercase`}>Industry</p>
-                        <p className={`${currentTheme.text} font-medium text-xs sm:text-sm leading-tight truncate`}>
+                        <p
+                          className={`text-xs ${currentTheme.textSecondary} uppercase`}
+                        >
+                          Industry
+                        </p>
+                        <p
+                          className={`${currentTheme.text} font-medium text-xs sm:text-sm leading-tight truncate`}
+                        >
                           {client?.company_basics?.industry?.[0] || "N/A"}
                         </p>
                       </div>
                       <div className="space-y-0.5">
-                        <p className={`text-xs ${currentTheme.textSecondary} uppercase`}>AI</p>
-                        <p className={`${currentTheme.text} font-medium text-xs sm:text-sm leading-tight`}>
-                          {(client?.ai_employees || []).length} {(client?.ai_employees || []).length === 1 ? "employee" : "employees"}
+                        <p
+                          className={`text-xs ${currentTheme.textSecondary} uppercase`}
+                        >
+                          AI
+                        </p>
+                        <p
+                          className={`${currentTheme.text} font-medium text-xs sm:text-sm leading-tight`}
+                        >
+                          {(client?.ai_employees || []).length}{" "}
+                          {(client?.ai_employees || []).length === 1
+                            ? "employee"
+                            : "employees"}
                         </p>
                       </div>
                     </div>

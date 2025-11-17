@@ -1241,7 +1241,7 @@ const AdminDashboardContent = () => {
                   placeholder="Search..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className={`w-full pl-9 pr-3 py-1 md:py-3 bg-transparent ${currentTheme.text} placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none rounded-lg text-[9px] md:text-sm transition-all`}
+                  className={`w-full border ${currentTheme.activeBorder} pl-9 pr-3 py-1 md:py-3 bg-transparent ${currentTheme.text} placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none rounded-lg text-[9px] md:text-sm transition-all`}
                 />
               </div>
             </div>
@@ -1260,10 +1260,10 @@ const AdminDashboardContent = () => {
                   className={`w-full flex items-center transition-all duration-200 group relative ${
                     isSidebarCollapsed
                       ? "justify-center px-2 py-3"
-                      : "gap-3 px-4 py-3"
+                      : "gap-3 px-4 py-3 "
                   } rounded-xl ${
                     isActive
-                      ? `${currentTheme.activeBg} ${currentTheme.text} font-medium`
+                      ? `${currentTheme.activeBg} ${currentTheme.text} font-medium  border ${currentTheme.activeBorder} `
                       : `${currentTheme.textSecondary} ${currentTheme.hover}`
                   }`}
                   title={isSidebarCollapsed ? item.label : undefined}

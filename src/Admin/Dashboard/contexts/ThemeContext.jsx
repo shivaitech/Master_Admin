@@ -47,8 +47,8 @@ export const ThemeProvider = ({ children }) => {
       topBarBg: 'bg-white',
       gradient: 'from-[#F0F0F0] to-white',
       searchBg: 'bg-[#f8f8f8]',
-      activeBg: 'bg-[#e8e8e8]',
-      activeBorder: 'border-[#333333]',
+      activeBg: 'bg-[#f8f8f8]',
+      activeBorder: 'border-[#d0d0d0]',
       shadow: 'shadow-md shadow-gray-200/50',
       cardShadow: 'shadow-md shadow-gray-200/30'
     }
