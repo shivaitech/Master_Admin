@@ -62,40 +62,129 @@ const apiService = {
   patch: (url, data) => apiClient.patch(url, data),
 };
 
-// ShivAI Backend API Service
-const SHIVAI_BASE_URL = "https://shivai-com-backend.onrender.com/api/v1";
-
-const shivaiApiClient = axios.create({
-  baseURL: SHIVAI_BASE_URL,
-  timeout: 15000,
-});
-
-// Apply auth headers for ShivAI API
-shivaiApiClient.interceptors.request.use(setAuthHeaders);
-shivaiApiClient.interceptors.response.use((res) => res, errorCallBack);
-
-export const shivaiApiService = {
-  // Get onboarding data by user ID
-  getOnboardingByUserId: async (userId) => {
+// Extended API service with specific methods for user and onboarding management
+const shivaiApiService = {
+  // Basic API methods
+  ...apiService,
+  
+  // User management methods
+  getAllUsers: async () => {
     try {
-      const response = await shivaiApiClient.get(`/onboarding/user/${userId}`);
+      console.log("🔍 Fetching all users...");
+      const response = await apiClient.get("/v1/users");
+      console.log("✅ Users fetched successfully:", response.data);
       return response.data;
     } catch (error) {
-      console.error("Error fetching onboarding data:", error);
+      console.error("❌ Error fetching users:", error);
+      // Fallback to alternative endpoint if needed
+      try {
+        const fallbackResponse = await apiClient.get("/v1/admin/users");
+        console.log("✅ Users fetched via fallback endpoint:", fallbackResponse.data);
+        return fallbackResponse.data;
+      } catch (fallbackError) {
+        console.error("❌ Fallback endpoint also failed:", fallbackError);
+        throw error;
+      }
+    }
+  },
+
+  // Onboarding data methods
+  getOnboardingByUserId: async (userId) => {
+    try {
+      console.log(`🔍 Fetching onboarding data for user: ${userId}`);
+      const response = await apiClient.get(`/v1/admin/onboarding/${userId}`);
+      console.log("✅ Onboarding data fetched successfully:", response.data);
+      return response.data;
+    } catch (error) {
+      console.error("❌ Error fetching onboarding data:", error);
+      // Try alternative endpoint patterns
+      try {
+        const fallbackResponse = await apiClient.get(`/v1/onboarding/user/${userId}`);
+        console.log("✅ Onboarding data fetched via fallback endpoint:", fallbackResponse.data);
+        return fallbackResponse.data;
+      } catch (fallbackError) {
+        console.error("❌ Fallback endpoint also failed:", fallbackError);
+        throw error;
+      }
+    }
+  },
+
+  getAllOnboarding: async () => {
+    try {
+      console.log("🔍 Fetching all onboarding data...");
+      const response = await apiClient.get("/v1/admin/onboarding");
+      console.log("✅ All onboarding data fetched successfully:", response.data);
+      return response.data;
+    } catch (error) {
+      console.error("❌ Error fetching all onboarding data:", error);
+      try {
+        const fallbackResponse = await apiClient.get("/v1/onboarding");
+        console.log("✅ Onboarding data fetched via fallback endpoint:", fallbackResponse.data);
+        return fallbackResponse.data;
+      } catch (fallbackError) {
+        console.error("❌ Fallback endpoint also failed:", fallbackError);
+        throw error;
+      }
+    }
+  },
+
+  updateOnboardingData: async (id, data) => {
+    try {
+      console.log(`🔄 Updating onboarding data for ID: ${id}`);
+      const response = await apiClient.put(`/v1/admin/onboarding/${id}`, data);
+      console.log("✅ Onboarding data updated successfully:", response.data);
+      return response.data;
+    } catch (error) {
+      console.error("❌ Error updating onboarding data:", error);
       throw error;
     }
   },
 
-  // Get all users
-  getAllUsers: async () => {
+  // File handling methods
+  getFile: async (fileId) => {
     try {
-      const response = await shivaiApiClient.get("/users");
+      console.log(`📁 Fetching file with ID: ${fileId}`);
+      const response = await apiClient.get(`/v1/files/${fileId}`);
+      console.log("✅ File data fetched successfully:", response.data);
       return response.data;
     } catch (error) {
-      console.error("Error fetching users:", error);
-      throw error;
+      console.error("❌ Error fetching file:", error);
+      // Try alternative endpoints
+      try {
+        const fallbackResponse = await apiClient.get(`/v1/admin/files/${fileId}`);
+        console.log("✅ File data fetched via fallback:", fallbackResponse.data);
+        return fallbackResponse.data;
+      } catch (fallbackError) {
+        console.error("❌ Fallback file fetch also failed:", fallbackError);
+        throw error;
+      }
+    }
+  },
+
+  downloadFile: async (fileId) => {
+    try {
+      console.log(`⬇️ Downloading file with ID: ${fileId}`);
+      const response = await apiClient.get(`/v1/files/${fileId}/download`, {
+        responseType: 'blob'
+      });
+      console.log("✅ File downloaded successfully");
+      return response;
+    } catch (error) {
+      console.error("❌ Error downloading file:", error);
+      // Try alternative endpoints
+      try {
+        const fallbackResponse = await apiClient.get(`/v1/admin/files/${fileId}/download`, {
+          responseType: 'blob'
+        });
+        console.log("✅ File downloaded via fallback");
+        return fallbackResponse;
+      } catch (fallbackError) {
+        console.error("❌ Fallback file download also failed:", fallbackError);
+        throw error;
+      }
     }
   }
 };
 
 export default apiService;
+export { shivaiApiService };
