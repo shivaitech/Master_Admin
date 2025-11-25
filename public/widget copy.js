@@ -2410,7 +2410,7 @@
       if (isIOS()) {
         audioContextOptions.latencyHint = "playback";
         console.log(
-          "🍎 [iOS] Using iOS-optimized audio settings with 25x amplification and enhanced soft clipping"
+          "🍎 [iOS] Using iOS-optimized audio settings with 20x amplification and soft clipping"
         );
       } else {
         console.log(
@@ -2756,9 +2756,9 @@
   function handlePlaybackProcess(event) {
     const output = event.outputBuffer.getChannelData(0);
     let offset = 0;
-    const baseVolumeGain = isIOS() ? 6.0 : 3.5; // Higher gain for iOS
-    const compressionThreshold = isIOS() ? 0.6 : 0.7; // Lower threshold for iOS to handle higher gain
-    const compressionRatio = isIOS() ? 0.4 : 0.5; // More aggressive compression for iOS
+    const baseVolumeGain = 3.5;
+    const compressionThreshold = 0.7;
+    const compressionRatio = 0.5;
     if (!audioBufferingStarted && !audioStreamComplete) {
       for (let i = 0; i < output.length; i++) {
         output[i] = 0;
@@ -2788,9 +2788,7 @@
           const compressed = compressionThreshold + excess * compressionRatio;
           processedSample = (processedSample > 0 ? 1 : -1) * compressed;
         }
-        // Enhanced clipping prevention for iOS
-        const maxOutput = isIOS() ? 0.92 : 0.95; // Slightly more conservative clipping for iOS
-        processedSample = Math.max(-maxOutput, Math.min(maxOutput, processedSample));
+        processedSample = Math.max(-0.95, Math.min(0.95, processedSample));
         output[offset + i] = processedSample;
       }
       offset += samplesToCopy;

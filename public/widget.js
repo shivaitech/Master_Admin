@@ -30,6 +30,7 @@
   let audioBufferingStarted = false;
   let minBufferChunks = 3;
   let audioStreamComplete = false;
+  let ringAudio = null;
   let messageBubble = null;
   let liveMessages = [
     "📞 Call ShivAI!",
@@ -117,6 +118,9 @@
         case "call-end":
           playCallEndSound();
           break;
+        case "ring":
+          playRingSound();
+          break;
         default:
           console.warn("Unknown sound type:", type);
       }
@@ -133,6 +137,29 @@
       }, delay);
       delay += 120;
     });
+  }
+  
+  function playRingSound() {
+    try {
+      if (!ringAudio) {
+        ringAudio = new Audio('./assets/Rings/ring1.mp3');
+        ringAudio.loop = true;
+        ringAudio.volume = 0.7;
+      }
+      ringAudio.currentTime = 0;
+      ringAudio.play().catch(error => {
+        console.warn("Could not play ring sound:", error);
+      });
+    } catch (error) {
+      console.warn("Error initializing ring sound:", error);
+    }
+  }
+  
+  function stopRingSound() {
+    if (ringAudio) {
+      ringAudio.pause();
+      ringAudio.currentTime = 0;
+    }
   }
   function playDiallingSound() {
     const dialTone = 440;
@@ -2027,13 +2054,14 @@
           const buffer = soundContext.createBuffer(1, 1, 22050);
           const source = soundContext.createBufferSource();
           source.buffer = buffer;
-          source.connect(soundContext.destination);
+          // source.connect(soundContext.destination);
           source.start();
         }
       } catch (e) {
         console.warn("🍎 [iOS] Audio unlock failed:", e);
       }
     }
+
     if (isConnecting) {
       return;
     }
@@ -2041,6 +2069,7 @@
       console.log("🔴 Immediate hang up requested");
       isConnected = false;
       isConnecting = false;
+      stopRingSound(); // Stop ring sound when hanging up
       clearLoadingStatus();
       stopCallTimer();
       if (ws) {
@@ -2059,7 +2088,7 @@
     } else {
       isConnecting = true;
       connectBtn.disabled = true;
-      playSound("connecting");
+      playSound("ring"); // Start playing ring sound during loading
       try {
         connectBtn.innerHTML =
           '<svg width="26" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z" transform="rotate(135 12 12)"></path></svg>';
@@ -2070,6 +2099,7 @@
         isConnecting = false;
       } catch (error) {
         console.error("Failed to start conversation:", error);
+        stopRingSound(); // Stop ring sound on error
         isConnected = false;
         isConnecting = false;
         hasReceivedFirstAIResponse = false;
@@ -2145,6 +2175,7 @@
     }
   }
   function startCallTimer() {
+    stopRingSound(); // Stop ring sound when call timer starts
     callStartTime = Date.now();
     if (callTimerElement) {
       callTimerElement.style.display = "block";
@@ -2191,7 +2222,7 @@
           ? "Using cached connection"
           : "Establishing secure connection",
         delay: baseDelay + 200,
-        sound: true,
+        sound: false,
       },
       {
         text: "Setting up voice pipeline...",
@@ -2205,7 +2236,7 @@
         text: "Configuring audio streams...",
         desc: "Optimizing voice quality",
         delay: baseDelay + 300,
-        sound: true,
+        sound: false,
       },
       {
         text: "Almost ready to talk...",
@@ -2226,7 +2257,7 @@
         showLoadingStatus(state.desc);
       }
       if (state.sound) {
-        playSound("connecting");
+        playSound("ring");
       }
       if (state.delay > 0) {
         await new Promise((resolve) => setTimeout(resolve, state.delay));
@@ -2379,7 +2410,7 @@
       if (isIOS()) {
         audioContextOptions.latencyHint = "playback";
         console.log(
-          "🍎 [iOS] Using iOS-optimized audio settings with 20x amplification and soft clipping"
+          "🍎 [iOS] Using iOS-optimized audio settings with 25x amplification and enhanced soft clipping"
         );
       } else {
         console.log(
@@ -2725,9 +2756,9 @@
   function handlePlaybackProcess(event) {
     const output = event.outputBuffer.getChannelData(0);
     let offset = 0;
-    const baseVolumeGain = 3.5;
-    const compressionThreshold = 0.7;
-    const compressionRatio = 0.5;
+    const baseVolumeGain = isIOS() ? 6.0 : 3.5; // Higher gain for iOS
+    const compressionThreshold = isIOS() ? 0.6 : 0.7; // Lower threshold for iOS to handle higher gain
+    const compressionRatio = isIOS() ? 0.4 : 0.5; // More aggressive compression for iOS
     if (!audioBufferingStarted && !audioStreamComplete) {
       for (let i = 0; i < output.length; i++) {
         output[i] = 0;
@@ -2757,7 +2788,9 @@
           const compressed = compressionThreshold + excess * compressionRatio;
           processedSample = (processedSample > 0 ? 1 : -1) * compressed;
         }
-        processedSample = Math.max(-0.95, Math.min(0.95, processedSample));
+        // Enhanced clipping prevention for iOS
+        const maxOutput = isIOS() ? 0.92 : 0.95; // Slightly more conservative clipping for iOS
+        processedSample = Math.max(-maxOutput, Math.min(maxOutput, processedSample));
         output[offset + i] = processedSample;
       }
       offset += samplesToCopy;
@@ -2798,6 +2831,7 @@
   }
   function stopAllScheduledAudio(options = {}) {
     const preserveStatus = options.preserveStatus === true;
+    stopRingSound(); // Stop ring sound when stopping all audio
     playbackBufferQueue = [];
     playbackBufferOffset = 0;
     audioBufferingStarted = false;

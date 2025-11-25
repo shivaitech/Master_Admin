@@ -1,15 +1,13 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo, useCallback } from "react";
+import toast from 'react-hot-toast';
 import {
   RiTeamLine,
   RiSearchLine,
   RiUserLine,
   RiEyeLine,
   RiEditLine,
-  RiUserFollowLine,
   RiUserAddLine,
   RiBankCardLine,
-  RiAlarmWarningLine,
-  RiErrorWarningLine,
   RiDownloadLine,
   RiCheckLine,
   RiCheckDoubleLine,
@@ -17,51 +15,67 @@ import {
   RiTimeLine,
   RiArrowLeftLine,
   RiGlobalLine,
-  RiPhoneLine,
   RiMailLine,
-  RiLinkedinLine,
   RiBuildingLine,
-  RiMapPinLine,
   RiUserVoiceLine,
   RiBookOpenLine,
-  RiLightbulbLine,
   RiRocketLine,
   RiFileTextLine,
   RiQuestionLine,
   RiRobotLine,
   RiShieldCheckLine,
-  RiCloudLine,
-  RiBookLine,
-  RiPriceTag3Line,
-  RiInformationLine,
-  RiCodeLine,
+  RiRefreshLine,
+  RiWhatsappLine,
+  RiCalendarLine,
+  RiShoppingBagLine,
+  RiSlackLine,
+  RiSettingsLine,
+  RiAddLine,
+  RiListCheck2,
 } from "react-icons/ri";
-import {
-  Users,
-  UserCheck,
-  UserPlus,
-  Crown,
-  CreditCard,
-  Target,
-} from "lucide-react";
 import { useTheme } from "../contexts/ThemeContext";
 import { shivaiApiService } from "../../../Redux-config/apisModel/apiService";
+import { Target } from "lucide-react";
 
 const ClientManagement = () => {
   const { theme, currentTheme } = useTheme();
   const [searchTerm, setSearchTerm] = useState("");
-  const [activeTab, setActiveTab] = useState("pending"); // onboarded, pending, approved
+  const [searchQuery, setSearchQuery] = useState("");
+  const [activeTab, setActiveTab] = useState("pending");
   const [selectedClient, setSelectedClient] = useState(null);
-  const [viewMode, setViewMode] = useState("list"); // list, detail, or edit
+  const [viewMode, setViewMode] = useState("list"); // list or edit
   const [editData, setEditData] = useState(null);
   const [onboardingData, setOnboardingData] = useState({
     onboarded: [],
     pending: [],
     approved: [],
+    rejected: [],
   });
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [actionLoading, setActionLoading] = useState(false);
   const [error, setError] = useState(null);
+
+  // Pagination states
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage] = useState(10);
+  const [totalItems, setTotalItems] = useState(0);
+  const [totalPages, setTotalPages] = useState(0);
+
+  // Debounced search effect
+  useEffect(() => {
+    const debounceTimer = setTimeout(() => {
+      setSearchQuery(searchTerm);
+      setCurrentPage(1);
+    }, 500);
+
+    return () => clearTimeout(debounceTimer);
+  }, [searchTerm]);
+
+  // Reset to first page when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [activeTab]);
 
   // Fetch data from API
   useEffect(() => {
@@ -71,8 +85,6 @@ const ClientManagement = () => {
         setError(null);
 
         try {
-          // Fetch all users from the API
-          console.log("🚀 Starting to fetch all users...");
           const usersResponse = await shivaiApiService.getAllUsers();
           console.log("✅ Raw users response:", usersResponse);
 
@@ -81,10 +93,9 @@ const ClientManagement = () => {
           console.log("📊 Processed users data:", {
             userData,
             allUsers: allUsers.length > 0 ? allUsers.slice(0, 3) : "No users found",
-            totalCount: allUsers.length
+            totalCount: allUsers.length,
           });
 
-          // Ensure allUsers is an array before processing
           if (!Array.isArray(allUsers)) {
             console.warn("⚠️ Users data is not an array:", allUsers);
             setUsers([]);
@@ -97,146 +108,68 @@ const ClientManagement = () => {
 
           // Categorize users based on onboarding status
           const categorizedData = {
-            pending: [], // isOnBoarded: false - users who haven't completed onboarding
-            onboarded: [], // isOnBoarded: true but not approved - users who completed onboarding
-            approved: [], // isApproved: true - users who are approved
+            pending: [],
+            onboarded: [],
+            approved: [],
           };
- 
-          console.log("Starting user categorization...",allUsers);
+
+          console.log("Starting user categorization...", allUsers);
           allUsers?.forEach((user) => {
-            // Check approval status first, then onboarding status
+            const clientData = {
+              _id: user?.id,
+              userData: user,
+              company_basics: {
+                name: user?.onboarding?.company_name || user?.fullName || "Unknown",
+                company_email: user?.onboarding?.company_email || user?.email,
+                company_size: user?.onboarding?.address || user?.address || "Unknown",
+                industry: [user?.onboarding?.region || "Not specified"],
+              },
+              plan_details: {
+                type: user?.onboarding?.plan_type || user?.plan_type || "Selected",
+              },
+              ai_employees: user?.onboarding?.ai_employees || Array.from(
+                { length: user?.onboarding?.ai_employee_count || 0 },
+                (_, i) => ({
+                  id: `ai_${i + 1}`,
+                  name: `AI Employee ${i + 1}`,
+                  type: "Assistant",
+                  status: "Active",
+                })
+              ),
+              isOnBoarded: user?.isOnBoarded || false,
+              isApproved: user?.isApproved || false,
+              createdAt: user?.createdAt,
+              lastLoginAt: user?.lastLoginAt,
+              knowledge_sources: {
+                website_url: "",
+                social_links: { linkedin: "" },
+                faqs_text: "",
+                uploaded_files: [],
+              },
+              deployment_targets: {
+                channels: [],
+              },
+              instructions: {
+                dos_and_donts: "",
+                fallback_contacts: "",
+              },
+              targets: {
+                success_goals: "",
+                success_metrics: "",
+              },
+            };
+
             if (user?.isApproved) {
-              // User is approved - goes to approved
-              categorizedData.approved.push({
-                _id: user?.id,
-                userData: user, // Keep original user data
-                company_basics: {
-                  name: user?.onboarding?.company_name || user?.fullName || "Unknown",
-                  company_email: user?.onboarding?.company_email || user?.email,
-                  company_size: user?.onboarding?.address || user?.address || "Unknown",
-                  industry: [user?.onboarding?.region || "Not specified"],
-                },
-                plan_details: {
-                  type: user?.onboarding?.plan_type || user?.plan_type || "Selected",
-                },
-                ai_employees: user?.onboarding?.ai_employees || Array.from({ length: user?.onboarding?.ai_employee_count || 0 }, (_, i) => ({
-                  id: `ai_${i + 1}`,
-                  name: `AI Employee ${i + 1}`,
-                  type: "Assistant",
-                  status: "Active"
-                })),
-                isOnBoarded: user?.isOnBoarded || true,
-                isApproved: user?.isApproved || true,
-                createdAt: user?.createdAt,
-                lastLoginAt: user?.lastLoginAt,
-                knowledge_sources: {
-                  website_url: "",
-                  social_links: { linkedin: "" },
-                  faqs_text: "",
-                  uploaded_files: [],
-                },
-                deployment_targets: {
-                  channels: [],
-                },
-                instructions: {
-                  dos_and_donts: "",
-                  fallback_contacts: "",
-                },
-                targets: {
-                  success_goals: "",
-                  success_metrics: "",
-                },
-                userData: user, // Keep original user data for reference
-              });
+              categorizedData.approved.push(clientData);
             } else if (!user?.isOnboarded) {
-              // User hasn't completed onboarding - goes to pending
-              categorizedData.pending.push({
-                _id: user?.id,
-                userData: user, // Keep original user data
-                company_basics: {
-                  name: user?.fullName || user?.company_name || "Unknown",
-                  company_email: user?.email,
-                  company_size: user?.address || "Unknown",
-                  industry: ["Not specified"],
-                },
-                plan_details: {
-                  type: user?.plan_type || "Not selected",
-                },
-                ai_employees: [],
-                isOnBoarded: user?.isOnBoarded || false,
-                createdAt: user?.createdAt,
-                lastLoginAt: user?.lastLoginAt,
-                knowledge_sources: {
-                  website_url: "",
-                  social_links: { linkedin: "" },
-                  faqs_text: "",
-                  uploaded_files: [],
-                },
-                deployment_targets: {
-                  channels: [],
-                },
-                instructions: {
-                  dos_and_donts: "",
-                  fallback_contacts: "",
-                },
-                targets: {
-                  success_goals: "",
-                  success_metrics: "",
-                },
-                isOnBoarded: user?.isOnBoarded,
-                createdAt: user?.createdAt,
-                userData: user, // Keep original user data for reference
-              });
+              categorizedData.pending.push(clientData);
             } else {
-              // User has completed onboarding - goes to onboarded
-              categorizedData.onboarded.push({
-                _id: user?.id,
-                userData: user, // Keep original user data
-                company_basics: {
-                  name: user?.onboarding?.company_name || user?.fullName || "Unknown",
-                  company_email: user?.onboarding?.company_email || user?.email,
-                  company_size: user?.onboarding?.address || user?.address || "Unknown",
-                  industry: [user?.onboarding?.region || "Not specified"],
-                },
-                plan_details: {
-                  type: user?.onboarding?.plan_type || user?.plan_type || "Selected",
-                },
-                ai_employees: user?.onboarding?.ai_employees || Array.from({ length: user?.onboarding?.ai_employee_count || 0 }, (_, i) => ({
-                  id: `ai_${i + 1}`,
-                  name: `AI Employee ${i + 1}`,
-                  type: "Assistant",
-                  status: "Active"
-                })),
-                isOnBoarded: user?.isOnBoarded || true,
-                createdAt: user?.createdAt,
-                lastLoginAt: user?.lastLoginAt,
-                knowledge_sources: {
-                  website_url: "",
-                  social_links: { linkedin: "" },
-                  faqs_text: "",
-                  uploaded_files: [],
-                },
-                deployment_targets: {
-                  channels: [],
-                },
-                instructions: {
-                  dos_and_donts: "",
-                  fallback_contacts: "",
-                },
-                targets: {
-                  success_goals: "",
-                  success_metrics: "",
-                },
-                isOnBoarded: user?.isOnBoarded,
-                createdAt: user?.createdAt,
-                userData: user, // Keep original user data for reference
-              });
+              categorizedData.onboarded.push(clientData);
             }
           });
 
           console.log("Categorized data:", categorizedData);
 
-          // Update state with categorized data
           setOnboardingData({
             pending: categorizedData.pending,
             onboarded: categorizedData.onboarded,
@@ -267,105 +200,156 @@ const ClientManagement = () => {
     fetchData();
   }, []);
 
-  if (loading) {
-    return (
-      <div
-        className={`flex items-center justify-center min-h-[400px] ${currentTheme.bg}`}
-      >
-        <div className={`${currentTheme.text} text-lg flex items-center gap-3`}>
-          <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-500"></div>
-          Loading client data...
-        </div>
-      </div>
-    );
-  }
-
-  const getClientsForTab = () => {
+  // Memoized calculations
+  const getClientsForTab = useMemo(() => {
     const onboardingClients = onboardingData[activeTab] || [];
 
-    // Apply search filter if search term exists
-    if (searchTerm) {
-      return onboardingClients.filter((client) => {
-        const searchLower = searchTerm.toLowerCase();
+    let filteredClients = onboardingClients;
+    if (searchQuery) {
+      filteredClients = onboardingClients.filter((client) => {
+        const searchLower = searchQuery.toLowerCase();
         return (
           client.company_basics?.name?.toLowerCase().includes(searchLower) ||
-          client.company_basics?.company_email
-            ?.toLowerCase()
-            .includes(searchLower) ||
+          client.company_basics?.company_email?.toLowerCase().includes(searchLower) ||
           client.userData?.fullName?.toLowerCase().includes(searchLower) ||
           client.userData?.email?.toLowerCase().includes(searchLower)
         );
       });
     }
 
-    // Return all clients for the active tab
-    return onboardingClients;
-  };
+    return filteredClients;
+  }, [onboardingData, activeTab, searchQuery]);
 
-  // Helper function to safely get counts
+  // Calculate pagination info
+  const paginationInfo = useMemo(() => {
+    const totalItems = getClientsForTab.length;
+    const totalPages = Math.ceil(totalItems / itemsPerPage);
+    return { totalItems, totalPages };
+  }, [getClientsForTab, itemsPerPage]);
+
+  // Get current page items
+  const currentPageClients = useMemo(() => {
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    const endIndex = startIndex + itemsPerPage;
+    return getClientsForTab.slice(startIndex, endIndex);
+  }, [getClientsForTab, currentPage, itemsPerPage]);
+
+  // Update pagination state
+  useEffect(() => {
+    setTotalItems(paginationInfo.totalItems);
+    setTotalPages(paginationInfo.totalPages);
+
+    if (currentPage > paginationInfo.totalPages && paginationInfo.totalPages > 0) {
+      setCurrentPage(1);
+    }
+  }, [paginationInfo, currentPage]);
+
+  // Helper functions
   const getCount = (status) => {
     return (onboardingData[status] || []).length;
   };
 
   const getTotalOnboardingCount = () => {
     return (
-      (onboardingData.pending || []).length +
-      (onboardingData.onboarded || []).length +
-      (onboardingData.approved || []).length
+      getCount("pending") +
+      getCount("onboarded") +
+      getCount("approved") +
+      getCount("rejected")
     );
   };
 
-  const getTotalCount = () => {
-    return getTotalOnboardingCount();
+  // Pagination functions
+  const goToPage = (page) => {
+    if (page >= 1 && page <= totalPages) {
+      setCurrentPage(page);
+    }
   };
 
-  const handleViewClient = async (client) => {
+  const goToPrevPage = () => {
+    if (currentPage > 1) {
+      setCurrentPage((prev) => prev - 1);
+    }
+  };
+
+  const goToNextPage = () => {
+    if (currentPage < totalPages) {
+      setCurrentPage((prev) => prev + 1);
+    }
+  };
+
+  const handleEditClient = async (client) => {
     try {
-      console.log("🔍 handleViewClient called with client:", client);
+      console.log("🔍 handleEditClient called with client:", client);
       setLoading(true);
       setSelectedClient(client);
-      setViewMode("detail");
 
       if (client._id) {
         console.log(`🚀 Fetching onboarding data for user: ${client._id}`);
-        console.log("📊 Client data available:", {
-          id: client._id,
-          email: client.userData?.email || client.company_basics?.company_email,
-          name: client.userData?.fullName || client.company_basics?.name
-        });
-        
-        const onboardingResponse = await shivaiApiService.getOnboardingByUserId(
-          client._id
-        );
+        const onboardingResponse = await shivaiApiService.getOnboardingByUserId(client._id);
         console.log("✅ Onboarding data response:", onboardingResponse);
 
-        // Update the selected client with detailed onboarding data
+        let clientWithDetails = client;
         if (onboardingResponse?.data) {
-          const updatedClient = {
+          clientWithDetails = {
             ...client,
             onboardingDetails: onboardingResponse.data,
           };
-          console.log("📝 Updated client with onboarding details:", updatedClient);
-          setSelectedClient(updatedClient);
         } else {
-          console.warn("⚠️ No onboarding data found in response");
-          setSelectedClient({
+          clientWithDetails = {
             ...client,
-            onboardingDetails: { onboarding: null }
-          });
+            onboardingDetails: { onboarding: null },
+          };
         }
+
+        // Create edit data structure
+        const mappedEditData = {
+          _id: clientWithDetails._id,
+          company_basics: {
+            name: clientWithDetails?.onboardingDetails?.onboarding?.company_basics?.name || clientWithDetails?.company_basics?.name || '',
+            description: clientWithDetails?.onboardingDetails?.onboarding?.company_basics?.description || clientWithDetails?.company_basics?.description || '',
+            company_email: clientWithDetails?.onboardingDetails?.onboarding?.company_basics?.company_email || clientWithDetails?.company_basics?.company_email || '',
+            company_phone: clientWithDetails?.onboardingDetails?.onboarding?.company_basics?.company_phone || clientWithDetails?.company_basics?.company_phone || '',
+            website: clientWithDetails?.onboardingDetails?.onboarding?.company_basics?.website || clientWithDetails?.company_basics?.website || '',
+            address: clientWithDetails?.onboardingDetails?.onboarding?.company_basics?.address || clientWithDetails?.company_basics?.address || '',
+            company_size: clientWithDetails?.onboardingDetails?.onboarding?.company_basics?.company_size || clientWithDetails?.company_basics?.company_size || '',
+            industry: clientWithDetails?.onboardingDetails?.onboarding?.company_basics?.industry || clientWithDetails?.company_basics?.industry || [],
+            linkedin_profile: clientWithDetails?.onboardingDetails?.onboarding?.company_basics?.linkedin_profile || clientWithDetails?.company_basics?.linkedin_profile || '',
+            primary_region: {
+              countries: clientWithDetails?.onboardingDetails?.onboarding?.company_basics?.primary_region?.countries || [],
+              states: clientWithDetails?.onboardingDetails?.onboarding?.company_basics?.primary_region?.states || [],
+              cities: clientWithDetails?.onboardingDetails?.onboarding?.company_basics?.primary_region?.cities || []
+            }
+          },
+          ai_employees: (clientWithDetails?.onboardingDetails?.onboarding?.ai_employees || clientWithDetails?.ai_employees || []).map(emp => ({
+            ...emp,
+            knowledge_sources: {
+              faqs_text: emp?.knowledge_sources?.faqs_text || '',
+              uploaded_files: emp?.knowledge_sources?.uploaded_files || [],
+              website_url: emp?.knowledge_sources?.website_url || '',
+              social_links: emp?.knowledge_sources?.social_links || {},
+              additional_sources: Array.isArray(emp?.knowledge_sources) 
+                ? emp.knowledge_sources 
+                : (emp?.knowledge_sources?.additional_sources || [])
+            }
+          })),
+          plan_details: clientWithDetails?.onboardingDetails?.onboarding?.plan_details || clientWithDetails?.plan_details || {},
+          deployment_targets: clientWithDetails?.onboardingDetails?.onboarding?.deployment_targets || clientWithDetails?.deployment_targets || {},
+          deployment_service: clientWithDetails?.onboardingDetails?.onboarding?.deployment_service || clientWithDetails?.deployment_service || {},
+          consent_options: clientWithDetails?.onboardingDetails?.onboarding?.consent_options || clientWithDetails?.consent_options || {},
+          instructions: clientWithDetails?.onboardingDetails?.onboarding?.instructions || clientWithDetails?.instructions || {},
+          targets: clientWithDetails?.onboardingDetails?.onboarding?.targets || clientWithDetails?.targets || {},
+          userData: clientWithDetails?.userData
+        };
+
+        setEditData(mappedEditData);
+        setViewMode("edit");
       } else {
         console.error("❌ No client._id available:", client);
         setError("Client ID not found");
       }
     } catch (error) {
       console.error("❌ Error fetching onboarding data:", error);
-      console.error("❌ Error details:", {
-        message: error.message,
-        status: error.response?.status,
-        data: error.response?.data
-      });
-      setError(`Failed to fetch detailed client data: ${error.message}`);
+      setError(`Failed to fetch client data: ${error.message}`);
     } finally {
       setLoading(false);
     }
@@ -377,21 +361,13 @@ const ClientManagement = () => {
     setEditData(null);
   };
 
-  const handleEditClient = (client) => {
-    setSelectedClient(client);
-    setEditData(JSON.parse(JSON.stringify(client))); // Deep copy
-    setViewMode("edit");
-  };
-
   const handleSaveEdit = async () => {
     try {
-      // Here you would call your API to save the edited data
       console.log("Saving edited data:", editData);
 
       // TODO: Add API call to update onboarding data
       // await shivaiApiService.updateOnboardingData(editData._id, editData);
 
-      // For now, just update the local state
       setOnboardingData((prev) => ({
         ...prev,
         [activeTab]: prev[activeTab].map((client) =>
@@ -399,182 +375,100 @@ const ClientManagement = () => {
         ),
       }));
 
-      // After successful save, go back to detail view
-      setSelectedClient(editData);
-      setViewMode("detail");
-      // Show success message
-      alert("Client data updated successfully!");
+      toast.success("Client data updated successfully!");
+      handleBackToList();
     } catch (error) {
       console.error("Error saving client data:", error);
-      alert("Failed to save changes. Please try again.");
+      toast.error("Failed to save client data");
     }
   };
 
   const handleCancelEdit = () => {
-    setEditData(null);
-    setViewMode("detail");
-  };
-
-  // File handling functions for knowledge sources
-  const handleViewFile = async (file) => {
-    try {
-      if (file.url || file.fileUrl) {
-        // If file has a direct URL, open it in a new tab
-        window.open(file.url || file.fileUrl, '_blank', 'noopener,noreferrer');
-      } else if (file.id || file.fileId) {
-        // If file has an ID, fetch it from the API and open
-        const response = await shivaiApiService.getFile(file.id || file.fileId);
-        if (response.data && response.data.url) {
-          window.open(response.data.url, '_blank', 'noopener,noreferrer');
-        } else {
-          alert('File URL not available');
-        }
-      } else {
-        alert('Cannot view file: No URL or ID available');
-      }
-    } catch (error) {
-      console.error('Error viewing file:', error);
-      alert('Failed to view file. Please try again.');
-    }
-  };
-
-  const handleDownloadFile = async (file) => {
-    try {
-      if (file.url || file.fileUrl) {
-        // Create a download link
-        const link = document.createElement('a');
-        link.href = file.url || file.fileUrl;
-        link.download = file.name || file.filename || 'downloaded_file';
-        link.target = '_blank';
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-      } else if (file.id || file.fileId) {
-        // Fetch file from API and download
-        const response = await shivaiApiService.downloadFile(file.id || file.fileId);
-        if (response.data) {
-          const blob = new Blob([response.data]);
-          const url = window.URL.createObjectURL(blob);
-          const link = document.createElement('a');
-          link.href = url;
-          link.download = file.name || file.filename || 'downloaded_file';
-          document.body.appendChild(link);
-          link.click();
-          document.body.removeChild(link);
-          window.URL.revokeObjectURL(url);
-        }
-      } else {
-        alert('Cannot download file: No URL or ID available');
-      }
-    } catch (error) {
-      console.error('Error downloading file:', error);
-      alert('Failed to download file. Please try again.');
-    }
-  };
-
-  const handleViewFAQ = (faqText) => {
-    // Create a modal-like window or use a simple alert/confirm for now
-    const faqWindow = window.open('', '_blank', 'width=800,height=600,scrollbars=yes,resizable=yes');
-    if (faqWindow) {
-      faqWindow.document.write(`
-        <!DOCTYPE html>
-        <html>
-        <head>
-          <title>FAQ Text</title>
-          <style>
-            body { 
-              font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-              line-height: 1.6;
-              max-width: 800px;
-              margin: 0 auto;
-              padding: 20px;
-              background: #f8fafc;
-            }
-            .header {
-              background: white;
-              padding: 20px;
-              border-radius: 8px;
-              box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-              margin-bottom: 20px;
-            }
-            .content {
-              background: white;
-              padding: 20px;
-              border-radius: 8px;
-              box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-              white-space: pre-wrap;
-              word-wrap: break-word;
-            }
-            h1 { margin: 0; color: #1f2937; }
-            .close-btn {
-              background: #3b82f6;
-              color: white;
-              border: none;
-              padding: 8px 16px;
-              border-radius: 4px;
-              cursor: pointer;
-              float: right;
-            }
-            .close-btn:hover { background: #2563eb; }
-          </style>
-        </head>
-        <body>
-          <div class="header">
-            <h1>FAQ Text</h1>
-            <button class="close-btn" onclick="window.close()">Close</button>
-            <div style="clear: both;"></div>
-          </div>
-          <div class="content">${faqText.replace(/\n/g, '<br>')}</div>
-        </body>
-        </html>
-      `);
-      faqWindow.document.close();
-    } else {
-      // Fallback if popup is blocked
-      alert(faqText);
-    }
+    handleBackToList();
   };
 
   const handleApproveClient = async (client) => {
+    console.log("🚀 handleApproveClient called with client:", client);
     if (client?.isApproved) {
-      alert('This client is already approved.');
+      toast.error('Client is already approved');
       return;
     }
 
-    const confirmApprove = window.confirm(
-      `Are you sure you want to approve ${client?.company_basics?.name || 'this client'}? This action will move them to the approved tab.`
-    );
-
-    if (!confirmApprove) return;
-
     try {
-      // Update the client's approval status
-      const updatedClient = { ...client, isApproved: true };
-      
-      // Call API to update approval status
-      if (client._id) {
-        await shivaiApiService.updateOnboardingData(client._id, updatedClient);
-      }
+      setActionLoading(true);
+      toast.loading('Approving client...', { id: 'approve-toast' });
 
-      // Update local state
+      const result = await shivaiApiService.approveClient(client._id);
+
+      const updatedClient = {
+        ...client,
+        isApproved: true,
+        status: 'approved',
+        approvalDate: new Date().toISOString(),
+      };
+
       setOnboardingData((prev) => ({
         ...prev,
-        [activeTab]: prev[activeTab].filter(c => c._id !== client._id),
-        approved: [...(prev.approved || []), updatedClient]
+        onboarded: prev.onboarded.filter((c) => c._id !== client._id),
+        approved: [...(prev.approved || []), updatedClient],
       }));
 
-      // Update selected client if it's currently being viewed
       if (selectedClient?._id === client._id) {
         setSelectedClient(updatedClient);
       }
 
-      alert('Client has been successfully approved!');
+      toast.success(`${client?.company_basics?.name || 'Client'} approved successfully!`, { id: 'approve-toast' });
     } catch (error) {
-      console.error('Error approving client:', error);
-      alert('Failed to approve client. Please try again.');
+      console.error("Error approving client:", error);
+      toast.error('Failed to approve client. Please try again.', { id: 'approve-toast' });
+    } finally {
+      setActionLoading(false);
     }
   };
 
+  const handleRejectClient = async (client) => {
+    if (client?.isRejected) {
+      toast.error('Client is already rejected');
+      return;
+    }
+
+    const rejectionReason = 'Application rejected by admin';
+
+    try {
+      setActionLoading(true);
+      toast.loading('Rejecting client...', { id: 'reject-toast' });
+
+      const result = await shivaiApiService.rejectClient(client._id, rejectionReason.trim());
+
+      const rejectedClient = {
+        ...client,
+        isRejected: true,
+        status: 'rejected',
+        rejectionReason: rejectionReason.trim(),
+        rejectionDate: new Date().toISOString(),
+      };
+
+      setOnboardingData((prev) => ({
+        ...prev,
+        onboarded: prev.onboarded.filter((c) => c._id !== client._id),
+        approved: prev.approved.filter((c) => c._id !== client._id),
+        rejected: [...(prev.rejected || []), rejectedClient],
+      }));
+
+      if (selectedClient && selectedClient._id === client._id) {
+        handleBackToList();
+      }
+
+      toast.success(`${client?.company_basics?.name || 'Client'} rejected successfully!`, { id: 'reject-toast' });
+    } catch (error) {
+      console.error("Error rejecting client:", error);
+      toast.error('Failed to reject client. Please try again.', { id: 'reject-toast' });
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  // Form field update functions
   const updateEditData = (path, value) => {
     setEditData((prev) => {
       const newData = { ...prev };
@@ -589,42 +483,6 @@ const ClientManagement = () => {
       current[keys[keys.length - 1]] = value;
       return newData;
     });
-  };
-
-  const addAIEmployee = () => {
-    setEditData((prev) => ({
-      ...prev,
-      ai_employees: [
-        ...(prev?.ai_employees || []),
-        {
-          name: "",
-          type: "",
-          template: "",
-          preferred_language: "English",
-          voice_gender: "Gender Neutral",
-          agent_personality: "",
-          voice_style: "",
-          special_instructions: "",
-          _id: `new_${Date.now()}`,
-        },
-      ],
-    }));
-  };
-
-  const removeAIEmployee = (index) => {
-    setEditData((prev) => ({
-      ...prev,
-      ai_employees: (prev?.ai_employees || []).filter((_, i) => i !== index),
-    }));
-  };
-
-  const updateAIEmployee = (index, field, value) => {
-    setEditData((prev) => ({
-      ...prev,
-      ai_employees: (prev?.ai_employees || []).map((emp, i) =>
-        i === index ? { ...emp, [field]: value } : emp
-      ),
-    }));
   };
 
   const updateIndustry = (industries) => {
@@ -654,48 +512,102 @@ const ClientManagement = () => {
       ...prev,
       deployment_targets: {
         ...prev?.deployment_targets,
-        channels: (prev?.deployment_targets?.channels || []).filter(
-          (c) => c !== channel
-        ),
+        channels: (prev?.deployment_targets?.channels || []).filter((c) => c !== channel),
       },
     }));
   };
 
-  const clientStats = [
-    {
-      label: "Total Clients",
-      value: "2,847",
-      change: "+12%",
-      subtitle: "Paying subscribers",
-      icon: Users,
-    },
-    {
-      label: "Active Clients",
-      value: "2,423",
-      change: "+5%",
-      subtitle: "Currently active",
-      icon: UserCheck,
-    },
-    {
-      label: "New This Month",
-      value: "156",
-      change: "+23%",
-      subtitle: "New registrations",
-      icon: UserPlus,
-    },
-    {
-      label: "Enterprise Clients",
-      value: "247",
-      change: "+18%",
-      subtitle: "Enterprise plans",
-      icon: Crown,
-    },
-  ];
+  // AI Employee management
+  const addAIEmployee = () => {
+    setEditData((prev) => ({
+      ...prev,
+      ai_employees: [
+        ...(prev?.ai_employees || []),
+        {
+          name: "",
+          type: "Assistant",
+          template: "",
+          preferred_language: "English",
+          voice_gender: "Gender Neutral",
+          agent_personality: "",
+          voice_style: "",
+          special_instructions: "",
+          knowledge_sources: {
+            faqs_text: '',
+            uploaded_files: [],
+            website_url: '',
+            social_links: {},
+            additional_sources: []
+          },
+          workflows: [],
+          _id: `new_${Date.now()}`,
+        },
+      ],
+    }));
+  };
 
-  // Render Edit View
+  const removeAIEmployee = (index) => {
+    setEditData((prev) => ({
+      ...prev,
+      ai_employees: (prev?.ai_employees || []).filter((_, i) => i !== index),
+    }));
+  };
+
+  const updateAIEmployee = (index, field, value) => {
+    setEditData((prev) => ({
+      ...prev,
+      ai_employees: (prev?.ai_employees || []).map((emp, i) =>
+        i === index ? { ...emp, [field]: value } : emp
+      ),
+    }));
+  };
+
+  // Reusable form field component for edit mode
+  const FormField = ({ label, value, onChange, type = "text", placeholder = "", rows, children, className = "" }) => {
+    return (
+      <div className={className}>
+        <label className={`text-xs ${currentTheme.textSecondary} uppercase block mb-2`}>
+          {label}
+        </label>
+        {type === "textarea" ? (
+          <textarea
+            value={value || ""}
+            onChange={(e) => onChange(e.target.value)}
+            rows={rows}
+            placeholder={placeholder}
+            className={`w-full px-4 py-2 rounded-lg border ${currentTheme.border} ${currentTheme.cardBg} ${currentTheme.text} focus:outline-none focus:ring-2 focus:ring-blue-500/20 resize-vertical`}
+          />
+        ) : type === "select" ? (
+          children
+        ) : (
+          <input
+            type={type}
+            value={value || ""}
+            onChange={(e) => onChange(e.target.value)}
+            placeholder={placeholder}
+            className={`w-full px-4 py-2 rounded-lg border ${currentTheme.border} ${currentTheme.cardBg} ${currentTheme.text} focus:outline-none focus:ring-2 focus:ring-blue-500/20`}
+          />
+        )}
+      </div>
+    );
+  };
+
+  // Loading state
+  if (loading && viewMode === "list") {
+    return (
+      <div className={`flex items-center justify-center min-h-[400px] ${currentTheme.bg}`}>
+        <div className={`${currentTheme.text} text-lg flex items-center gap-3`}>
+          <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-500"></div>
+          Loading client data...
+        </div>
+      </div>
+    );
+  }
+
+  // Edit View
   if (viewMode === "edit" && editData) {
     return (
-      <div className="space-y-4 md:space-y-6 px-2 sm:px-0">
+     <div className="space-y-4 md:space-y-6 px-2 sm:px-0">
         {/* Header with Actions */}
         <div
           className={`${currentTheme.cardBg} border ${currentTheme.border} rounded-xl p-4 md:p-6 shadow-xl`}
@@ -891,6 +803,76 @@ const ClientManagement = () => {
                   className={`w-full px-3 md:px-4 py-2 text-sm md:text-base rounded-lg border ${currentTheme.border} ${currentTheme.cardBg} ${currentTheme.text} focus:outline-none focus:ring-2 focus:ring-blue-500/20`}
                 />
               </div>
+              <div>
+                <label
+                  className={`text-xs ${currentTheme.textSecondary} uppercase block mb-2`}
+                >
+                  Company Address
+                </label>
+                <input
+                  type="text"
+                  value={editData?.company_basics?.address || ""}
+                  onChange={(e) =>
+                    updateEditData(
+                      "company_basics.address",
+                      e.target.value
+                    )
+                  }
+                  placeholder="Street, City, State, Country"
+                  className={`w-full px-3 md:px-4 py-2 text-sm md:text-base rounded-lg border ${currentTheme.border} ${currentTheme.cardBg} ${currentTheme.text} focus:outline-none focus:ring-2 focus:ring-blue-500/20`}
+                />
+              </div>
+              <div>
+                <label
+                  className={`text-xs ${currentTheme.textSecondary} uppercase block mb-2`}
+                >
+                  Primary Region - Countries
+                </label>
+                <input
+                  type="text"
+                  value={(editData?.company_basics?.primary_region?.countries || []).join(", ")}
+                  onChange={(e) => {
+                    const countries = e.target.value.split(",").map(c => c.trim()).filter(c => c);
+                    updateEditData("company_basics.primary_region.countries", countries);
+                  }}
+                  placeholder="USA, Canada, UK (comma separated)"
+                  className={`w-full px-3 md:px-4 py-2 text-sm md:text-base rounded-lg border ${currentTheme.border} ${currentTheme.cardBg} ${currentTheme.text} focus:outline-none focus:ring-2 focus:ring-blue-500/20`}
+                />
+              </div>
+              <div>
+                <label
+                  className={`text-xs ${currentTheme.textSecondary} uppercase block mb-2`}
+                >
+                  Primary Region - States/Provinces
+                </label>
+                <input
+                  type="text"
+                  value={(editData?.company_basics?.primary_region?.states || []).join(", ")}
+                  onChange={(e) => {
+                    const states = e.target.value.split(",").map(s => s.trim()).filter(s => s);
+                    updateEditData("company_basics.primary_region.states", states);
+                  }}
+                  placeholder="California, New York, Texas (comma separated)"
+                  className={`w-full px-3 md:px-4 py-2 text-sm md:text-base rounded-lg border ${currentTheme.border} ${currentTheme.cardBg} ${currentTheme.text} focus:outline-none focus:ring-2 focus:ring-blue-500/20`}
+                />
+              </div>
+              <div>
+                <label
+                  className={`text-xs ${currentTheme.textSecondary} uppercase block mb-2`}
+                >
+                  Primary Region - Cities
+                </label>
+                <input
+                  type="text"
+                  value={(editData?.company_basics?.primary_region?.cities || []).join(", ")}
+                  onChange={(e) => {
+                    const cities = e.target.value.split(",").map(c => c.trim()).filter(c => c);
+                    updateEditData("company_basics.primary_region.cities", cities);
+                  }}
+                  placeholder="New York, Los Angeles, Chicago (comma separated)"
+                  className={`w-full px-3 md:px-4 py-2 text-sm md:text-base rounded-lg border ${currentTheme.border} ${currentTheme.cardBg} ${currentTheme.text} focus:outline-none focus:ring-2 focus:ring-blue-500/20`}
+                />
+              </div>
             </div>
           </div>
 
@@ -1002,6 +984,18 @@ const ClientManagement = () => {
                     placeholder="Contact Phone"
                     className={`w-full px-3 md:px-4 py-2 text-sm md:text-base rounded-lg border ${currentTheme.border} ${currentTheme.cardBg} ${currentTheme.text} focus:outline-none focus:ring-2 focus:ring-blue-500/20`}
                   />
+                  <input
+                    type="text"
+                    value={editData?.plan_details?.billing_contact?.company_name || ""}
+                    onChange={(e) =>
+                      updateEditData(
+                        "plan_details.billing_contact.company_name",
+                        e.target.value
+                      )
+                    }
+                    placeholder="Billing Company Name (if different)"
+                    className={`w-full px-3 md:px-4 py-2 text-sm md:text-base rounded-lg border ${currentTheme.border} ${currentTheme.cardBg} ${currentTheme.text} focus:outline-none focus:ring-2 focus:ring-blue-500/20`}
+                  />
                 </div>
               </div>
 
@@ -1089,45 +1083,82 @@ const ClientManagement = () => {
               </div>
             </div>
           </div>
-
+        </div>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
           {/* AI Employees */}
           <div
             className={`${currentTheme.cardBg} border ${currentTheme.border} rounded-xl p-4 md:p-6 shadow-xl lg:col-span-2`}
           >
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6">
               <h3
-                className={`text-base md:text-lg font-bold ${currentTheme.text} flex items-center gap-2`}
+                className={`text-lg md:text-xl font-bold ${currentTheme.text} flex items-center gap-3`}
               >
-                <RiUserVoiceLine className="w-4 h-4 md:w-5 md:h-5" />
-                AI Employees ({(editData?.ai_employees || []).length})
+                <div className={`p-2 rounded-lg ${currentTheme.activeBg}`}>
+                  <RiUserVoiceLine className="w-5 h-5 md:w-6 md:h-6" />
+                </div>
+                <div>
+                  <span>AI Employees</span>
+                  <span className={`ml-2 px-2 py-1 rounded-full text-xs ${currentTheme.searchBg} ${currentTheme.textSecondary}`}>
+                    {(editData?.ai_employees || []).length} configured
+                  </span>
+                </div>
               </h3>
               <button
                 onClick={addAIEmployee}
-                className="admin-btn-primary px-3 sm:px-4 py-2 text-sm w-full sm:w-auto"
+                className="admin-btn-primary px-4 py-2.5 text-sm w-full sm:w-auto flex items-center justify-center gap-2 font-medium"
               >
                 <RiUserAddLine className="w-4 h-4" />
-                <span className="ml-2">Add AI Employee</span>
+                Add AI Employee
               </button>
             </div>
-            <div className="space-y-4">
-              {(editData?.ai_employees || []).map((ai, idx) => (
-                <div
-                  key={idx}
-                  className={`p-4 rounded-lg border ${currentTheme.border} ${currentTheme.hover}`}
-                >
-                  <div className="flex items-center justify-between mb-4">
-                    <h4 className={`${currentTheme.text} font-bold`}>
-                      AI Employee #{idx + 1}
-                    </h4>
-                    {(editData?.ai_employees || []).length > 1 && (
-                      <button
-                        onClick={() => removeAIEmployee(idx)}
-                        className={`px-3 py-1 rounded-lg ${currentTheme.hover} ${currentTheme.text} text-sm`}
-                      >
-                        <RiCloseLine className="w-4 h-4" />
-                      </button>
-                    )}
+            <div className="space-y-6">
+              {(editData?.ai_employees || []).length === 0 ? (
+                <div className={`text-center py-12 border-2 border-dashed ${currentTheme.border} rounded-xl`}>
+                  <div className={`p-3 rounded-full ${currentTheme.searchBg} w-16 h-16 mx-auto mb-4 flex items-center justify-center`}>
+                    <RiUserVoiceLine className={`w-8 h-8 ${currentTheme.textSecondary}`} />
                   </div>
+                  <h4 className={`text-lg font-medium ${currentTheme.text} mb-2`}>No AI Employees Yet</h4>
+                  <p className={`${currentTheme.textSecondary} text-sm mb-4`}>
+                    Add your first AI employee to get started with automation
+                  </p>
+                  <button
+                    onClick={addAIEmployee}
+                    className="admin-btn-primary px-6 py-2.5 text-sm font-medium"
+                  >
+                    <RiUserAddLine className="w-4 h-4 mr-2" />
+                    Create First AI Employee
+                  </button>
+                </div>
+              ) : (
+                (editData?.ai_employees || []).map((ai, idx) => (
+                  <div
+                    key={idx}
+                    className={`p-6 rounded-xl border ${currentTheme.border} ${currentTheme.searchBg} shadow-sm`}
+                  >
+                    <div className="flex items-center justify-between mb-6">
+                      <div className="flex items-center gap-3">
+                        <div className={`p-2 rounded-lg ${currentTheme.cardBg} border ${currentTheme.border}`}>
+                          <RiRobotLine className={`w-5 h-5 ${currentTheme.text}`} />
+                        </div>
+                        <div>
+                          <h4 className={`${currentTheme.text} font-bold text-lg`}>
+                            {ai?.name || `AI Employee #${idx + 1}`}
+                          </h4>
+                          <p className={`${currentTheme.textSecondary} text-sm`}>
+                            {ai?.type || 'Assistant'} • {ai?.preferred_language || 'English'}
+                          </p>
+                        </div>
+                      </div>
+                      {(editData?.ai_employees || []).length > 1 && (
+                        <button
+                          onClick={() => removeAIEmployee(idx)}
+                          className={`p-2 rounded-lg ${currentTheme.hover} text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors flex items-center gap-2`}
+                          title="Remove AI Employee"
+                        >
+                          <RiCloseLine className="w-5 h-5" />
+                        </button>
+                      )}
+                    </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                     <div>
                       <label
@@ -1230,6 +1261,26 @@ const ClientManagement = () => {
                         className={`w-full px-3 py-2 rounded-lg border ${currentTheme.border} ${currentTheme.cardBg} ${currentTheme.text} text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20`}
                       />
                     </div>
+                    <div>
+                      <label
+                        className={`text-xs ${currentTheme.textSecondary} uppercase block mb-1`}
+                      >
+                        Voice Style
+                      </label>
+                      <input
+                        type="text"
+                        value={ai?.voice_style || ""}
+                        onChange={(e) =>
+                          updateAIEmployee(
+                            idx,
+                            "voice_style",
+                            e.target.value
+                          )
+                        }
+                        placeholder="e.g., Professional, Friendly, Energetic"
+                        className={`w-full px-3 py-2 rounded-lg border ${currentTheme.border} ${currentTheme.cardBg} ${currentTheme.text} text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20`}
+                      />
+                    </div>
                     <div className="md:col-span-2">
                       <label
                         className={`text-xs ${currentTheme.textSecondary} uppercase block mb-1`}
@@ -1249,1808 +1300,866 @@ const ClientManagement = () => {
                         className={`w-full px-3 py-2 rounded-lg border ${currentTheme.border} ${currentTheme.cardBg} ${currentTheme.text} text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20`}
                       />
                     </div>
-                    
+
                     {/* Workflows Section */}
                     <div className="md:col-span-2">
-                      <label
-                        className={`text-xs ${currentTheme.textSecondary} uppercase block mb-2`}
-                      >
-                        Workflows
-                      </label>
-                      <div className="space-y-2">
+                      <div className="flex items-center justify-between mb-3">
+                        <label
+                          className={`text-xs ${currentTheme.textSecondary} uppercase block`}
+                        >
+                          <RiFileTextLine className="w-4 h-4 inline mr-1" />
+                          Workflow Integrations ({(ai?.workflows || []).length})
+                        </label>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            // Add a new workflow integration
+                            setEditData(prev => ({
+                              ...prev,
+                              ai_employees: (prev?.ai_employees || []).map((emp, i) => 
+                                i === idx ? {
+                                  ...emp,
+                                  workflows: [...(emp.workflows || []), {
+                                    name: 'WhatsApp Business',
+                                    instruction: 'Configure WhatsApp Business integration'
+                                  }]
+                                } : emp
+                              )
+                            }));
+                          }}
+                          className={`px-3 py-1 rounded-lg text-xs bg-green-50 text-green-700 border border-green-200 hover:bg-green-100 transition-colors flex items-center gap-1`}
+                        >
+                          <RiAddLine className="w-3 h-3" />
+                          Add Workflow
+                        </button>
+                      </div>
+                      
+                      <div className="space-y-3">
                         {(ai?.workflows || []).length > 0 ? (
                           (ai?.workflows || []).map((workflow, workflowIdx) => (
                             <div
                               key={workflowIdx}
-                              className={`p-3 rounded-lg border ${currentTheme.border} ${currentTheme.cardBg}`}
+                              className={`p-4 rounded-lg border ${currentTheme.border} ${currentTheme.cardBg}`}
                             >
-                              <div className="flex items-start justify-between gap-3">
-                                <div className="flex-1 min-w-0">
-                                  <h5 className={`font-semibold ${currentTheme.text} text-sm mb-1`}>
-                                    {workflow?.name || "Unnamed Workflow"}
-                                  </h5>
-                                  <p className={`${currentTheme.textSecondary} text-xs leading-relaxed`}>
-                                    {workflow?.instruction || "No instruction provided"}
-                                  </p>
-                                  {workflow?._id && (
-                                    <p className={`${currentTheme.textSecondary} text-xs mt-1 font-mono`}>
-                                      ID: {workflow._id}
-                                    </p>
-                                  )}
+                              <div className="flex items-center justify-between mb-3">
+                                <h5 className={`text-sm font-medium ${currentTheme.text} flex items-center gap-2`}>
+                                  <RiSettingsLine className="w-4 h-4" />
+                                  Workflow #{workflowIdx + 1}
+                                </h5>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    // Remove this workflow
+                                    setEditData(prev => ({
+                                      ...prev,
+                                      ai_employees: (prev?.ai_employees || []).map((emp, i) => 
+                                        i === idx ? {
+                                          ...emp,
+                                          workflows: (emp.workflows || []).filter((_, wIdx) => wIdx !== workflowIdx)
+                                        } : emp
+                                      )
+                                    }));
+                                  }}
+                                  className={`p-1 rounded ${currentTheme.hover} text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors`}
+                                >
+                                  <RiCloseLine className="w-4 h-4" />
+                                </button>
+                              </div>
+                              
+                              <div className="grid grid-cols-1 gap-3">
+                                <div>
+                                  <label className={`text-xs ${currentTheme.textSecondary} uppercase block mb-1`}>
+                                    Integration Type
+                                  </label>
+                                  <select
+                                    value={workflow?.name || ''}
+                                    onChange={(e) => {
+                                      setEditData(prev => ({
+                                        ...prev,
+                                        ai_employees: (prev?.ai_employees || []).map((emp, i) => 
+                                          i === idx ? {
+                                            ...emp,
+                                            workflows: (emp.workflows || []).map((w, wIdx) => 
+                                              wIdx === workflowIdx ? {
+                                                ...w,
+                                                name: e.target.value
+                                              } : w
+                                            )
+                                          } : emp
+                                        )
+                                      }));
+                                    }}
+                                    className={`w-full px-3 py-2 rounded-lg border ${currentTheme.border} ${currentTheme.cardBg} ${currentTheme.text} text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20`}
+                                  >
+                                    <option value="">Select Integration</option>
+                                    <option value="WhatsApp Business">WhatsApp Business</option>
+                                    <option value="Gmail">Gmail</option>
+                                    <option value="Webhooks">Webhooks</option>
+                                    <option value="Google Calendar">Google Calendar</option>
+                                    <option value="Calendly">Calendly</option>
+                                    <option value="Google Sheets">Google Sheets</option>
+                                    <option value="Zoho CRM">Zoho CRM</option>
+                                    <option value="Odoo">Odoo</option>
+                                    <option value="HubSpot">HubSpot</option>
+                                    <option value="Salesforce CRM">Salesforce CRM</option>
+                                    <option value="Zendesk">Zendesk</option>
+                                    <option value="Shopify">Shopify</option>
+                                    <option value="Slack">Slack</option>
+                                    <option value="Zapier">Zapier</option>
+                                  </select>
                                 </div>
-                                <div className="flex items-center gap-2">
-                                  <span className={`px-2 py-1 rounded text-xs font-medium bg-blue-50 text-blue-700 border border-blue-200`}>
-                                    Active
-                                  </span>
+                                
+                                <div>
+                                  <label className={`text-xs ${currentTheme.textSecondary} uppercase block mb-1`}>
+                                    Integration Instructions
+                                  </label>
+                                  <textarea
+                                    value={workflow?.instruction || ''}
+                                    onChange={(e) => {
+                                      setEditData(prev => ({
+                                        ...prev,
+                                        ai_employees: (prev?.ai_employees || []).map((emp, i) => 
+                                          i === idx ? {
+                                            ...emp,
+                                            workflows: (emp.workflows || []).map((w, wIdx) => 
+                                              wIdx === workflowIdx ? {
+                                                ...w,
+                                                instruction: e.target.value
+                                              } : w
+                                            )
+                                          } : emp
+                                        )
+                                      }));
+                                    }}
+                                    rows={3}
+                                    placeholder="Enter specific instructions for this workflow integration..."
+                                    className={`w-full px-3 py-2 rounded-lg border ${currentTheme.border} ${currentTheme.cardBg} ${currentTheme.text} text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20`}
+                                  />
                                 </div>
-                              </div>
-                            </div>
-                          ))
-                        ) : (
-                          <div className={`p-3 rounded-lg border-2 border-dashed ${currentTheme.border} text-center`}>
-                            <RiFileTextLine className={`w-6 h-6 mx-auto mb-2 ${currentTheme.textSecondary}`} />
-                            <p className={`${currentTheme.textSecondary} text-sm`}>
-                              No workflows configured
-                            </p>
-                            <p className={`${currentTheme.textSecondary} text-xs mt-1`}>
-                              Workflows will appear here when configured
-                            </p>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Knowledge Sources */}
-          <div
-            className={`${currentTheme.cardBg} border ${currentTheme.border} rounded-xl p-6 shadow-xl`}
-          >
-            <h3
-              className={`text-lg font-bold ${currentTheme.text} mb-4 flex items-center gap-2`}
-            >
-              <RiBookOpenLine className="w-5 h-5" />
-              Knowledge Sources
-            </h3>
-            <div className="space-y-4">
-              <div>
-                <label
-                  className={`text-xs ${currentTheme.textSecondary} uppercase block mb-2`}
-                >
-                  Website URL
-                </label>
-                <input
-                  type="url"
-                  value={editData?.knowledge_sources?.website_url || ""}
-                  onChange={(e) =>
-                    updateEditData(
-                      "knowledge_sources.website_url",
-                      e.target.value
-                    )
-                  }
-                  className={`w-full px-4 py-2 rounded-lg border ${currentTheme.border} ${currentTheme.cardBg} ${currentTheme.text} focus:outline-none focus:ring-2 focus:ring-blue-500/20`}
-                />
-              </div>
-              <div>
-                <label
-                  className={`text-xs ${currentTheme.textSecondary} uppercase block mb-2`}
-                >
-                  LinkedIn
-                </label>
-                <input
-                  type="url"
-                  value={
-                    editData?.knowledge_sources?.social_links?.linkedin || ""
-                  }
-                  onChange={(e) =>
-                    updateEditData(
-                      "knowledge_sources.social_links.linkedin",
-                      e.target.value
-                    )
-                  }
-                  className={`w-full px-4 py-2 rounded-lg border ${currentTheme.border} ${currentTheme.cardBg} ${currentTheme.text} focus:outline-none focus:ring-2 focus:ring-blue-500/20`}
-                />
-              </div>
-              <div>
-                <label
-                  className={`text-xs ${currentTheme.textSecondary} uppercase block mb-2`}
-                >
-                  FAQs
-                </label>
-                <textarea
-                  value={editData?.knowledge_sources?.faqs_text || ""}
-                  onChange={(e) =>
-                    updateEditData(
-                      "knowledge_sources.faqs_text",
-                      e.target.value
-                    )
-                  }
-                  rows={4}
-                  className={`w-full px-4 py-2 rounded-lg border ${currentTheme.border} ${currentTheme.cardBg} ${currentTheme.text} focus:outline-none focus:ring-2 focus:ring-blue-500/20`}
-                  placeholder="Q: Question?\nA: Answer"
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* Instructions & Targets */}
-          <div
-            className={`${currentTheme.cardBg} border ${currentTheme.border} rounded-xl p-6 shadow-xl`}
-          >
-            <h3
-              className={`text-lg font-bold ${currentTheme.text} mb-4 flex items-center gap-2`}
-            >
-              <RiLightbulbLine className="w-5 h-5" />
-              Instructions & Targets
-            </h3>
-            <div className="space-y-4">
-              <div>
-                <label
-                  className={`text-xs ${currentTheme.textSecondary} uppercase block mb-2`}
-                >
-                  Do's and Don'ts
-                </label>
-                <textarea
-                  value={editData?.instructions?.dos_and_donts || ""}
-                  onChange={(e) =>
-                    updateEditData("instructions.dos_and_donts", e.target.value)
-                  }
-                  rows={3}
-                  className={`w-full px-4 py-2 rounded-lg border ${currentTheme.border} ${currentTheme.cardBg} ${currentTheme.text} focus:outline-none focus:ring-2 focus:ring-blue-500/20`}
-                />
-              </div>
-              <div>
-                <label
-                  className={`text-xs ${currentTheme.textSecondary} uppercase block mb-2`}
-                >
-                  Fallback Contacts
-                </label>
-                <input
-                  type="text"
-                  value={editData?.instructions?.fallback_contacts || ""}
-                  onChange={(e) =>
-                    updateEditData(
-                      "instructions.fallback_contacts",
-                      e.target.value
-                    )
-                  }
-                  className={`w-full px-4 py-2 rounded-lg border ${currentTheme.border} ${currentTheme.cardBg} ${currentTheme.text} focus:outline-none focus:ring-2 focus:ring-blue-500/20`}
-                />
-              </div>
-              <div>
-                <label
-                  className={`text-xs ${currentTheme.textSecondary} uppercase block mb-2`}
-                >
-                  Success Goals
-                </label>
-                <textarea
-                  value={editData?.targets?.success_goals || ""}
-                  onChange={(e) =>
-                    updateEditData("targets.success_goals", e.target.value)
-                  }
-                  rows={2}
-                  className={`w-full px-4 py-2 rounded-lg border ${currentTheme.border} ${currentTheme.cardBg} ${currentTheme.text} focus:outline-none focus:ring-2 focus:ring-blue-500/20`}
-                />
-              </div>
-              <div>
-                <label
-                  className={`text-xs ${currentTheme.textSecondary} uppercase block mb-2`}
-                >
-                  Success Metrics
-                </label>
-                <textarea
-                  value={editData?.targets?.success_metrics || ""}
-                  onChange={(e) =>
-                    updateEditData("targets.success_metrics", e.target.value)
-                  }
-                  rows={2}
-                  className={`w-full px-4 py-2 rounded-lg border ${currentTheme.border} ${currentTheme.cardBg} ${currentTheme.text} focus:outline-none focus:ring-2 focus:ring-blue-500/20`}
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* Deployment */}
-          <div
-            className={`${currentTheme.cardBg} border ${currentTheme.border} rounded-xl p-6 shadow-xl lg:col-span-2`}
-          >
-            <h3
-              className={`text-lg font-bold ${currentTheme.text} mb-4 flex items-center gap-2`}
-            >
-              <RiRocketLine className="w-5 h-5" />
-              Deployment
-            </h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label
-                  className={`text-xs ${currentTheme.textSecondary} uppercase block mb-2`}
-                >
-                  Channels
-                </label>
-                <div className="flex flex-wrap gap-2 mb-2">
-                  {(editData?.deployment_targets?.channels || []).map(
-                    (channel, idx) => (
-                      <span
-                        key={idx}
-                        className={`px-3 py-1 rounded-full text-sm font-medium ${currentTheme.activeBg} ${currentTheme.text} flex items-center gap-2`}
-                      >
-                        {channel}
-                        <button onClick={() => removeChannel(channel)}>
-                          <RiCloseLine className="w-4 h-4" />
-                        </button>
-                      </span>
-                    )
-                  )}
-                </div>
-                <select
-                  onChange={(e) => {
-                    addChannel(e.target.value);
-                    e.target.value = "";
-                  }}
-                  className={`w-full px-4 py-2 rounded-lg border ${currentTheme.border} ${currentTheme.cardBg} ${currentTheme.text} focus:outline-none focus:ring-2 focus:ring-blue-500/20`}
-                >
-                  <option value="">Add Channel...</option>
-                  <option value="Website">Website</option>
-                  <option value="WhatsApp">WhatsApp</option>
-                  <option value="Facebook">Facebook</option>
-                  <option value="Instagram">Instagram</option>
-                  <option value="SMS">SMS</option>
-                </select>
-              </div>
-              <div>
-                <label
-                  className={`text-xs ${currentTheme.textSecondary} uppercase block mb-2`}
-                >
-                  Service Type
-                </label>
-                <input
-                  type="text"
-                  value={editData?.deployment_service?.service_type || ""}
-                  onChange={(e) =>
-                    updateEditData(
-                      "deployment_service.service_type",
-                      e.target.value
-                    )
-                  }
-                  className={`w-full px-4 py-2 rounded-lg border ${currentTheme.border} ${currentTheme.cardBg} ${currentTheme.text} focus:outline-none focus:ring-2 focus:ring-blue-500/20`}
-                />
-              </div>
-              <div className="md:col-span-2">
-                <label
-                  className={`text-xs ${currentTheme.textSecondary} uppercase block mb-2`}
-                >
-                  Deployment Notes
-                </label>
-                <textarea
-                  value={editData?.deployment_targets?.deployment_notes || ""}
-                  onChange={(e) =>
-                    updateEditData(
-                      "deployment_targets.deployment_notes",
-                      e.target.value
-                    )
-                  }
-                  rows={3}
-                  className={`w-full px-4 py-2 rounded-lg border ${currentTheme.border} ${currentTheme.cardBg} ${currentTheme.text} focus:outline-none focus:ring-2 focus:ring-blue-500/20`}
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* Admin Settings */}
-          <div
-            className={`${currentTheme.cardBg} border ${currentTheme.border} rounded-xl p-6 shadow-xl lg:col-span-2`}
-          >
-            <h3
-              className={`text-lg font-bold ${currentTheme.text} mb-4 flex items-center gap-2`}
-            >
-              <RiShieldCheckLine className="w-5 h-5" />
-              Admin Settings
-            </h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="space-y-4">
-                <div>
-                  <label
-                    className={`text-xs ${currentTheme.textSecondary} uppercase block mb-2`}
-                  >
-                    Approval Status
-                  </label>
-                  <div className="flex items-center gap-3">
-                    <label className="flex items-center gap-2">
-                      <input
-                        type="checkbox"
-                        checked={editData?.isApproved || false}
-                        onChange={(e) => updateEditData("isApproved", e.target.checked)}
-                        className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                      />
-                      <span className={`${currentTheme.text} text-sm`}>Approved</span>
-                    </label>
-                  </div>
-                </div>
-                
-                <div>
-                  <label
-                    className={`text-xs ${currentTheme.textSecondary} uppercase block mb-2`}
-                  >
-                    Onboarding Status
-                  </label>
-                  <div className="flex items-center gap-3">
-                    <label className="flex items-center gap-2">
-                      <input
-                        type="checkbox"
-                        checked={editData?.isOnBoarded || false}
-                        onChange={(e) => updateEditData("isOnBoarded", e.target.checked)}
-                        className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                      />
-                      <span className={`${currentTheme.text} text-sm`}>Onboarded</span>
-                    </label>
-                  </div>
-                </div>
-              </div>
-
-              <div>
-                <label
-                  className={`text-xs ${currentTheme.textSecondary} uppercase block mb-2`}
-                >
-                  Admin Notes
-                </label>
-                <textarea
-                  value={editData?.adminNotes || ""}
-                  onChange={(e) => updateEditData("adminNotes", e.target.value)}
-                  rows={4}
-                  placeholder="Internal notes about this client..."
-                  className={`w-full px-4 py-2 rounded-lg border ${currentTheme.border} ${currentTheme.cardBg} ${currentTheme.text} focus:outline-none focus:ring-2 focus:ring-blue-500/20`}
-                />
-              </div>
-            </div>
-          </div>
-         
-        </div>
-
-        {/* Sticky Save Bar */}
-        <div
-          className={`${currentTheme.cardBg} border ${currentTheme.border} rounded-xl p-3 md:p-4 shadow-xl sticky bottom-4 z-10`}
-        >
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-            <p
-              className={`${currentTheme.textSecondary} text-xs sm:text-sm text-center sm:text-left`}
-            >
-              Make sure all required fields are filled before saving
-            </p>
-            <div className="flex gap-2 sm:gap-3">
-              <button
-                onClick={handleCancelEdit}
-                className={`flex-1 sm:flex-none px-4 sm:px-6 py-2 border ${currentTheme.border} rounded-lg ${currentTheme.text} ${currentTheme.hover} transition-all duration-200 text-sm`}
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleSaveEdit}
-                className="flex-1 sm:flex-none admin-btn-primary px-4 sm:px-6 py-2 text-sm"
-              >
-                Save Changes
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // Render Detail View
-  if (viewMode === "detail" && selectedClient) {
-    return (
-      <div className="space-y-3 md:space-y-4">
-        {/* Compact Header with Back Button and Company Info */}
-        <div className={`${currentTheme.cardBg} border ${currentTheme.border} rounded-lg p-3 md:p-4 shadow-sm`}>
-          {/* Top Row: Back Button and Status */}
-          <div className="flex items-center justify-between mb-3">
-            <button
-              onClick={handleBackToList}
-              className={`flex items-center gap-2 px-3 py-1.5 rounded-lg ${currentTheme.hover} ${currentTheme.text} transition-all duration-200 text-sm font-medium`}
-            >
-              <RiArrowLeftLine className="w-4 h-4" />
-              Back to List
-            </button>
-            
-            <span
-              className={`px-2 py-1 rounded-full text-xs font-medium ${
-                selectedClient?.isOnBoarded
-                  ? "bg-green-100 text-green-800 border border-green-200"
-                  : "bg-yellow-100 text-yellow-800 border border-yellow-200"
-              }`}
-            >
-              {selectedClient?.isOnBoarded ? "Onboarded" : "Pending"}
-            </span>
-          </div>
-
-          {/* Compact Company Header */}
-          <div className="flex items-start gap-3">
-            <div
-              className={`w-10 h-10 ${currentTheme.activeBg} rounded-lg flex items-center justify-center flex-shrink-0`}
-            >
-              <RiBuildingLine
-                className={`w-5 h-5 ${currentTheme.text}`}
-              />
-            </div>
-            
-            <div className="flex-1 min-w-0">
-              <h1
-                className={`text-lg md:text-xl font-bold ${currentTheme.text} mb-1 truncate`}
-              >
-                {selectedClient?.onboardingDetails?.onboarding?.company_basics?.name || "Unknown Company"}
-              </h1>
-              
-              <p className={`${currentTheme.textSecondary} text-sm mb-2 overflow-hidden`} style={{
-                display: '-webkit-box',
-                WebkitLineClamp: 2,
-                WebkitBoxOrient: 'vertical',
-                maxHeight: '2.5rem'
-              }}>
-                {selectedClient?.onboardingDetails?.onboarding?.company_basics?.description ||
-                  "No description available"}
-              </p>
-              
-              {/* Compact Company Info Pills */}
-              <div className="flex flex-wrap items-center gap-1">
-                {(selectedClient?.onboardingDetails?.onboarding?.company_basics?.industry || []).slice(0, 2).map(
-                  (ind, idx) => (
-                    <span
-                      key={idx}
-                      className={`px-2 py-0.5 rounded text-xs font-medium ${currentTheme.activeBg} ${currentTheme.text} border ${currentTheme.border}`}
-                    >
-                      {ind}
-                    </span>
-                  )
-                )}
-                {selectedClient?.onboardingDetails?.onboarding?.company_basics?.company_size && (
-                  <span
-                    className={`px-2 py-0.5 rounded text-xs font-medium bg-blue-50 text-blue-700 border border-blue-200`}
-                  >
-                    {selectedClient.onboardingDetails.onboarding.company_basics.company_size}
-                  </span>
-                )}
-                {(selectedClient?.onboardingDetails?.onboarding?.company_basics?.industry || []).length > 2 && (
-                  <span className={`text-xs ${currentTheme.textSecondary}`}>
-                    +{(selectedClient?.onboardingDetails?.onboarding?.company_basics?.industry || []).length - 2} more
-                  </span>
-                )}
-              </div>
-            </div>
-            
-            {/* Compact Action Buttons */}
-            <div className="flex items-center gap-2 ml-2">
-              <button 
-                onClick={() => handleApproveClient(selectedClient)}
-                className={`px-3 py-1.5 flex items-center gap-1.5 text-sm transition-all duration-200 ${
-                  selectedClient?.isApproved 
-                    ? 'bg-green-100 text-green-800 border border-green-200 cursor-default' 
-                    : 'admin-btn-primary hover:bg-blue-600'
-                }`}
-                disabled={selectedClient?.isApproved}
-              >
-                <RiCheckLine className="w-4 h-4" />
-                {selectedClient?.isApproved ? 'Approved' : 'Approve'}
-              </button>
-              <button
-                onClick={() => handleEditClient(selectedClient)}
-                className={`px-3 py-1.5 border ${currentTheme.border} rounded-lg ${currentTheme.text} ${currentTheme.hover} transition-all duration-200 flex items-center gap-1.5 text-sm`}
-              >
-                <RiEditLine className="w-4 h-4" />
-                Edit
-              </button>
-            </div>
-          </div>
-        </div>
-
-        {/* Loading and Error states */}
-
-        {/* Loading indicator for onboarding data */}
-        {loading && (
-          <div
-            className={`${currentTheme.cardBg} border ${currentTheme.border} rounded-xl p-4 md:p-6 shadow-xl`}
-          >
-            <div className={`flex items-center justify-center py-8`}>
-              <div
-                className={`${currentTheme.text} text-sm flex items-center gap-3`}
-              >
-                <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-500"></div>
-                Loading detailed client data...
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Error indicator for onboarding data */}
-        {error && (
-          <div
-            className={`${currentTheme.cardBg} border border-red-300 bg-red-50 dark:bg-red-900/20 rounded-xl p-4 md:p-6`}
-          >
-            <div
-              className={`flex items-center gap-3 text-red-600 dark:text-red-400`}
-            >
-              <RiAlarmWarningLine className="w-5 h-5" />
-              <span className="text-sm">{error}</span>
-            </div>
-          </div>
-        )}
-
-        {console.log("Rendering detail view for client:", selectedClient)}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
-          {/* Company Basics */}
-          <div
-            className={`${currentTheme.cardBg} border ${currentTheme.border} rounded-xl p-4 md:p-6 shadow-xl`}
-          >
-            <h3
-              className={`text-lg font-semibold ${currentTheme.text} mb-4 flex items-center gap-2`}
-            >
-              <RiBuildingLine className="w-4 h-4 md:w-5 md:h-5" />
-              Company Basics
-            </h3>
-            <div className="space-y-3">
-
-               <div>
-                <label
-                  className={`text-xs ${currentTheme.textSecondary} uppercase`}
-                >
-                  Company Name
-                </label>
-                <p className={`${currentTheme.text} font-medium`}>
-                  {selectedClient?.onboardingDetails?.onboarding?.company_basics?.name ||
-                    "Not specified"}
-                </p>
-              </div>
-              <div>
-                <label
-                  className={`text-xs ${currentTheme.textSecondary} uppercase`}
-                >
-                  Company Size
-                </label>
-                <p className={`${currentTheme.text} font-medium`}>
-                  {selectedClient?.onboardingDetails?.onboarding?.company_basics?.company_size ||
-                    "Not s"}
-                </p>
-              </div>
-              <div>
-                <label
-                  className={`text-xs ${currentTheme.textSecondary} uppercase`}
-                >
-                  Website
-                </label>
-                {selectedClient?.onboardingDetails?.onboarding?.company_basics?.website ? (
-                  <a
-                    href={selectedClient?.company_basics?.website}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className={`${currentTheme.text} hover:underline flex items-center gap-1`}
-                  >
-                    <RiGlobalLine className="w-4 h-4" />
-                    {selectedClient?.company_basics?.website}
-                  </a>
-                ) : (
-                  <p className={`${currentTheme.textSecondary}`}>
-                    Not provided
-                  </p>
-                )}
-              </div>
-              <div>
-                <label
-                  className={`text-xs ${currentTheme.textSecondary} uppercase`}
-                >
-                  Email
-                </label>
-                <p
-                  className={`${currentTheme.text} font-medium flex items-center gap-1`}
-                >
-                  <RiMailLine className="w-4 h-4" />
-                  {selectedClient?.onboardingDetails?.onboarding?.company_basics?.company_email ||
-                    "Not provided"}
-                </p>
-              </div>
-              <div>
-                <label
-                  className={`text-xs ${currentTheme.textSecondary} uppercase`}
-                >
-                  Phone
-                </label>
-                <p
-                  className={`${currentTheme.text} font-medium flex items-center gap-1`}
-                >
-                  <RiPhoneLine className="w-4 h-4" />
-                  {selectedClient?.onboardingDetails?.onboarding?.company_basics?.company_phone ||
-                    "Not provided"}
-                </p>
-              </div>
-              {selectedClient?.onboardingDetails?.onboarding?.company_basics?.linkedin_profile && (
-                <div>
-                  <label
-                    className={`text-xs ${currentTheme.textSecondary} uppercase`}
-                  >
-                    LinkedIn
-                  </label>
-                  <a
-                    href={selectedClient?.company_basics?.linkedin_profile}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className={`${currentTheme.text} hover:underline flex items-center gap-1`}
-                  >
-                    <RiLinkedinLine className="w-4 h-4" />
-                    LinkedIn Profile
-                  </a>
-                </div>
-              )}
-            </div>
-          </div>
-
-       
-
-          {/* Comprehensive Onboarding Details Section */}
-          {selectedClient?.onboardingDetails && (
-            <div className="space-y-6">
-              {/* AI Employees Section */}
-              {selectedClient.onboardingDetails.onboarding?.ai_employees &&
-                selectedClient.onboardingDetails.onboarding.ai_employees
-                  .length > 0 && (
-                  <div
-                    className={`${currentTheme.cardBg} border ${currentTheme.border} rounded-xl p-4 md:p-6 shadow-xl`}
-                  >
-                    <h3
-                      className={`text-lg font-semibold ${currentTheme.text} mb-4 flex items-center gap-2`}
-                    >
-                      <RiRobotLine className="w-5 h-5" />
-                      AI Employees (
-                      {
-                        selectedClient.onboardingDetails.onboarding.ai_employees
-                          .length
-                      }
-                      )
-                    </h3>
-                    <div className="space-y-4">
-                      {selectedClient.onboardingDetails.onboarding.ai_employees.map(
-                        (employee, index) => (
-                          <div
-                            key={index}
-                            className={`p-4 rounded-lg ${currentTheme.searchBg} border ${currentTheme.border}`}
-                          >
-                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                              <div>
-                                <label
-                                  className={`text-xs ${currentTheme.textSecondary} uppercase mb-1 block`}
-                                >
-                                  Name
-                                </label>
-                                <p
-                                  className={`${currentTheme.text} font-medium`}
-                                >
-                                  {employee.name || "Not specified"}
-                                </p>
-                              </div>
-                              <div>
-                                <label
-                                  className={`text-xs ${currentTheme.textSecondary} uppercase mb-1 block`}
-                                >
-                                  Type
-                                </label>
-                                <p
-                                  className={`${currentTheme.text} font-medium`}
-                                >
-                                  {employee.type || "Not specified"}
-                                </p>
-                              </div>
-                              <div>
-                                <label
-                                  className={`text-xs ${currentTheme.textSecondary} uppercase mb-1 block`}
-                                >
-                                  Template
-                                </label>
-                                <p
-                                  className={`${currentTheme.text} font-medium`}
-                                >
-                                  {employee.template || "Not specified"}
-                                </p>
-                              </div>
-                              <div>
-                                <label
-                                  className={`text-xs ${currentTheme.textSecondary} uppercase mb-1 block`}
-                                >
-                                  Language
-                                </label>
-                                <p
-                                  className={`${currentTheme.text} font-medium`}
-                                >
-                                  {employee.preferred_language ||
-                                    "Not specified"}
-                                </p>
-                              </div>
-                              <div>
-                                <label
-                                  className={`text-xs ${currentTheme.textSecondary} uppercase mb-1 block`}
-                                >
-                                  Voice Gender
-                                </label>
-                                <p
-                                  className={`${currentTheme.text} font-medium`}
-                                >
-                                  {employee.voice_gender || "Not specified"}
-                                </p>
-                              </div>
-                              <div>
-                                <label
-                                  className={`text-xs ${currentTheme.textSecondary} uppercase mb-1 block`}
-                                >
-                                  Personality
-                                </label>
-                                <p
-                                  className={`${currentTheme.text} font-medium`}
-                                >
-                                  {employee.agent_personality ||
-                                    "Not specified"}
-                                </p>
-                              </div>
-                            </div>
-                            {employee.special_instructions && (
-                              <div className="mt-3">
-                                <label
-                                  className={`text-xs ${currentTheme.textSecondary} uppercase mb-1 block`}
-                                >
-                                  Special Instructions
-                                </label>
-                                <p
-                                  className={`${currentTheme.text} text-sm p-2 rounded ${currentTheme.cardBg}`}
-                                >
-                                  {employee.special_instructions}
-                                </p>
-                              </div>
-                            )}
-                            
-                            {/* Workflows Section */}
-                            {employee.workflows && employee.workflows.length > 0 && (
-                              <div className="mt-3">
-                                <label
-                                  className={`text-xs ${currentTheme.textSecondary} uppercase mb-2 block`}
-                                >
-                                  Workflows ({employee.workflows.length})
-                                </label>
-                                <div className="space-y-2">
-                                  {employee.workflows.map((workflow, workflowIdx) => (
-                                    <div
-                                      key={workflowIdx}
-                                      className={`p-3 rounded-lg border ${currentTheme.border} ${currentTheme.cardBg}`}
-                                    >
-                                      <div className="flex items-start justify-between gap-3">
-                                        <div className="flex-1 min-w-0">
-                                          <div className="flex items-center gap-2 mb-1">
-                                            <RiFileTextLine className={`w-4 h-4 ${currentTheme.textSecondary}`} />
-                                            <h6 className={`font-semibold ${currentTheme.text} text-sm`}>
-                                              {workflow?.name || "Unnamed Workflow"}
-                                            </h6>
-                                          </div>
-                                          <p className={`${currentTheme.textSecondary} text-xs leading-relaxed mb-2`}>
-                                            {workflow?.instruction || "No instruction provided"}
-                                          </p>
-                                          {workflow?._id && (
-                                            <div className="flex items-center gap-1">
-                                              <span className={`${currentTheme.textSecondary} text-xs`}>ID:</span>
-                                              <code className={`${currentTheme.textSecondary} text-xs font-mono bg-gray-100 px-1 py-0.5 rounded`}>
-                                                {workflow._id}
-                                              </code>
-                                            </div>
-                                          )}
-                                        </div>
-                                        <div className="flex items-center gap-2">
-                                          <span className={`px-2 py-1 rounded text-xs font-medium bg-green-50 text-green-700 border border-green-200`}>
-                                            Active
+                                
+                                {workflow?.name && (
+                                  <div className={`p-3 rounded-lg ${currentTheme.searchBg} border ${currentTheme.border}`}>
+                                    <div className="flex items-start gap-3">
+                                      <div className={`p-2 rounded-lg ${currentTheme.activeBg}`}>
+                                        {workflow?.name === 'WhatsApp Business' && <RiWhatsappLine className="w-4 h-4 text-green-600" />}
+                                        {workflow?.name === 'Gmail' && <RiMailLine className="w-4 h-4 text-blue-600" />}
+                                        {workflow?.name === 'Google Calendar' && <RiCalendarLine className="w-4 h-4 text-blue-600" />}
+                                        {workflow?.name === 'Shopify' && <RiShoppingBagLine className="w-4 h-4 text-green-600" />}
+                                        {workflow?.name === 'Slack' && <RiSlackLine className="w-4 h-4 text-purple-600" />}
+                                        {!['WhatsApp Business', 'Gmail', 'Google Calendar', 'Shopify', 'Slack'].includes(workflow?.name) && 
+                                          <RiSettings4Line className="w-4 h-4 text-gray-600" />
+                                        }
+                                      </div>
+                                      <div className="flex-1">
+                                        <h6 className={`text-sm font-medium ${currentTheme.text} mb-1`}>
+                                          {workflow?.name} Integration
+                                        </h6>
+                                        <p className={`text-xs ${currentTheme.textSecondary}`}>
+                                          {workflow?.instruction || 'No instructions provided'}
+                                        </p>
+                                        <div className="mt-2">
+                                          <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800`}>
+                                            <span className="w-2 h-2 bg-blue-400 rounded-full mr-1"></span>
+                                            Configured
                                           </span>
                                         </div>
                                       </div>
                                     </div>
-                                  ))}
-                                </div>
+                                  </div>
+                                )}
                               </div>
-                            )}
-
-                            {/* Knowledge Sources Section */}
-                            {employee.knowledge_sources && (
-                              <div className="mt-3">
-                                <label
-                                  className={`text-xs ${currentTheme.textSecondary} uppercase mb-2 block`}
-                                >
-                                  Knowledge Sources
-                                </label>
-                                <div className="space-y-2">
-                                  {employee.knowledge_sources.website_url && (
-                                    <div className={`p-2 rounded-lg border ${currentTheme.border} ${currentTheme.cardBg}`}>
-                                      <div className="flex items-center gap-2 mb-1">
-                                        <RiGlobalLine className={`w-4 h-4 ${currentTheme.textSecondary}`} />
-                                        <span className={`font-medium ${currentTheme.text} text-sm`}>Website</span>
-                                      </div>
-                                      <a 
-                                        href={employee.knowledge_sources.website_url} 
-                                        target="_blank" 
-                                        rel="noopener noreferrer"
-                                        className={`${currentTheme.textSecondary} text-xs hover:text-blue-600 underline`}
-                                      >
-                                        {employee.knowledge_sources.website_url}
-                                      </a>
-                                    </div>
-                                  )}
-                                  {employee.knowledge_sources.uploaded_files && employee.knowledge_sources.uploaded_files.length > 0 && (
-                                    <div className={`p-2 rounded-lg border ${currentTheme.border} ${currentTheme.cardBg}`}>
-                                      <div className="flex items-center gap-2 mb-1">
-                                        <RiFileTextLine className={`w-4 h-4 ${currentTheme.textSecondary}`} />
-                                        <span className={`font-medium ${currentTheme.text} text-sm`}>
-                                          Uploaded Files ({employee.knowledge_sources.uploaded_files.length})
-                                        </span>
-                                      </div>
-                                      <div className="space-y-2">
-                                        {employee.knowledge_sources.uploaded_files.map((file, fileIdx) => (
-                                          <div key={fileIdx} className={`flex items-center justify-between p-2 rounded border ${currentTheme.border} ${currentTheme.searchBg}`}>
-                                            <div className="flex items-center gap-2 flex-1 min-w-0">
-                                              <RiFileTextLine className={`w-3 h-3 ${currentTheme.textSecondary}`} />
-                                              <span className={`${currentTheme.text} text-xs font-medium truncate`}>
-                                                {file.name || file.filename || file}
-                                              </span>
-                                              {file.size && (
-                                                <span className={`${currentTheme.textSecondary} text-xs`}>
-                                                  ({(file.size / 1024).toFixed(1)}KB)
-                                                </span>
-                                              )}
-                                            </div>
-                                            <div className="flex items-center gap-1 ml-2">
-                                              {/* View Button */}
-                                              <button
-                                                onClick={() => handleViewFile(file)}
-                                                className={`p-1 rounded transition-all duration-200 ${currentTheme.textSecondary} hover:${currentTheme.text} hover:bg-blue-50 active:scale-95`}
-                                                title="View File"
-                                              >
-                                                <RiEyeLine className="w-3 h-3" />
-                                              </button>
-                                              {/* Download Button */}
-                                              <button
-                                                onClick={() => handleDownloadFile(file)}
-                                                className={`p-1 rounded transition-all duration-200 ${currentTheme.textSecondary} hover:${currentTheme.text} hover:bg-green-50 active:scale-95`}
-                                                title="Download File"
-                                              >
-                                                <RiDownloadLine className="w-3 h-3" />
-                                              </button>
-                                            </div>
-                                          </div>
-                                        ))}
-                                      </div>
-                                    </div>
-                                  )}
-                                  {employee.knowledge_sources.faqs_text && (
-                                    <div className={`p-2 rounded-lg border ${currentTheme.border} ${currentTheme.cardBg}`}>
-                                      <div className="flex items-center justify-between gap-2 mb-1">
-                                        <div className="flex items-center gap-2">
-                                          <RiQuestionLine className={`w-4 h-4 ${currentTheme.textSecondary}`} />
-                                          <span className={`font-medium ${currentTheme.text} text-sm`}>FAQ Text</span>
-                                        </div>
-                                        <button
-                                          onClick={() => handleViewFAQ(employee.knowledge_sources.faqs_text)}
-                                          className={`p-1 rounded transition-all duration-200 ${currentTheme.textSecondary} hover:${currentTheme.text} hover:bg-blue-50 active:scale-95`}
-                                          title="View Full FAQ Text"
-                                        >
-                                          <RiEyeLine className="w-3 h-3" />
-                                        </button>
-                                      </div>
-                                      <p className={`${currentTheme.textSecondary} text-xs leading-relaxed`}>
-                                        {employee.knowledge_sources.faqs_text.length > 150
-                                          ? `${employee.knowledge_sources.faqs_text.substring(0, 150)}...`
-                                          : employee.knowledge_sources.faqs_text
-                                        }
-                                      </p>
-                                    </div>
-                                  )}
-                                </div>
-                              </div>
-                            )}
-                          </div>
-                        )
-                      )}
-                    </div>
-                  </div>
-                )}
-
-              {/* Consent Options Section */}
-              {selectedClient.onboardingDetails.onboarding?.consent_options && (
-                <div
-                  className={`${currentTheme.cardBg} border ${currentTheme.border} rounded-xl p-4 md:p-6 shadow-xl`}
-                >
-                  <h3
-                    className={`text-lg font-semibold ${currentTheme.text} mb-4 flex items-center gap-2`}
-                  >
-                    <RiShieldCheckLine className="w-5 h-5" />
-                    Consent & Privacy Options
-                  </h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <label
-                        className={`text-xs ${currentTheme.textSecondary} uppercase mb-1 block`}
-                      >
-                        Recording Enabled
-                      </label>
-                      <p className={`${currentTheme.text} font-medium`}>
-                        {selectedClient.onboardingDetails.onboarding
-                          .consent_options.recording_enabled
-                          ? "Yes"
-                          : "No"}
-                      </p>
-                    </div>
-                    <div>
-                      <label
-                        className={`text-xs ${currentTheme.textSecondary} uppercase mb-1 block`}
-                      >
-                        Transcript Email Opt-in
-                      </label>
-                      <p className={`${currentTheme.text} font-medium`}>
-                        {selectedClient.onboardingDetails.onboarding
-                          .consent_options.transcript_email_optin
-                          ? "Yes"
-                          : "No"}
-                      </p>
-                    </div>
-                    {selectedClient.onboardingDetails.onboarding.consent_options
-                      .privacy_notes && (
-                      <div className="md:col-span-2">
-                        <label
-                          className={`text-xs ${currentTheme.textSecondary} uppercase mb-1 block`}
-                        >
-                          Privacy Notes
-                        </label>
-                        <p
-                          className={`${currentTheme.text} text-sm p-2 rounded ${currentTheme.searchBg}`}
-                        >
-                          {
-                            selectedClient.onboardingDetails.onboarding
-                              .consent_options.privacy_notes
-                          }
-                        </p>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )}
-
-              {/* Deployment Configuration */}
-              {selectedClient.onboardingDetails.onboarding
-                ?.deployment_service && (
-                <div
-                  className={`${currentTheme.cardBg} border ${currentTheme.border} rounded-xl p-4 md:p-6 shadow-xl`}
-                >
-                  <h3
-                    className={`text-lg font-semibold ${currentTheme.text} mb-4 flex items-center gap-2`}
-                  >
-                    <RiCloudLine className="w-5 h-5" />
-                    Deployment Configuration
-                  </h3>
-                  <div className="space-y-4">
-                    <div>
-                      <label
-                        className={`text-xs ${currentTheme.textSecondary} uppercase mb-1 block`}
-                      >
-                        Service Type
-                      </label>
-                      <p className={`${currentTheme.text} font-medium`}>
-                        {selectedClient.onboardingDetails.onboarding
-                          .deployment_service.service_type || "Not specified"}
-                      </p>
-                    </div>
-
-                    {selectedClient.onboardingDetails.onboarding
-                      .deployment_targets && (
-                      <>
-                        {selectedClient.onboardingDetails.onboarding
-                          .deployment_targets.channels && (
-                          <div>
-                            <label
-                              className={`text-xs ${currentTheme.textSecondary} uppercase mb-2 block`}
-                            >
-                              Channels
-                            </label>
-                            <div className="flex flex-wrap gap-2">
-                              {selectedClient.onboardingDetails.onboarding.deployment_targets.channels.map(
-                                (channel, idx) => (
-                                  <span
-                                    key={idx}
-                                    className={`px-3 py-1 rounded-full text-xs font-medium ${currentTheme.activeBg} ${currentTheme.text}`}
-                                  >
-                                    {channel}
-                                  </span>
-                                )
-                              )}
                             </div>
+                          ))
+                        ) : (
+                          <div className={`text-center py-6 border-2 border-dashed ${currentTheme.border} rounded-lg`}>
+                            <RiFileTextLine className={`w-8 h-8 mx-auto mb-2 ${currentTheme.textSecondary} opacity-50`} />
+                            <p className={`${currentTheme.textSecondary} text-sm font-medium mb-1`}>No workflow integrations configured</p>
+                            <p className={`${currentTheme.textSecondary} text-xs mb-3 opacity-75`}>
+                              Add integrations like WhatsApp, Gmail, CRM systems to enhance this AI employee
+                            </p>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                // Add first workflow
+                                setEditData(prev => ({
+                                  ...prev,
+                                  ai_employees: (prev?.ai_employees || []).map((emp, i) => 
+                                    i === idx ? {
+                                      ...emp,
+                                      workflows: [{
+                                        name: '',
+                                        instruction: ''
+                                      }]
+                                    } : emp
+                                  )
+                                }));
+                              }}
+                              className={`px-4 py-2 rounded-lg text-sm bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100 transition-colors flex items-center gap-2 mx-auto`}
+                            >
+                              <RiAddLine className="w-4 h-4" />
+                              Add Your First Workflow
+                            </button>
                           </div>
                         )}
+                      </div>
+                    </div>
 
-                        {selectedClient.onboardingDetails.onboarding
-                          .deployment_targets.deployment_notes && (
-                          <div>
-                            <label
-                              className={`text-xs ${currentTheme.textSecondary} uppercase mb-1 block`}
-                            >
-                              Deployment Notes
-                            </label>
-                            <p
-                              className={`${currentTheme.text} text-sm p-2 rounded ${currentTheme.searchBg}`}
-                            >
-                              {
-                                selectedClient.onboardingDetails.onboarding
-                                  .deployment_targets.deployment_notes
+                    {/* Knowledge Sources Section within AI Employee */}
+                    <div className="md:col-span-2">
+                      <div className="flex items-center justify-between mb-4">
+                        <label
+                          className={`text-xs ${currentTheme.textSecondary} uppercase block`}
+                        >
+                          <RiBookOpenLine className="w-4 h-4 inline mr-1" />
+                          Knowledge Sources
+                        </label>
+                      </div>
+                      
+                      {/* Website URL Section */}
+                      <div className="mb-4 p-4 rounded-lg border ${currentTheme.border} ${currentTheme.searchBg}">
+                        <label className={`text-xs ${currentTheme.textSecondary} uppercase block mb-2`}>
+                          <RiGlobalLine className="w-4 h-4 inline mr-1" />
+                          Website URL
+                        </label>
+                        <input
+                          type="url"
+                          value={ai?.knowledge_sources?.website_url || ""}
+                          onChange={(e) => {
+                            setEditData(prev => ({
+                              ...prev,
+                              ai_employees: (prev?.ai_employees || []).map((emp, i) => 
+                                i === idx ? {
+                                  ...emp,
+                                  knowledge_sources: {
+                                    ...emp.knowledge_sources,
+                                    website_url: e.target.value
+                                  }
+                                } : emp
+                              )
+                            }));
+                          }}
+                          placeholder="https://example.com"
+                          className={`w-full px-3 py-2 rounded-lg border ${currentTheme.border} ${currentTheme.cardBg} ${currentTheme.text} text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20`}
+                        />
+                      </div>
+                      
+                      {/* FAQs Text Section */}
+                      <div className="mb-4 p-4 rounded-lg border ${currentTheme.border} ${currentTheme.searchBg}">
+                        <label className={`text-xs ${currentTheme.textSecondary} uppercase block mb-2`}>
+                          <RiQuestionLine className="w-4 h-4 inline mr-1" />
+                          FAQs / Knowledge Text
+                        </label>
+                        <textarea
+                          value={ai?.knowledge_sources?.faqs_text || ""}
+                          onChange={(e) => {
+                            setEditData(prev => ({
+                              ...prev,
+                              ai_employees: (prev?.ai_employees || []).map((emp, i) => 
+                                i === idx ? {
+                                  ...emp,
+                                  knowledge_sources: {
+                                    ...emp.knowledge_sources,
+                                    faqs_text: e.target.value
+                                  }
+                                } : emp
+                              )
+                            }));
+                          }}
+                          rows={4}
+                          placeholder="Enter frequently asked questions and answers, or any text-based knowledge..."
+                          className={`w-full px-3 py-2 rounded-lg border ${currentTheme.border} ${currentTheme.cardBg} ${currentTheme.text} text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20`}
+                        />
+                      </div>
+                      
+                      {/* Uploaded Files Section */}
+                      <div className="mb-4 p-4 rounded-lg border ${currentTheme.border} ${currentTheme.searchBg}">
+                        <label className={`text-xs ${currentTheme.textSecondary} uppercase block mb-2`}>
+                          <RiFileTextLine className="w-4 h-4 inline mr-1" />
+                          Uploaded Files ({(ai?.knowledge_sources?.uploaded_files || []).length})
+                        </label>
+                        
+                        {(ai?.knowledge_sources?.uploaded_files || []).length > 0 ? (
+                          <div className="space-y-2">
+                            {(ai?.knowledge_sources?.uploaded_files || []).map((file, fileIdx) => (
+                              <div
+                                key={fileIdx}
+                                className={`flex items-center justify-between p-3 rounded-lg border ${currentTheme.border} ${currentTheme.cardBg}`}
+                              >
+                                <div className="flex items-center gap-3 flex-1 min-w-0">
+                                  <RiFileTextLine className={`w-4 h-4 ${currentTheme.textSecondary}`} />
+                                  <div className="flex-1 min-w-0">
+                                    <p className={`text-sm font-medium ${currentTheme.text} truncate`}>
+                                      {file.original_name || file.filename || file.name || 'Unnamed File'}
+                                    </p>
+                                    <div className="flex items-center gap-2 mt-1">
+                                      {file.file_size && (
+                                        <span className={`text-xs ${currentTheme.textSecondary}`}>
+                                          {(file.file_size / 1024).toFixed(1)} KB
+                                        </span>
+                                      )}
+                                      {file.file_type && (
+                                        <span className={`text-xs ${currentTheme.textSecondary} bg-gray-100 px-2 py-0.5 rounded`}>
+                                          {file.file_type}
+                                        </span>
+                                      )}
+                                    </div>
+                                  </div>
+                                </div>
+                                <div className="flex items-center gap-1">
+                                  <button
+                                    onClick={() => handleViewFile(file)}
+                                    className={`p-2 rounded-lg ${currentTheme.hover} ${currentTheme.textSecondary} hover:text-blue-600 transition-colors`}
+                                    title="View File"
+                                  >
+                                    <RiEyeLine className="w-4 h-4" />
+                                  </button>
+                                  <button
+                                    onClick={() => handleDownloadFile(file)}
+                                    className={`p-2 rounded-lg ${currentTheme.hover} ${currentTheme.textSecondary} hover:text-green-600 transition-colors`}
+                                    title="Download File"
+                                  >
+                                    <RiDownloadLine className="w-4 h-4" />
+                                  </button>
+                                  <button
+                                    onClick={() => {
+                                      // Remove file from uploaded_files array
+                                      setEditData(prev => ({
+                                        ...prev,
+                                        ai_employees: (prev?.ai_employees || []).map((emp, i) => 
+                                          i === idx ? {
+                                            ...emp,
+                                            knowledge_sources: {
+                                              ...emp.knowledge_sources,
+                                              uploaded_files: (emp.knowledge_sources?.uploaded_files || []).filter((_, fIdx) => fIdx !== fileIdx)
+                                            }
+                                          } : emp
+                                        )
+                                      }));
+                                    }}
+                                    className={`p-2 rounded-lg ${currentTheme.hover} text-red-500 hover:bg-red-50 transition-colors`}
+                                    title="Remove File"
+                                  >
+                                    <RiCloseLine className="w-4 h-4" />
+                                  </button>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <div className={`text-center py-6 border-2 border-dashed ${currentTheme.border} rounded-lg`}>
+                            <RiFileTextLine className={`w-8 h-8 mx-auto mb-2 ${currentTheme.textSecondary} opacity-50`} />
+                            <p className={`${currentTheme.textSecondary} text-sm`}>No files uploaded yet</p>
+                            <p className={`${currentTheme.textSecondary} text-xs mt-1 opacity-75`}>Files will appear here when uploaded during onboarding</p>
+                          </div>
+                        )}
+                        
+                        {/* File Upload Input */}
+                        <div className="mt-3">
+                          <input
+                            type="file"
+                            multiple
+                            onChange={(e) => {
+                              const files = Array.from(e.target.files || []);
+                              if (files.length > 0) {
+                                // For now, just add file info to the list (actual upload would happen on save)
+                                const newFiles = files.map(file => ({
+                                  name: file.name,
+                                  original_name: file.name,
+                                  file_size: file.size,
+                                  file_type: file.type,
+                                  // Mark as pending upload
+                                  pending_upload: true
+                                }));
+                                
+                                setEditData(prev => ({
+                                  ...prev,
+                                  ai_employees: (prev?.ai_employees || []).map((emp, i) => 
+                                    i === idx ? {
+                                      ...emp,
+                                      knowledge_sources: {
+                                        ...emp.knowledge_sources,
+                                        uploaded_files: [
+                                          ...(emp.knowledge_sources?.uploaded_files || []),
+                                          ...newFiles
+                                        ]
+                                      }
+                                    } : emp
+                                  )
+                                }));
+                                
+                                // Clear the input
+                                e.target.value = '';
                               }
-                            </p>
-                          </div>
-                        )}
-                      </>
-                    )}
-                  </div>
-                </div>
-              )}
-
-              {/* Instructions & Guidelines */}
-              {selectedClient.onboardingDetails.onboarding?.instructions && (
-                <div
-                  className={`${currentTheme.cardBg} border ${currentTheme.border} rounded-xl p-4 md:p-6 shadow-xl`}
-                >
-                  <h3
-                    className={`text-lg font-semibold ${currentTheme.text} mb-4 flex items-center gap-2`}
-                  >
-                    <RiFileTextLine className="w-5 h-5" />
-                    Instructions & Guidelines
-                  </h3>
-                  <div className="space-y-4">
-                    {selectedClient.onboardingDetails.onboarding.instructions
-                      .dos_and_donts && (
-                      <div>
-                        <label
-                          className={`text-xs ${currentTheme.textSecondary} uppercase mb-1 block`}
-                        >
-                          Do's and Don'ts
-                        </label>
-                        <p
-                          className={`${currentTheme.text} text-sm p-3 rounded ${currentTheme.searchBg}`}
-                        >
-                          {
-                            selectedClient.onboardingDetails.onboarding
-                              .instructions.dos_and_donts
-                          }
-                        </p>
+                            }}
+                            className={`w-full px-3 py-2 text-sm border-2 border-dashed ${currentTheme.border} rounded-lg ${currentTheme.cardBg} ${currentTheme.text} file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100`}
+                            accept=".pdf,.doc,.docx,.txt,.csv,.xlsx"
+                          />
+                          <p className={`text-xs ${currentTheme.textSecondary} mt-2`}>
+                            Supported formats: PDF, DOC, DOCX, TXT, CSV, XLSX
+                          </p>
+                        </div>
                       </div>
-                    )}
-                    {selectedClient.onboardingDetails.onboarding.instructions
-                      .fallback_contacts && (
-                      <div>
-                        <label
-                          className={`text-xs ${currentTheme.textSecondary} uppercase mb-1 block`}
-                        >
-                          Fallback Contacts
-                        </label>
-                        <p
-                          className={`${currentTheme.text} text-sm p-3 rounded ${currentTheme.searchBg}`}
-                        >
-                          {
-                            selectedClient.onboardingDetails.onboarding
-                              .instructions.fallback_contacts
-                          }
-                        </p>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )}
-
-           
-              {/* Plan Details */}
-              {selectedClient.onboardingDetails.onboarding?.plan_details && (
-                <div
-                  className={`${currentTheme.cardBg} border ${currentTheme.border} rounded-xl p-4 md:p-6 shadow-xl`}
-                >
-                  <h3
-                    className={`text-lg font-semibold ${currentTheme.text} mb-4 flex items-center gap-2`}
-                  >
-                    <RiPriceTag3Line className="w-5 h-5" />
-                    Plan & Billing Details
-                  </h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <label
-                        className={`text-xs ${currentTheme.textSecondary} uppercase mb-1 block`}
-                      >
-                        Monthly Price
-                      </label>
-                      <p className={`${currentTheme.text} font-medium text-lg`}>
-                        $
-                        {selectedClient.onboardingDetails.onboarding
-                          .plan_details.monthly_price || 0}
-                        /month
-                      </p>
                     </div>
-                    <div>
-                      <label
-                        className={`text-xs ${currentTheme.textSecondary} uppercase mb-1 block`}
-                      >
-                        AI Employee Limit
-                      </label>
-                      <p className={`${currentTheme.text} font-medium`}>
-                        {selectedClient.onboardingDetails.onboarding
-                          .plan_details.ai_employee_limit || 0}{" "}
-                        employees
-                      </p>
+                  </div>
+
+                  {/* AI Employee-specific sections */}
+                  <div className="mt-8 space-y-6">
+                   
+
+                    {/* Instructions & Guidelines Section */}
+                    <div className={`border-t ${currentTheme.border} pt-6`}>
+                      <h4 className={`text-md font-semibold ${currentTheme.text} flex items-center gap-2 mb-4`}>
+                        <RiListCheck2 className="w-4 h-4 text-green-600" />
+                        Instructions & Guidelines
+                        <span className={`text-xs ${currentTheme.textSecondary} font-normal`}>Set behavior guidelines</span>
+                      </h4>
+                      <div className="space-y-4">
+                        <div>
+                          <label className={`text-xs ${currentTheme.textSecondary} uppercase block mb-2`}>
+                            Do's and Don'ts
+                          </label>
+                          <textarea
+                            value={ai?.instructions?.dos_donts || ""}
+                            onChange={(e) => updateAIEmployee(idx, "instructions.dos_donts", e.target.value)}
+                            rows={4}
+                            placeholder="Be professional, Don't share personal information..."
+                            className={`w-full px-3 py-2 rounded-lg border ${currentTheme.border} ${currentTheme.cardBg} ${currentTheme.text} text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20`}
+                          />
+                        </div>
+                        <div>
+                          <label className={`text-xs ${currentTheme.textSecondary} uppercase block mb-2`}>
+                            Fallback Contacts
+                          </label>
+                          <input
+                            type="text"
+                            value={ai?.instructions?.fallback_contacts || ""}
+                            onChange={(e) => updateAIEmployee(idx, "instructions.fallback_contacts", e.target.value)}
+                            placeholder="atharkatheri@gmail.com"
+                            className={`w-full px-3 py-2 rounded-lg border ${currentTheme.border} ${currentTheme.cardBg} ${currentTheme.text} text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20`}
+                          />
+                        </div>
+                      </div>
                     </div>
 
-                    {selectedClient.onboardingDetails.onboarding.plan_details
-                      .billing_contact && (
-                      <div className="md:col-span-2">
-                        <label
-                          className={`text-xs ${currentTheme.textSecondary} uppercase mb-2 block`}
-                        >
-                          Billing Contact
-                        </label>
-                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 p-3 rounded ${currentTheme.searchBg}">
-                          <div>
-                            <label
-                              className={`text-xs ${currentTheme.textSecondary} uppercase mb-1 block`}
+                    {/* Success Targets Section */}
+                    <div className={`border-t ${currentTheme.border} pt-6`}>
+                      <h4 className={`text-md font-semibold ${currentTheme.text} flex items-center gap-2 mb-4`}>
+                        <Target className="w-4 h-4 text-orange-600" />
+                        Success Targets
+                        <span className={`text-xs ${currentTheme.textSecondary} font-normal`}>Define success metrics</span>
+                      </h4>
+                      <div className="space-y-4">
+                        <div>
+                          <label className={`text-xs ${currentTheme.textSecondary} uppercase block mb-2`}>
+                            What Success Looks Like
+                          </label>
+                          <textarea
+                            value={ai?.success_targets?.description || ""}
+                            onChange={(e) => updateAIEmployee(idx, "success_targets.description", e.target.value)}
+                            rows={3}
+                            placeholder="Lead qualification, booking appointments, FAQ deflection..."
+                            className={`w-full px-3 py-2 rounded-lg border ${currentTheme.border} ${currentTheme.cardBg} ${currentTheme.text} text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20`}
+                          />
+                        </div>
+                        <div>
+                          <label className={`text-xs ${currentTheme.textSecondary} uppercase block mb-2`}>
+                            Success Metrics
+                          </label>
+                          <div className="space-y-2">
+                            {(ai?.success_targets?.metrics || [""]).map((metric, metricIdx) => (
+                              <div key={metricIdx} className="flex gap-2">
+                                <input
+                                  type="text"
+                                  value={metric}
+                                  onChange={(e) => {
+                                    const newMetrics = [...(ai?.success_targets?.metrics || [])];
+                                    newMetrics[metricIdx] = e.target.value;
+                                    updateAIEmployee(idx, "success_targets.metrics", newMetrics);
+                                  }}
+                                  placeholder="80% FAQ resolution rate"
+                                  className={`flex-1 px-3 py-2 rounded-lg border ${currentTheme.border} ${currentTheme.cardBg} ${currentTheme.text} text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20`}
+                                />
+                                <button
+                                  onClick={() => {
+                                    const newMetrics = (ai?.success_targets?.metrics || []).filter((_, i) => i !== metricIdx);
+                                    updateAIEmployee(idx, "success_targets.metrics", newMetrics);
+                                  }}
+                                  className="px-2 py-2 rounded-lg text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                                >
+                                  <RiCloseLine className="w-4 h-4" />
+                                </button>
+                              </div>
+                            ))}
+                            <button
+                              onClick={() => {
+                                const newMetrics = [...(ai?.success_targets?.metrics || []), ""];
+                                updateAIEmployee(idx, "success_targets.metrics", newMetrics);
+                              }}
+                              className={`flex items-center gap-2 px-3 py-2 border-2 border-dashed ${currentTheme.border} rounded-lg ${currentTheme.text} hover:bg-opacity-50 transition-colors text-sm`}
                             >
-                              Name
-                            </label>
-                            <p className={`${currentTheme.text} font-medium`}>
-                              {selectedClient.onboardingDetails.onboarding
-                                .plan_details.billing_contact.name ||
-                                "Not provided"}
-                            </p>
-                          </div>
-                          <div>
-                            <label
-                              className={`text-xs ${currentTheme.textSecondary} uppercase mb-1 block`}
-                            >
-                              Email
-                            </label>
-                            <p className={`${currentTheme.text} font-medium`}>
-                              {selectedClient.onboardingDetails.onboarding
-                                .plan_details.billing_contact.email ||
-                                "Not provided"}
-                            </p>
-                          </div>
-                          <div>
-                            <label
-                              className={`text-xs ${currentTheme.textSecondary} uppercase mb-1 block`}
-                            >
-                              Phone
-                            </label>
-                            <p className={`${currentTheme.text} font-medium`}>
-                              {selectedClient.onboardingDetails.onboarding
-                                .plan_details.billing_contact.phone ||
-                                "Not provided"}
-                            </p>
+                              <RiAddLine className="w-4 h-4" />
+                              Add Metric
+                            </button>
                           </div>
                         </div>
                       </div>
-                    )}
-                  </div>
-                </div>
-              )}
+                    </div>
 
-              {/* Success Targets */}
-              {selectedClient.onboardingDetails.onboarding?.targets && (
-                <div
-                  className={`${currentTheme.cardBg} border ${currentTheme.border} rounded-xl p-4 md:p-6 shadow-xl`}
-                >
-                  <h3
-                    className={`text-lg font-semibold ${currentTheme.text} mb-4 flex items-center gap-2`}
-                  >
-                    <Target className="w-5 h-5" />
-                    Success Targets
-                  </h3>
-                  <div className="space-y-4">
-                    {selectedClient.onboardingDetails.onboarding.targets
-                      .success_goals && (
-                      <div>
-                        <label
-                          className={`text-xs ${currentTheme.textSecondary} uppercase mb-1 block`}
-                        >
-                          Success Goals
-                        </label>
-                        <p
-                          className={`${currentTheme.text} text-sm p-3 rounded ${currentTheme.searchBg}`}
-                        >
-                          {
-                            selectedClient.onboardingDetails.onboarding.targets
-                              .success_goals
-                          }
-                        </p>
+                    {/* Deployment Configuration Section */}
+                    <div className={`border-t ${currentTheme.border} pt-6`}>
+                      <h4 className={`text-md font-semibold ${currentTheme.text} flex items-center gap-2 mb-4`}>
+                        <RiRocketLine className="w-4 h-4 text-purple-600" />
+                        Deployment Configuration
+                        <span className={`text-xs ${currentTheme.textSecondary} font-normal`}>Choose deployment options</span>
+                      </h4>
+                      <div className="space-y-4">
+                        <div>
+                          <label className={`text-xs ${currentTheme.textSecondary} uppercase block mb-2`}>
+                            Service Type
+                          </label>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                            <label className={`flex items-center gap-3 p-3 border ${currentTheme.border} rounded-lg cursor-pointer transition-colors ${ai?.deployment?.service_type === 'shivai' ? 'bg-blue-50 border-blue-200 dark:bg-blue-900/20' : ''}`}>
+                              <input
+                                type="radio"
+                                name={`service_type_${idx}`}
+                                checked={ai?.deployment?.service_type === 'shivai'}
+                                onChange={(e) => updateAIEmployee(idx, "deployment.service_type", "shivai")}
+                                className="w-4 h-4 text-blue-500"
+                              />
+                              <span className="text-sm">Shivai</span>
+                            </label>
+                            <label className={`flex items-center gap-3 p-3 border ${currentTheme.border} rounded-lg cursor-pointer transition-colors ${ai?.deployment?.service_type === 'self' ? 'bg-blue-50 border-blue-200 dark:bg-blue-900/20' : ''}`}>
+                              <input
+                                type="radio"
+                                name={`service_type_${idx}`}
+                                checked={ai?.deployment?.service_type === 'self'}
+                                onChange={(e) => updateAIEmployee(idx, "deployment.service_type", "self")}
+                                className="w-4 h-4 text-blue-500"
+                              />
+                              <span className="text-sm">Self-managed</span>
+                            </label>
+                          </div>
+                        </div>
+                        <div>
+                          <label className={`text-xs ${currentTheme.textSecondary} uppercase block mb-2`}>
+                            Channels
+                          </label>
+                          <div className="flex flex-wrap gap-2">
+                            {['Website', 'WhatsApp', 'Mobile App'].map((channel) => (
+                              <label key={channel} className={`flex items-center gap-2 px-3 py-2 border ${currentTheme.border} rounded-full cursor-pointer text-sm transition-colors ${(ai?.deployment?.channels || []).includes(channel) ? 'bg-blue-50 border-blue-200 dark:bg-blue-900/20' : ''}`}>
+                                <input
+                                  type="checkbox"
+                                  checked={(ai?.deployment?.channels || []).includes(channel)}
+                                  onChange={(e) => {
+                                    const channels = ai?.deployment?.channels || [];
+                                    const newChannels = e.target.checked 
+                                      ? [...channels, channel]
+                                      : channels.filter(c => c !== channel);
+                                    updateAIEmployee(idx, "deployment.channels", newChannels);
+                                  }}
+                                  className="w-3 h-3 text-blue-500"
+                                />
+                                {channel}
+                              </label>
+                            ))}
+                          </div>
+                        </div>
+                        <div>
+                          <label className={`text-xs ${currentTheme.textSecondary} uppercase block mb-2`}>
+                            Deployment Notes
+                          </label>
+                          <textarea
+                            value={ai?.deployment?.notes || ""}
+                            onChange={(e) => updateAIEmployee(idx, "deployment.notes", e.target.value)}
+                            rows={3}
+                            placeholder="Phase 1: Website implementation..."
+                            className={`w-full px-3 py-2 rounded-lg border ${currentTheme.border} ${currentTheme.cardBg} ${currentTheme.text} text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20`}
+                          />
+                        </div>
                       </div>
-                    )}
-                    {selectedClient.onboardingDetails.onboarding.targets
-                      .success_metrics && (
-                      <div>
-                        <label
-                          className={`text-xs ${currentTheme.textSecondary} uppercase mb-1 block`}
-                        >
-                          Success Metrics
-                        </label>
-                        <p
-                          className={`${currentTheme.text} text-sm p-3 rounded ${currentTheme.searchBg}`}
-                        >
-                          {
-                            selectedClient.onboardingDetails.onboarding.targets
-                              .success_metrics
-                          }
-                        </p>
+                    </div>
+
+                    {/* Consent & Privacy Options Section */}
+                    <div className={`border-t ${currentTheme.border} pt-6`}>
+                      <h4 className={`text-md font-semibold ${currentTheme.text} flex items-center gap-2 mb-4`}>
+                        <RiShieldCheckLine className="w-4 h-4 text-gray-600" />
+                        Consent & Privacy Options
+                        <span className={`text-xs ${currentTheme.textSecondary} font-normal`}>Privacy settings</span>
+                      </h4>
+                      <div className="space-y-4">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <label className="flex items-center gap-2">
+                            <input
+                              type="checkbox"
+                              checked={ai?.privacy_options?.recording_enabled || false}
+                              onChange={(e) => updateAIEmployee(idx, "privacy_options.recording_enabled", e.target.checked)}
+                              className="w-4 h-4 text-blue-500 rounded"
+                            />
+                            <span className="text-sm">Recording Enabled</span>
+                          </label>
+                          <label className="flex items-center gap-2">
+                            <input
+                              type="checkbox"
+                              checked={ai?.privacy_options?.transcript_email || false}
+                              onChange={(e) => updateAIEmployee(idx, "privacy_options.transcript_email", e.target.checked)}
+                              className="w-4 h-4 text-blue-500 rounded"
+                            />
+                            <span className="text-sm">Transcript Email Opt-in</span>
+                          </label>
+                        </div>
+                        <div>
+                          <label className={`text-xs ${currentTheme.textSecondary} uppercase block mb-2`}>
+                            Privacy Notes
+                          </label>
+                          <input
+                            type="text"
+                            value={ai?.privacy_options?.privacy_notes || ""}
+                            onChange={(e) => updateAIEmployee(idx, "privacy_options.privacy_notes", e.target.value)}
+                            placeholder="Privacy enabled"
+                            className={`w-full px-3 py-2 rounded-lg border ${currentTheme.border} ${currentTheme.cardBg} ${currentTheme.text} text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20`}
+                          />
+                        </div>
                       </div>
-                    )}
+                    </div>
                   </div>
                 </div>
+                ))
               )}
-
-              {/* Meta Information */}
-              <div
-                className={`${currentTheme.cardBg} border ${currentTheme.border} rounded-xl p-4 md:p-6 shadow-xl`}
-              >
-                <h3
-                  className={`text-lg font-semibold ${currentTheme.text} mb-4 flex items-center gap-2`}
-                >
-                  <RiInformationLine className="w-5 h-5" />
-                  Onboarding Metadata
-                </h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label
-                      className={`text-xs ${currentTheme.textSecondary} uppercase mb-1 block`}
-                    >
-                      User ID
-                    </label>
-                    <p className={`${currentTheme.text} font-mono text-sm`}>
-                      {selectedClient.onboardingDetails.onboarding?.userId ||
-                        "Not specified"}
-                    </p>
-                  </div>
-                  <div>
-                    <label
-                      className={`text-xs ${currentTheme.textSecondary} uppercase mb-1 block`}
-                    >
-                      Status
-                    </label>
-                    <span
-                      className={`inline-flex px-3 py-1 rounded-full text-xs font-medium ${
-                        selectedClient.onboardingDetails.onboarding?.status ===
-                        "pending"
-                          ? "bg-yellow-100 text-yellow-800"
-                          : "bg-green-100 text-green-800"
-                      }`}
-                    >
-                      {selectedClient.onboardingDetails.onboarding?.status ||
-                        "Unknown"}
-                    </span>
-                  </div>
-                  <div>
-                    <label
-                      className={`text-xs ${currentTheme.textSecondary} uppercase mb-1 block`}
-                    >
-                      Created At
-                    </label>
-                    <p className={`${currentTheme.text} text-sm`}>
-                      {selectedClient.onboardingDetails.onboarding?.created_at
-                        ? new Date(
-                            selectedClient.onboardingDetails.onboarding.created_at
-                          ).toLocaleDateString()
-                        : "Not specified"}
-                    </p>
-                  </div>
-                  <div>
-                    <label
-                      className={`text-xs ${currentTheme.textSecondary} uppercase mb-1 block`}
-                    >
-                      Updated At
-                    </label>
-                    <p className={`${currentTheme.text} text-sm`}>
-                      {selectedClient.onboardingDetails.onboarding?.updated_at
-                        ? new Date(
-                            selectedClient.onboardingDetails.onboarding.updated_at
-                          ).toLocaleDateString()
-                        : "Not specified"}
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-          
             </div>
-          )}
+          </div>
         </div>
+        
+        
       </div>
     );
   }
 
+  // List View
   return (
-    <div className="space-y-3 md:space-y-4 lg:space-y-6">
-      {viewMode === "list" && (
-        <>
-          <div className="lg:hidden overflow-x-auto scrollbar-hide -mx-2 px-2">
-            <div className="flex gap-3 pb-2" style={{ width: "max-content" }}>
-
-              <div className="group flex-shrink-0 w-36 sm:w-40">
-                <div
-                  className={`${currentTheme.cardBg} border ${currentTheme.border} rounded-lg p-3 hover:scale-[1.02] transition-all duration-200 shadow-lg`}
-                >
-                  <div className="flex items-center justify-between mb-2">
-                    <div
-                      className={`w-8 h-8 rounded-lg ${currentTheme.searchBg} flex items-center justify-center`}
-                    >
-                      <RiTeamLine
-                        className={`w-4 h-4 ${currentTheme.textSecondary}`}
-                      />
-                    </div>
-                    <span className="text-xs font-medium text-blue-500">
-                      Total
-                    </span>
-                  </div>
-                  <h3
-                    className={`text-xl font-semibold ${currentTheme.text} mb-0.5`}
-                  >
-                    {getCount("pending") + getCount("onboarded")}
-                  </h3>
-                  <p
-                    className={`text-xs font-medium ${currentTheme.text} leading-tight`}
-                  >
-                    All Clients
-                  </p>
-                </div>
+    <div className="space-y-4 md:space-y-6 px-2 sm:px-0">
+      {/* Stats Cards - Horizontal Scroll on Mobile */}
+      <div className="relative -mx-2 sm:mx-0">
+        <div className="flex md:grid md:grid-cols-3 gap-3 md:gap-4 overflow-x-auto scrollbar-hide px-2 sm:px-0 snap-x snap-mandatory">
+          {/* Total Clients Card */}
+          <div className={`${currentTheme.cardBg} border ${currentTheme.border} rounded-lg p-4 md:p-6 shadow-lg min-w-[280px] sm:min-w-[320px] md:min-w-0 snap-center flex-shrink-0`}>
+            <div className="flex items-center justify-between mb-2 md:mb-3">
+              <div className={`w-10 h-10 md:w-12 md:h-12 rounded-lg ${currentTheme.searchBg} flex items-center justify-center`}>
+                <RiTeamLine className={`w-5 h-5 md:w-6 md:h-6 ${currentTheme.textSecondary}`} />
               </div>
-
-              <div className="group flex-shrink-0 w-36 sm:w-40">
-                <div
-                  className={`${currentTheme.cardBg} border ${currentTheme.border} rounded-lg p-3 hover:scale-[1.02] transition-all duration-200 shadow-lg`}
-                >
-                  <div className="flex items-center justify-between mb-2">
-                    <div
-                      className={`w-8 h-8 rounded-lg ${currentTheme.searchBg} flex items-center justify-center`}
-                    >
-                      <RiTimeLine
-                        className={`w-4 h-4 ${currentTheme.textSecondary}`}
-                      />
-                    </div>
-                    <span className="text-xs font-medium text-yellow-500">
-                      Pending
-                    </span>
-                  </div>
-                  <h3
-                    className={`text-xl font-semibold ${currentTheme.text} mb-0.5`}
-                  >
-                    {getCount("pending")}
-                  </h3>
-                  <p
-                    className={`text-xs font-medium ${currentTheme.text} leading-tight`}
-                  >
-                    Awaiting Review
-                  </p>
-                </div>
-              </div>
-
-              {/* Approved Card */}
-              <div className="group flex-shrink-0 w-36 sm:w-40">
-                <div
-                  className={`${currentTheme.cardBg} border ${currentTheme.border} rounded-lg p-3 hover:scale-[1.02] transition-all duration-200 shadow-lg`}
-                >
-                  <div className="flex items-center justify-between mb-2">
-                    <div
-                      className={`w-8 h-8 rounded-lg ${currentTheme.searchBg} flex items-center justify-center`}
-                    >
-                      <RiCheckLine
-                        className={`w-4 h-4 ${currentTheme.textSecondary}`}
-                      />
-                    </div>
-                    <span className="text-xs font-medium text-green-500">
-                      Active
-                    </span>
-                  </div>
-                  <h3
-                    className={`text-xl font-semibold ${currentTheme.text} mb-0.5`}
-                  >
-                    {getCount("approved")}
-                  </h3>
-                  <p
-                    className={`text-xs font-medium ${currentTheme.text} leading-tight`}
-                  >
-                    Approved
-                  </p>
-                </div>
-              </div>
+              <span className="text-xs md:text-sm font-medium text-blue-500">Total</span>
             </div>
+            <h3 className={`text-2xl md:text-3xl font-semibold ${currentTheme.text} mb-1 md:mb-2`}>
+              {getCount("pending") + getCount("onboarded") + getCount("approved")}
+            </h3>
+            <p className={`text-xs md:text-sm font-medium ${currentTheme.text}`}>All Clients</p>
           </div>
 
-          {/* Desktop: Grid Layout */}
-          <div className="hidden lg:grid lg:grid-cols-3 gap-4">
-            {/* Pending Clients Card */}
-
-            <div className="group">
-              <div
-                className={`${currentTheme.cardBg} border ${currentTheme.border} rounded-lg p-4 hover:scale-[1.02] transition-all duration-200 ${currentTheme.cardShadow || "shadow-lg"}`}
-              >
-                <div className="flex items-center justify-between mb-3">
-                  <div
-                    className={`w-10 h-10 rounded-lg ${currentTheme.searchBg} flex items-center justify-center`}
-                  >
-                    <RiTeamLine
-                      className={`w-5 h-5 ${currentTheme.textSecondary}`}
-                    />
-                  </div>
-                  <span className="text-xs font-medium text-blue-500">
-                    Total
-                  </span>
-                </div>
-                <h3
-                  className={`text-2xl font-semibold ${currentTheme.text} mb-1`}
-                >
-                  {getCount("pending") + getCount("onboarded")}
-                </h3>
-                <p
-                  className={`text-sm font-medium ${currentTheme.text} mb-1 leading-tight`}
-                >
-                  All Clients
-                </p>
-                <p
-                  className={`text-xs ${currentTheme.textSecondary} leading-tight`}
-                >
-                  Total submissions
-                </p>
+          {/* Pending Clients Card */}
+          <div className={`${currentTheme.cardBg} border ${currentTheme.border} rounded-lg p-4 md:p-6 shadow-lg min-w-[280px] sm:min-w-[320px] md:min-w-0 snap-center flex-shrink-0`}>
+            <div className="flex items-center justify-between mb-2 md:mb-3">
+              <div className={`w-10 h-10 md:w-12 md:h-12 rounded-lg ${currentTheme.searchBg} flex items-center justify-center`}>
+                <RiTimeLine className={`w-5 h-5 md:w-6 md:h-6 ${currentTheme.textSecondary}`} />
               </div>
+              <span className="text-xs md:text-sm font-medium text-yellow-500">Pending</span>
             </div>
-
-            <div className="group">
-              <div
-                className={`${currentTheme.cardBg} border ${currentTheme.border} rounded-lg p-4 hover:scale-[1.02] transition-all duration-200 ${currentTheme.cardShadow || "shadow-lg"}`}
-              >
-                <div className="flex items-center justify-between mb-3">
-                  <div
-                    className={`w-10 h-10 rounded-lg ${currentTheme.searchBg} flex items-center justify-center`}
-                  >
-                    <RiTimeLine
-                      className={`w-5 h-5 ${currentTheme.textSecondary}`}
-                    />
-                  </div>
-                  <span className="text-xs font-medium text-yellow-500">
-                    Pending
-                  </span>
-                </div>
-                <h3
-                  className={`text-2xl font-semibold ${currentTheme.text} mb-1`}
-                >
-                  {getCount("pending")}
-                </h3>
-                <p
-                  className={`text-sm font-medium ${currentTheme.text} mb-1 leading-tight`}
-                >
-                  Awaiting Review
-                </p>
-                <p
-                  className={`text-xs ${currentTheme.textSecondary} leading-tight`}
-                >
-                  Needs approval
-                </p>
-              </div>
-            </div>
-
-            {/* Approved Clients Card */}
-            <div className="group">
-              <div
-                className={`${currentTheme.cardBg} border ${currentTheme.border} rounded-lg p-4 hover:scale-[1.02] transition-all duration-200 ${currentTheme.cardShadow || "shadow-lg"}`}
-              >
-                <div className="flex items-center justify-between mb-3">
-                  <div
-                    className={`w-10 h-10 rounded-lg ${currentTheme.searchBg} flex items-center justify-center`}
-                  >
-                    <RiCheckLine
-                      className={`w-5 h-5 ${currentTheme.textSecondary}`}
-                    />
-                  </div>
-                  <span className="text-xs font-medium text-green-500">
-                    Active
-                  </span>
-                </div>
-                <h3
-                  className={`text-2xl font-semibold ${currentTheme.text} mb-1`}
-                >
-                  {getCount("approved")}
-                </h3>
-                <p
-                  className={`text-sm font-medium ${currentTheme.text} mb-1 leading-tight`}
-                >
-                  Approved Clients
-                </p>
-                <p
-                  className={`text-xs ${currentTheme.textSecondary} leading-tight`}
-                >
-                  Active accounts
-                </p>
-              </div>
-            </div>
-
+            <h3 className={`text-2xl md:text-3xl font-semibold ${currentTheme.text} mb-1 md:mb-2`}>{getCount("pending")}</h3>
+            <p className={`text-xs md:text-sm font-medium ${currentTheme.text}`}>Awaiting Review</p>
           </div>
 
-          {/* Main Content Card - Mobile Optimized */}
-          <div
-            className={`${currentTheme.cardBg} border ${currentTheme.border} rounded-lg p-3 sm:p-4 md:p-6 ${currentTheme.cardShadow || "shadow-lg"}`}
-          >
-            {/* Header with Search - Mobile Optimized */}
-            <div className="flex flex-col gap-3 mb-3 sm:mb-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h2
-                    className={`text-base sm:text-lg md:text-xl font-semibold ${currentTheme.text} flex items-center gap-2`}
-                  >
-                    <RiTeamLine className="w-4 h-4 sm:w-5 sm:h-5" />
-                    <span className="hidden sm:inline">Client Requests</span>
-                    <span className="sm:hidden">Clients</span>
-                  </h2>
-                  <p className={`${currentTheme.textSecondary} text-xs mt-0.5`}>
-                    ({getCount("pending") + getCount("onboarded")} total)
-                  </p>
-                </div>
+          {/* Active Clients Card */}
+          <div className={`${currentTheme.cardBg} border ${currentTheme.border} rounded-lg p-4 md:p-6 shadow-lg min-w-[280px] sm:min-w-[320px] md:min-w-0 snap-center flex-shrink-0`}>
+            <div className="flex items-center justify-between mb-2 md:mb-3">
+              <div className={`w-10 h-10 md:w-12 md:h-12 rounded-lg ${currentTheme.searchBg} flex items-center justify-center`}>
+                <RiCheckLine className={`w-5 h-5 md:w-6 md:h-6 ${currentTheme.textSecondary}`} />
               </div>
-
-              {/* Search Bar - Mobile Optimized */}
-              <div className="relative">
-                <RiSearchLine
-                  className={`hidden lg:absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 ${currentTheme.textSecondary}`}
-                />
-                <input
-                  type="text"
-                  placeholder="Search clients..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className={`w-full pl-10 pr-4 py-2 text-sm rounded-lg border ${currentTheme.border} ${currentTheme.bg} ${currentTheme.text} focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent`}
-                />
-              </div>
+              <span className="text-xs md:text-sm font-medium text-green-500">Active</span>
             </div>
+            <h3 className={`text-2xl md:text-3xl font-semibold ${currentTheme.text} mb-1 md:mb-2`}>{getCount("approved")}</h3>
+            <p className={`text-xs md:text-sm font-medium ${currentTheme.text}`}>Approved Clients</p>
+          </div>
+        </div>
+      </div>
 
-            {/* Tabs - Mobile Optimized with Icons */}
-            <div
-              className={`flex gap-1 mb-3 sm:mb-4 border-b ${currentTheme.border} overflow-x-auto scrollbar-hide`}
+      {/* Main Content */}
+      <div className={`${currentTheme.cardBg} border ${currentTheme.border} rounded-lg p-3 sm:p-4 md:p-6 shadow-lg`}>
+        {/* Header */}
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 md:gap-4 mb-4 md:mb-6">
+          <div>
+            <h2 className={`text-lg md:text-xl font-semibold ${currentTheme.text} flex items-center gap-2`}>
+              <RiTeamLine className="w-4 h-4 md:w-5 md:h-5" />
+              Client Requests
+            </h2>
+            <p className={`${currentTheme.textSecondary} text-xs md:text-sm mt-1`}>
+              ({getCount("pending") + getCount("onboarded")} total)
+            </p>
+          </div>
+
+          <div className="flex items-center gap-2 md:gap-3 w-full sm:w-auto">
+            <button
+              onClick={() => window.location.reload()}
+              className={`p-2 rounded-lg ${currentTheme.hover} ${currentTheme.text} transition-all duration-200 flex-shrink-0`}
+              title="Refresh data"
             >
-              <button
-                onClick={() => setActiveTab("pending")}
-                className={`flex-shrink-0 px-3 sm:px-4 py-2 font-medium transition-all duration-200 border-b-2 whitespace-nowrap text-xs sm:text-sm ${
-                  activeTab === "pending"
-                    ? `${currentTheme.activeBorder} ${currentTheme.text}`
-                    : `border-transparent ${currentTheme.textSecondary} ${currentTheme.hover}`
-                }`}
-              >
-                <div className="flex items-center gap-1.5">
-                  <RiTimeLine className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-                  <span>Pending</span>
-                  <span
-                    className={`px-1.5 py-0.5 rounded-full text-xs ${
-                      activeTab === "pending"
-                        ? `${currentTheme.activeBg} ${currentTheme.text}`
-                        : `${currentTheme.textSecondary}`
-                    }`}
-                  >
-                    {getCount("pending")}
-                  </span>
-                </div>
-              </button>
-              <button
-                onClick={() => setActiveTab("onboarded")}
-                className={`flex-shrink-0 px-3 sm:px-4 py-2 font-medium transition-all duration-200 border-b-2 whitespace-nowrap text-xs sm:text-sm ${
-                  activeTab === "onboarded"
-                    ? `${currentTheme.activeBorder} ${currentTheme.text}`
-                    : `border-transparent ${currentTheme.textSecondary} ${currentTheme.hover}`
-                }`}
-              >
-                <div className="flex items-center gap-1.5">
-                  <RiCheckLine className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-                  <span>Onboarded</span>
-                  <span
-                    className={`px-1.5 py-0.5 rounded-full text-xs ${
-                      activeTab === "onboarded"
-                        ? `${currentTheme.activeBg} ${currentTheme.text}`
-                        : `${currentTheme.textSecondary}`
-                    }`}
-                  >
-                    {getCount("onboarded")}
-                  </span>
-                </div>
-              </button>
-              <button
-                onClick={() => setActiveTab("approved")}
-                className={`flex-shrink-0 px-3 sm:px-4 py-2 font-medium transition-all duration-200 border-b-2 whitespace-nowrap text-xs sm:text-sm ${
-                  activeTab === "approved"
-                    ? `${currentTheme.activeBorder} ${currentTheme.text}`
-                    : `border-transparent ${currentTheme.textSecondary} ${currentTheme.hover}`
-                }`}
-              >
-                <div className="flex items-center gap-1.5">
-                  <RiCheckDoubleLine className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-                  <span>Approved</span>
-                  <span
-                    className={`px-1.5 py-0.5 rounded-full text-xs ${
-                      activeTab === "approved"
-                        ? `${currentTheme.activeBg} ${currentTheme.text}`
-                        : `${currentTheme.textSecondary}`
-                    }`}
-                  >
-                    {getCount("approved")}
-                  </span>
-                </div>
-              </button>
-            </div>
+              <RiRefreshLine className="w-4 h-4" />
+            </button>
 
-            {/* Client List - Mobile App-like Cards */}
-            <div className="space-y-2 sm:space-y-3">
-              {getClientsForTab().length === 0 ? (
-                <div
-                  className={`text-center py-8 sm:py-12 rounded-lg ${currentTheme.cardBg} border ${currentTheme.border}`}
-                >
-                  <RiUserLine
-                    className={`w-10 h-10 sm:w-12 sm:h-12 mx-auto mb-2 sm:mb-3 ${currentTheme.textSecondary}`}
-                  />
-                  <h3
-                    className={`text-base sm:text-lg font-semibold ${currentTheme.text} mb-1 sm:mb-2`}
-                  >
-                    {searchTerm
-                      ? "No matching clients"
-                      : (users || []).length > 0
-                        ? "No client requests yet"
-                        : "No data available"}
-                  </h3>
-                  <p
-                    className={`text-xs sm:text-sm ${currentTheme.textSecondary}`}
-                  >
-                    {searchTerm
-                      ? "Try adjusting your search criteria"
-                      : (users || []).length > 0
-                        ? `${(users || []).length} registered users but no ${activeTab} client requests`
-                        : `No ${activeTab} client requests available`}
-                  </p>
-                  {/* Debug info */}
-                  <div
-                    className={`mt-2 text-xs ${currentTheme.textSecondary} opacity-60`}
-                  >
-                    Debug: {(users || []).length} users,{" "}
-                    {getTotalOnboardingCount()} onboarding records
-                  </div>
-                </div>
-              ) : (
-                getClientsForTab().map((client, index) => {
-                  // Debug: log client data to see what's available
-                  if (index === 0) {
-                    console.log("Sample client data:", client);
-                    console.log("AI employee count from onboarding:", client?.userData?.onboarding?.ai_employee_count);
-                    console.log("AI employees array length:", (client?.ai_employees || []).length);
-                  }
-                  return (
-                  <div
-                    key={client._id}
-                    className={`${currentTheme.cardBg} border ${currentTheme.border} rounded-lg p-3 sm:p-4 hover:shadow-md transition-all duration-200 active:scale-[0.98]`}
-                  >
-                    {/* Header Row - Compact on Mobile */}
-                    <div className="flex items-start justify-between mb-2 sm:mb-3">
-                      <div className="flex items-center gap-2 flex-1 min-w-0">
-                        <div
-                          className={`w-8 h-8 sm:w-9 sm:h-9 rounded-lg ${currentTheme.activeBg} flex items-center justify-center flex-shrink-0`}
-                        >
-                          <RiBuildingLine
-                            className={`w-4 h-4 sm:w-5 sm:h-5 ${currentTheme.text}`}
-                          />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <h4
-                            className={`font-semibold ${currentTheme.text} text-sm sm:text-base truncate`}
-                          >
-                            {client?.userData?.fullName || client?.company_basics?.name || "Unknown"}
-                          </h4>
-                          <p
-                            className={`text-xs ${currentTheme.textSecondary} truncate`}
-                          >
-                            {client?.userData?.email || client?.company_basics?.company_email ||
-                              "No email"}
-                          </p>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0 ml-2">
-                        <button
-                          onClick={() => handleViewClient(client)}
-                          className={`p-1.5 sm:p-2 flex items-center justify-center ${currentTheme.textSecondary} rounded-lg ${currentTheme.activeBg} hover:scale-105 active:scale-95 transition-all duration-200`}
-                          title="View Details"
-                        >
-                          <RiEyeLine className="w-4 h-4" />
-                        </button>
-                        <button
-                          onClick={() => handleEditClient(client)}
-                          className={`p-1.5 sm:p-2 flex items-center justify-center ${currentTheme.textSecondary} rounded-lg ${currentTheme.activeBg} hover:scale-105 active:scale-95 transition-all duration-200`}
-                          title="Edit Client"
-                        >
-                          <RiEditLine className="w-4 h-4" />
-                        </button>
-                      </div>
-                    </div>
-
-                    {/* Info Grid - Responsive Columns */}
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3">
-                      <div className="space-y-0.5">
-                        <p
-                          className={`text-xs ${currentTheme.textSecondary} uppercase`}
-                        >
-                          Plan
-                        </p>
-                        <p
-                          className={`${currentTheme.text} font-medium text-xs sm:text-sm leading-tight truncate`}
-                        >
-                          {client?.userData?.onboarding?.plan_type || client?.plan_details?.type || "No plan"}
-                        </p>
-                      </div>
-                      <div className="space-y-0.5">
-                        <p
-                          className={`text-xs ${currentTheme.textSecondary} uppercase`}
-                        >
-                          Company Name
-                        </p>
-                        <p
-                          className={`${currentTheme.text} font-medium text-xs sm:text-sm leading-tight`}
-                        >
-                          {client?.userData?.onboarding?.company_name || "Unknown"}
-                        </p>
-                      </div>
-                      <div className="space-y-0.5">
-                        <p
-                          className={`text-xs ${currentTheme.textSecondary} uppercase`}
-                        >
-                          Company Email
-                        </p>
-                        <p
-                          className={`${currentTheme.text} font-medium text-xs sm:text-sm leading-tight truncate`}
-                        >
-                          {client?.userData?.onboarding?.company_email ||  "N/A"}
-                        </p>
-                      </div>
-                      <div className="space-y-0.5">
-                        <p
-                          className={`text-xs ${currentTheme.textSecondary} uppercase`}
-                        >
-                          AI
-                        </p>
-                        <p
-                          className={`${currentTheme.text} font-medium text-xs sm:text-sm leading-tight`}
-                        >
-                          {client?.userData?.onboarding?.ai_employee_count || (client?.ai_employees || []).length}{" "}
-                          {(client?.userData?.onboarding?.ai_employee_count || (client?.ai_employees || []).length) === 1
-                            ? "employee"
-                            : "employees"}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                  );
-                })
-              )}
+            <div className="relative flex-1 sm:flex-none">
+              <RiSearchLine className={`absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 ${currentTheme.textSecondary}`} />
+              <input
+                type="text"
+                placeholder="Search..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className={`w-full sm:w-48 md:w-64 pl-9 pr-3 py-2 text-sm rounded-lg border ${currentTheme.border} ${currentTheme.bg} ${currentTheme.text} focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent`}
+              />
             </div>
           </div>
-        </>
-      )}
+        </div>
+
+        {/* Tabs */}
+        <div className={`flex gap-1 mb-4 md:mb-6 border-b ${currentTheme.border} overflow-x-auto scrollbar-hide -mx-3 sm:mx-0 px-3 sm:px-0`}>
+          {["pending", "onboarded", "approved", "rejected"].map((tab) => (
+            <button
+              key={tab}
+              onClick={() => setActiveTab(tab)}
+              className={`flex-shrink-0 px-3 md:px-4 py-2 md:py-3 text-sm md:text-base font-medium transition-all duration-200 border-b-2 whitespace-nowrap ${
+                activeTab === tab
+                  ? `${currentTheme.activeBorder} ${currentTheme.text}`
+                  : `border-transparent ${currentTheme.textSecondary} ${currentTheme.hover}`
+              }`}
+            >
+              <div className="flex items-center gap-1.5 md:gap-2">
+                {tab === "pending" && <RiTimeLine className="w-3.5 h-3.5 md:w-4 md:h-4" />}
+                {tab === "onboarded" && <RiCheckLine className="w-3.5 h-3.5 md:w-4 md:h-4" />}
+                {tab === "approved" && <RiCheckDoubleLine className="w-3.5 h-3.5 md:w-4 md:h-4" />}
+                {tab === "rejected" && <RiCloseLine className="w-3.5 h-3.5 md:w-4 md:h-4" />}
+                <span className="capitalize text-sm md:text-base">{tab}</span>
+                <span className={`px-1.5 md:px-2 py-0.5 md:py-1 rounded-full text-xs ${
+                  activeTab === tab
+                    ? `${currentTheme.activeBg} ${currentTheme.text}`
+                    : `${currentTheme.textSecondary}`
+                }`}>
+                  {getCount(tab)}
+                </span>
+              </div>
+            </button>
+          ))}
+        </div>
+
+        {/* Client List */}
+        <div className="space-y-3 md:space-y-4">
+          {currentPageClients.length === 0 ? (
+            <div className={`text-center py-8 md:py-12 rounded-lg ${currentTheme.cardBg} border ${currentTheme.border}`}>
+              <RiUserLine className={`w-10 h-10 md:w-12 md:h-12 mx-auto mb-2 md:mb-3 ${currentTheme.textSecondary}`} />
+              <h3 className={`text-base md:text-lg font-semibold ${currentTheme.text} mb-1 md:mb-2`}>
+                {searchQuery ? "No matching clients" : "No client requests yet"}
+              </h3>
+              <p className={`text-sm ${currentTheme.textSecondary}`}>
+                {searchQuery ? "Try adjusting your search criteria" : "No client requests available"}
+              </p>
+            </div>
+          ) : (
+            currentPageClients.map((client) => (
+              <div
+                key={client._id}
+                className={`${currentTheme.cardBg} border ${currentTheme.border} rounded-lg p-3 md:p-4 hover:shadow-md transition-all duration-200`}
+              >
+                <div className="flex items-start justify-between mb-2 md:mb-3">
+                  <div className="flex items-center gap-2 md:gap-3 flex-1 min-w-0">
+                    <div className={`w-9 h-9 md:w-10 md:h-10 rounded-lg ${currentTheme.activeBg} flex items-center justify-center flex-shrink-0`}>
+                      <RiBuildingLine className={`w-4 h-4 md:w-5 md:h-5 ${currentTheme.text}`} />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <h4 className={`font-semibold ${currentTheme.text} text-base md:text-lg truncate`}>
+                        {client?.userData?.fullName || client?.company_basics?.name || "Unknown"}
+                      </h4>
+                      <p className={`text-xs md:text-sm ${currentTheme.textSecondary} truncate`}>
+                        {client?.userData?.email || client?.company_basics?.company_email || "No email"}
+                      </p>
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={() => handleEditClient(client)}
+                    className={`p-2 flex items-center justify-center ${currentTheme.textSecondary} rounded-lg ${currentTheme.activeBg} hover:scale-105 transition-all duration-200`}
+                    title="Edit Client"
+                  >
+                    <RiEditLine className="w-4 h-4" />
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-4">
+                  <div>
+                    <p className={`text-xs ${currentTheme.textSecondary} uppercase mb-0.5`}>Plan</p>
+                    <p className={`${currentTheme.text} font-medium text-xs md:text-sm truncate`}>
+                      {client?.userData?.onboarding?.plan_type || client?.plan_details?.type || "No plan"}
+                    </p>
+                  </div>
+                  <div>
+                    <p className={`text-xs ${currentTheme.textSecondary} uppercase`}>Company</p>
+                    <p className={`${currentTheme.text} font-medium text-sm`}>
+                      {client?.userData?.onboarding?.company_name || "Unknown"}
+                    </p>
+                  </div>
+                  <div>
+                    <p className={`text-xs ${currentTheme.textSecondary} uppercase`}>Email</p>
+                    <p className={`${currentTheme.text} font-medium text-sm truncate`}>
+                      {client?.userData?.onboarding?.company_email || "N/A"}
+                    </p>
+                  </div>
+                  <div>
+                    <p className={`text-xs ${currentTheme.textSecondary} uppercase`}>AI Employees</p>
+                    <p className={`${currentTheme.text} font-medium text-sm`}>
+                      {client?.userData?.onboarding?.ai_employee_count || (client?.ai_employees || []).length}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+
+        {/* Pagination */}
+        {totalPages > 1 && (
+          <div className={`flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 md:gap-3 mt-4 md:mt-6 p-3 md:p-4 rounded-lg ${currentTheme.searchBg}`}>
+            <div className={`text-xs md:text-sm ${currentTheme.textSecondary} text-center sm:text-left`}>
+              Showing {(currentPage - 1) * itemsPerPage + 1} to {Math.min(currentPage * itemsPerPage, totalItems)} of {totalItems}
+            </div>
+
+            <div className="flex items-center justify-center gap-2">
+              <button
+                onClick={goToPrevPage}
+                disabled={currentPage === 1}
+                className={`px-2.5 md:px-3 py-1.5 text-xs md:text-sm rounded-md transition-all duration-200 ${
+                  currentPage === 1
+                    ? `${currentTheme.textSecondary} cursor-not-allowed opacity-50`
+                    : `${currentTheme.text} ${currentTheme.hover} hover:scale-105`
+                }`}
+              >
+                Previous
+              </button>
+
+              <span className={`mx-2 md:mx-3 text-xs md:text-sm ${currentTheme.text}`}>
+                {currentPage}/{totalPages}
+              </span>
+
+              <button
+                onClick={goToNextPage}
+                disabled={currentPage === totalPages}
+                className={`px-2.5 md:px-3 py-1.5 text-xs md:text-sm rounded-md transition-all duration-200 ${
+                  currentPage === totalPages
+                    ? `${currentTheme.textSecondary} cursor-not-allowed opacity-50`
+                    : `${currentTheme.text} ${currentTheme.hover} hover:scale-105`
+                }`}
+              >
+                Next
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 };
 
 export default ClientManagement;
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

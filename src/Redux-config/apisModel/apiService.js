@@ -183,6 +183,52 @@ const shivaiApiService = {
         throw error;
       }
     }
+  },
+
+  // Onboarding status management methods
+  approveClient: async (clientId) => {
+    try {
+      console.log(`✅ Approving client with ID: ${clientId}`);
+      const response = await apiClient.patch(`/v1/onboarding/${clientId}/status`, {
+        status: 'approved'
+      });
+      console.log("✅ Client approved successfully:", response.data);
+      return response.data;
+    } catch (error) {
+      console.error("❌ Error approving client:", error);
+      throw error;
+    }
+  },
+
+  rejectClient: async (clientId, reason = 'Application rejected by admin') => {
+    try {
+      console.log(`❌ Rejecting client with ID: ${clientId}`);
+      const response = await apiClient.patch(`/v1/onboarding/${clientId}/status`, {
+        status: 'rejected',
+        rejectionReason: reason
+      });
+      console.log("✅ Client rejected successfully:", response.data);
+      return response.data;
+    } catch (error) {
+      console.error("❌ Error rejecting client:", error);
+      throw error;
+    }
+  },
+
+  updateClientStatus: async (clientId, status, reason = null) => {
+    try {
+      console.log(`🔄 Updating client status to ${status} for ID: ${clientId}`);
+      const payload = { status };
+      if (reason) {
+        payload.rejectionReason = reason;
+      }
+      const response = await apiClient.patch(`/v1/onboarding/${clientId}/status`, payload);
+      console.log("✅ Client status updated successfully:", response.data);
+      return response.data;
+    } catch (error) {
+      console.error("❌ Error updating client status:", error);
+      throw error;
+    }
   }
 };
 
