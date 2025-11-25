@@ -138,23 +138,25 @@
       delay += 120;
     });
   }
-  
+
   function playRingSound() {
     try {
       if (!ringAudio) {
-        ringAudio = new Audio('./assets/Rings/ring1.mp3');
+        ringAudio = new Audio(
+          "https://master.admin.callshivai.com/assets/Rings/ring1.mp3"
+        );
         ringAudio.loop = true;
         ringAudio.volume = 0.7;
       }
       ringAudio.currentTime = 0;
-      ringAudio.play().catch(error => {
+      ringAudio.play().catch((error) => {
         console.warn("Could not play ring sound:", error);
       });
     } catch (error) {
       console.warn("Error initializing ring sound:", error);
     }
   }
-  
+
   function stopRingSound() {
     if (ringAudio) {
       ringAudio.pause();
@@ -2790,7 +2792,10 @@
         }
         // Enhanced clipping prevention for iOS
         const maxOutput = isIOS() ? 0.92 : 0.95; // Slightly more conservative clipping for iOS
-        processedSample = Math.max(-maxOutput, Math.min(maxOutput, processedSample));
+        processedSample = Math.max(
+          -maxOutput,
+          Math.min(maxOutput, processedSample)
+        );
         output[offset + i] = processedSample;
       }
       offset += samplesToCopy;
