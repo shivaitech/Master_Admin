@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback } from "react";
+import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import toast from 'react-hot-toast';
 import {
   RiTeamLine,
@@ -41,172 +41,254 @@ const ClientManagement = () => {
   const { theme, currentTheme } = useTheme();
   const [searchTerm, setSearchTerm] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
-  const [activeTab, setActiveTab] = useState("pending");
+  const [activeTab, setActiveTab] = useState("all");
   const [selectedClient, setSelectedClient] = useState(null);
   const [viewMode, setViewMode] = useState("list"); // list or edit
   const [editData, setEditData] = useState(null);
-  const [onboardingData, setOnboardingData] = useState({
-    onboarded: [],
-    pending: [],
-    approved: [],
-    rejected: [],
+  const [clients, setClients] = useState([]);
+  const [counts, setCounts] = useState({
+    all: 0,
+    newlySignup: 0,
+    pending: 0,
+    onboarded: 0,
+    approved: 0,
+    rejected: 0,
   });
-  const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [isEditing, setIsEditing] = useState(false); // Track if fields are editable
 
   // Pagination states
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(10);
   const [totalItems, setTotalItems] = useState(0);
   const [totalPages, setTotalPages] = useState(0);
+  const [paginationMeta, setPaginationMeta] = useState(null);
+  
+  // Track which tabs have been visited to avoid unnecessary count fetches
+  const visitedTabsRef = useRef(new Set());
+  const fetchInProgressRef = useRef(false);
 
-  // Debounced search effect
+  // Debounced search effect - also resets page
   useEffect(() => {
     const debounceTimer = setTimeout(() => {
-      setSearchQuery(searchTerm);
-      setCurrentPage(1);
+      if (searchTerm !== searchQuery) {
+        setSearchQuery(searchTerm);
+        setCurrentPage(1);
+      }
     }, 500);
 
     return () => clearTimeout(debounceTimer);
-  }, [searchTerm]);
+  }, [searchTerm, searchQuery]);
 
-  // Reset to first page when filters change
+  // Reset to first page when active tab changes
   useEffect(() => {
     setCurrentPage(1);
   }, [activeTab]);
 
-  // Fetch data from API
+  // Fetch counts for all tabs
+  const fetchAllCounts = async () => {
+    try {
+      const tabs = ['all', 'newlySignup', 'pending', 'onboarded', 'approved', 'rejected'];
+      const countPromises = tabs.map(async (tab) => {
+        try {
+          // For counts, just get page 1 with limit 1 and read the meta.total
+          const baseParams = { page: 1, limit: 1 };
+          let params = baseParams;
+          
+          switch (tab) {
+            case 'all':
+              params = baseParams;
+              break;
+            case 'newlySignup':
+              params = { ...baseParams, isVerified: false };
+              break;
+            case 'pending':
+              params = { ...baseParams, isVerified: true, isOnboarded: false };
+              break;
+            case 'onboarded':
+              params = { ...baseParams, isVerified: true, isOnboarded: true };
+              break;
+            case 'approved':
+              params = { ...baseParams, status: 'Approved' };
+              break;
+            case 'rejected':
+              params = { ...baseParams, status: 'Rejected' };
+              break;
+          }
+          
+          const response = await shivaiApiService.get('/v1/users', params);
+          const responseData = response.data || response;
+          const meta = responseData?.meta || {};
+          // Use meta.total for accurate count
+          const count = meta.total !== undefined ? meta.total : 0;
+          console.log(`📊 Count for ${tab}:`, count, 'from meta:', meta);
+          return { tab, count };
+        } catch (error) {
+          console.error(`Error fetching count for ${tab}:`, error);
+          return { tab, count: 0 };
+        }
+      });
+
+      const results = await Promise.all(countPromises);
+      const newCounts = {};
+      results.forEach(({ tab, count }) => {
+        newCounts[tab] = count;
+      });
+      console.log('✅ All counts fetched:', newCounts);
+      setCounts(newCounts);
+    } catch (error) {
+      console.error('Error fetching counts:', error);
+    }
+  };
+
+  // Counts will be populated as user switches tabs - no need for initial fetch of all counts
+  // This saves 6 API calls on mount
+
+  // Helper function to get query params based on tab
+  const getQueryParams = (tab) => {
+    const baseParams = {
+      page: currentPage,
+      limit: itemsPerPage,
+    };
+
+    switch (tab) {
+      case 'all':
+        return baseParams;
+      case 'newlySignup':
+        return { ...baseParams, isVerified: false };
+      case 'pending':
+        return { ...baseParams, isVerified: true, isOnboarded: false };
+      case 'onboarded':
+        return { ...baseParams, isVerified: true, isOnboarded: true };
+      case 'approved':
+        return { ...baseParams, status: 'Approved' };
+      case 'rejected':
+        return { ...baseParams, status: 'Rejected' };
+      default:
+        return baseParams;
+    }
+  };
+
+  // Fetch data from API based on active tab
   useEffect(() => {
     const fetchData = async () => {
+      // Prevent duplicate calls
+      if (fetchInProgressRef.current) {
+        console.log('⏭️ Skipping fetch - already in progress');
+        return;
+      }
+
       try {
+        fetchInProgressRef.current = true;
         setLoading(true);
         setError(null);
 
-        try {
-          const usersResponse = await shivaiApiService.getAllUsers();
-          console.log("✅ Raw users response:", usersResponse);
+        // Mark this tab as visited
+        visitedTabsRef.current.add(activeTab);
 
-          const userData = usersResponse.data || usersResponse || [];
-          const allUsers = userData?.users || [];
-          console.log("📊 Processed users data:", {
-            userData,
-            allUsers: allUsers.length > 0 ? allUsers.slice(0, 3) : "No users found",
-            totalCount: allUsers.length,
-          });
+        const params = getQueryParams(activeTab);
+        console.log(`📡 Fetching data for tab: ${activeTab} with params:`, params);
 
-          if (!Array.isArray(allUsers)) {
-            console.warn("⚠️ Users data is not an array:", allUsers);
-            setUsers([]);
-            setOnboardingData({
-              pending: [],
-              onboarded: [],
-            });
-            return;
-          }
+        const response = await shivaiApiService.get('/v1/users', params);
+        console.log(`✅ Raw response for ${activeTab}:`, response);
+        console.log(`✅ Response data:`, response.data);
 
-          // Categorize users based on onboarding status
-          const categorizedData = {
-            pending: [],
-            onboarded: [],
-            approved: [],
-          };
+        // Handle response data structure - transform to client format
+        const responseData = response.data || response;
+        const users = responseData?.data?.users || responseData?.users || responseData || [];
+        const meta = responseData?.meta || {};
+        const pagination = responseData?.data?.meta?.pagination || meta?.pagination || {};
+        console.log(`📊 Extracted users (${users.length}):`, users.length > 0 ? users.slice(0, 2) : 'No users');
+        console.log(`📊 Meta data:`, meta);
+        console.log(`📊 Pagination data:`, pagination);
+        
+        const transformedClients = users.map((user) => ({
+          _id: user?.id || user?._id,
+          onBoardingId: user?.onboarding?._id || null,
+          userData: user,
+          company_basics: {
+            name: user?.onboarding?.company_name || user?.fullName || "Unknown",
+            company_email: user?.onboarding?.company_email || user?.email,
+            company_size: user?.onboarding?.address || user?.address || "Unknown",
+            industry: [user?.onboarding?.region || "Not specified"],
+          },
+          plan_details: {
+            type: user?.onboarding?.plan_type || user?.plan_type || "Selected",
+          },
+          ai_employees: user?.onboarding?.ai_employees || Array.from(
+            { length: user?.onboarding?.ai_employee_count || 0 },
+            (_, i) => ({
+              id: `ai_${i + 1}`,
+              name: `AI Employee ${i + 1}`,
+              type: "Assistant",
+              status: "Active",
+            })
+          ),
+          isOnBoarded: user?.isOnBoarded || false,
+          isApproved: user?.isApproved || false,
+          createdAt: user?.createdAt,
+          lastLoginAt: user?.lastLoginAt,
+          knowledge_sources: {
+            website_url: user?.onboarding?.website_url || "",
+            social_links: { linkedin: user?.onboarding?.linkedin || "" },
+            faqs_text: user?.onboarding?.faqs_text || "",
+            uploaded_files: user?.onboarding?.uploaded_files || [],
+          },
+          deployment_targets: {
+            channels: user?.onboarding?.channels || [],
+          },
+          instructions: {
+            dos_and_donts: user?.onboarding?.dos_and_donts || "",
+            fallback_contacts: user?.onboarding?.fallback_contacts || "",
+          },
+          targets: {
+            success_goals: user?.onboarding?.success_goals || "",
+            success_metrics: user?.onboarding?.success_metrics || "",
+          },
+        }));
 
-          console.log("Starting user categorization...", allUsers);
-          allUsers?.forEach((user) => {
-            const clientData = {
-              _id: user?.id,
-              userData: user,
-              company_basics: {
-                name: user?.onboarding?.company_name || user?.fullName || "Unknown",
-                company_email: user?.onboarding?.company_email || user?.email,
-                company_size: user?.onboarding?.address || user?.address || "Unknown",
-                industry: [user?.onboarding?.region || "Not specified"],
-              },
-              plan_details: {
-                type: user?.onboarding?.plan_type || user?.plan_type || "Selected",
-              },
-              ai_employees: user?.onboarding?.ai_employees || Array.from(
-                { length: user?.onboarding?.ai_employee_count || 0 },
-                (_, i) => ({
-                  id: `ai_${i + 1}`,
-                  name: `AI Employee ${i + 1}`,
-                  type: "Assistant",
-                  status: "Active",
-                })
-              ),
-              isOnBoarded: user?.isOnBoarded || false,
-              isApproved: user?.isApproved || false,
-              createdAt: user?.createdAt,
-              lastLoginAt: user?.lastLoginAt,
-              knowledge_sources: {
-                website_url: "",
-                social_links: { linkedin: "" },
-                faqs_text: "",
-                uploaded_files: [],
-              },
-              deployment_targets: {
-                channels: [],
-              },
-              instructions: {
-                dos_and_donts: "",
-                fallback_contacts: "",
-              },
-              targets: {
-                success_goals: "",
-                success_metrics: "",
-              },
-            };
+        setClients(transformedClients);
 
-            if (user?.isApproved) {
-              categorizedData.approved.push(clientData);
-            } else if (!user?.isOnboarded) {
-              categorizedData.pending.push(clientData);
-            } else {
-              categorizedData.onboarded.push(clientData);
-            }
-          });
-
-          console.log("Categorized data:", categorizedData);
-
-          setOnboardingData({
-            pending: categorizedData.pending,
-            onboarded: categorizedData.onboarded,
-            approved: categorizedData.approved,
-          });
-
-          setUsers(allUsers);
-        } catch (userError) {
-          console.error("Failed to fetch users:", userError);
-          setUsers([]);
-          setOnboardingData({
-            onboarded: [],
-            pending: [],
-          });
+        // Update pagination state from meta
+        setPaginationMeta(pagination);
+        
+        // Update total items from meta if available
+        const totalFromMeta = pagination.total || meta.total;
+        const totalPagesFromMeta = pagination.totalPages || meta.totalPages;
+        
+        if (totalFromMeta !== undefined) {
+          setTotalItems(totalFromMeta);
+          setTotalPages(totalPagesFromMeta || Math.ceil(totalFromMeta / itemsPerPage));
+          
+          // Also update the count for current active tab immediately
+          setCounts(prevCounts => ({
+            ...prevCounts,
+            [activeTab]: totalFromMeta
+          }));
+          console.log(`✅ Set count for ${activeTab}:`, totalFromMeta);
         }
+
       } catch (error) {
-        console.error("General error fetching data:", error);
-        setOnboardingData({
-          onboarded: [],
-          pending: [],
-        });
-        setUsers([]);
+        console.error('❌ Error fetching data:', error);
+        setError(error.message);
+        setClients([]);
       } finally {
         setLoading(false);
+        fetchInProgressRef.current = false;
       }
     };
 
     fetchData();
-  }, []);
+  }, [activeTab, currentPage]);
 
   // Memoized calculations
   const getClientsForTab = useMemo(() => {
-    const onboardingClients = onboardingData[activeTab] || [];
+    let filteredClients = clients;
 
-    let filteredClients = onboardingClients;
     if (searchQuery) {
-      filteredClients = onboardingClients.filter((client) => {
+      filteredClients = clients.filter((client) => {
         const searchLower = searchQuery.toLowerCase();
         return (
           client.company_basics?.name?.toLowerCase().includes(searchLower) ||
@@ -218,44 +300,20 @@ const ClientManagement = () => {
     }
 
     return filteredClients;
-  }, [onboardingData, activeTab, searchQuery]);
+  }, [clients, searchQuery]);
 
-  // Calculate pagination info
-  const paginationInfo = useMemo(() => {
-    const totalItems = getClientsForTab.length;
-    const totalPages = Math.ceil(totalItems / itemsPerPage);
-    return { totalItems, totalPages };
-  }, [getClientsForTab, itemsPerPage]);
-
-  // Get current page items
+  // Get current page items - API already returns paginated data, so just use clients
   const currentPageClients = useMemo(() => {
-    const startIndex = (currentPage - 1) * itemsPerPage;
-    const endIndex = startIndex + itemsPerPage;
-    return getClientsForTab.slice(startIndex, endIndex);
-  }, [getClientsForTab, currentPage, itemsPerPage]);
-
-  // Update pagination state
-  useEffect(() => {
-    setTotalItems(paginationInfo.totalItems);
-    setTotalPages(paginationInfo.totalPages);
-
-    if (currentPage > paginationInfo.totalPages && paginationInfo.totalPages > 0) {
-      setCurrentPage(1);
-    }
-  }, [paginationInfo, currentPage]);
+    return clients; // API returns paginated data already
+  }, [clients]);
 
   // Helper functions
   const getCount = (status) => {
-    return (onboardingData[status] || []).length;
+    return counts[status] || 0;
   };
 
   const getTotalOnboardingCount = () => {
-    return (
-      getCount("pending") +
-      getCount("onboarded") +
-      getCount("approved") +
-      getCount("rejected")
-    );
+    return counts.all || 0;
   };
 
   // Pagination functions
@@ -343,6 +401,7 @@ const ClientManagement = () => {
 
         setEditData(mappedEditData);
         setViewMode("edit");
+        setIsEditing(false);
       } else {
         console.error("❌ No client._id available:", client);
         setError("Client ID not found");
@@ -359,32 +418,241 @@ const ClientManagement = () => {
     setSelectedClient(null);
     setViewMode("list");
     setEditData(null);
+    setIsEditing(false);
   };
 
   const handleSaveEdit = async () => {
     try {
       console.log("Saving edited data:", editData);
+      toast.loading('Saving client data...', { id: 'save-toast' });
 
-      // TODO: Add API call to update onboarding data
-      // await shivaiApiService.updateOnboardingData(editData._id, editData);
+      // Helper function to ensure URL has protocol
+      const ensureValidUrl = (url) => {
+        if (!url) return "";
+        if (!url.match(/^https?:\/\//i)) {
+          return `https://${url}`;
+        }
+        return url;
+      };
 
-      setOnboardingData((prev) => ({
-        ...prev,
-        [activeTab]: prev[activeTab].map((client) =>
-          client._id === editData?._id ? editData : client
-        ),
-      }));
+      // Helper function to capitalize first letter of each word
+      const capitalizeWords = (str) => {
+        if (!str) return "";
+        return str
+          .split(" ")
+          .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+          .join(" ");
+      };
 
-      toast.success("Client data updated successfully!");
-      handleBackToList();
+      // Helper function to format voice gender
+      const formatVoiceGender = (gender) => {
+        if (!gender) return "Gender Neutral";
+        const lowerGender = gender.toLowerCase();
+        if (lowerGender.includes("male") && !lowerGender.includes("female")) return "Male";
+        if (lowerGender.includes("female")) return "Female";
+        return "Gender Neutral";
+      };
+
+      // Separate new files from server files
+      const newFilesToUpload = [];
+      const existingServerFiles = {};
+      
+      (editData.ai_employees || []).forEach((employee, empIndex) => {
+        existingServerFiles[empIndex] = [];
+        
+        (employee.knowledge_sources?.uploaded_files || []).forEach((file) => {
+          if (file.pending_upload && file.fileObject) {
+            // This is a new file that needs to be uploaded
+            newFilesToUpload.push(file.fileObject);
+          } else if (!file.pending_upload) {
+            // This file is already uploaded, keep its server data
+            existingServerFiles[empIndex].push(file);
+          }
+        });
+      });
+
+      // Upload NEW files only (if there are any)
+      let uploadedFilesData = [];
+      if (newFilesToUpload.length > 0) {
+        try {
+          console.log(`📤 Uploading ${newFilesToUpload.length} files...`);
+          const uploadResponse = await shivaiApiService.uploadOnboardingFiles(newFilesToUpload);
+          uploadedFilesData = uploadResponse.uploaded_files || [];
+          console.log('✅ Files uploaded:', uploadedFilesData);
+        } catch (uploadError) {
+          console.error("❌ Error uploading files:", uploadError);
+          toast.error("Failed to upload files. Saving other data...", { id: 'save-toast' });
+        }
+      }
+
+      // Map frontend template to backend enum value
+      const mapTemplate = (template) => {
+        const templateMap = {
+          'Sales & Business Development': 'sales_business_development',
+          'Customer Support & Service': 'customer_support_service',
+          'Appointment & Scheduling': 'appointment_scheduling',
+          'Order Management & Billing': 'order_management_billing',
+          'Product / Service Explainers': 'product_service_explainers',
+          'Feedback & Engagement': 'feedback_engagement',
+          'Custom Workflows': 'custom_workflows'
+        };
+        const mapped = templateMap[template];
+        if (mapped) return mapped;
+        
+        // Convert to snake_case as fallback
+        return (template || "").toLowerCase()
+          .replace(/\s+/g, '_')
+          .replace(/[^a-z0-9_]/g, '')
+          .replace(/&/g, 'and');
+      };
+
+      // Map frontend deployment target values to backend enum values
+      const mapDeploymentTargets = (targets) => {
+        const targetMap = {
+          'website': 'Website',
+          'app': 'Mobile App',
+          'whatsapp': 'WhatsApp'
+        };
+        return (targets || []).map(target => targetMap[target] || target);
+      };
+
+      // Map frontend deployment service value to backend enum value  
+      const mapDeploymentService = (service) => {
+        const serviceMap = {
+          'managed': 'Shivai',
+          'self-service': 'Client',
+          'shivai': 'Shivai',
+          'client': 'Client'
+        };
+        return serviceMap[service] || service || "Shivai";
+      };
+
+      // Construct payload matching API structure
+      const payloadData = {
+        // Company basics
+        company_basics: {
+          name: editData?.company_basics?.name || "",
+          website: ensureValidUrl(editData?.company_basics?.website || ""),
+          company_size: editData?.company_basics?.company_size || "",
+          company_email: editData?.company_basics?.company_email || "",
+          company_phone: editData?.company_basics?.company_phone || "",
+          linkedin_profile: ensureValidUrl(editData?.company_basics?.linkedin_profile || ""),
+          description: editData?.company_basics?.description || "",
+          industry: Array.isArray(editData?.company_basics?.industry) 
+            ? editData.company_basics.industry 
+            : [editData?.company_basics?.industry || ""],
+          primary_region: {
+            countries: editData?.company_basics?.primary_region?.countries || [],
+            states: editData?.company_basics?.primary_region?.states || [],
+            cities: editData?.company_basics?.primary_region?.cities || [],
+          },
+        },
+
+        plan_details: editData?.plan_details || {},
+
+        ai_employees: (editData.ai_employees || []).map((employee, empIndex) => {
+          // Get files for this employee
+          const agentFiles = (employee.knowledge_sources?.uploaded_files || []).filter(f => !f.pending_upload);
+          
+          // Start with existing server files for this employee
+          const employeeFiles = [...(existingServerFiles[empIndex] || [])];
+          
+          // Add newly uploaded files for this employee
+          const newFilesForThisEmployee = (employee.knowledge_sources?.uploaded_files || [])
+            .filter((f) => f.pending_upload && f.fileObject).length;
+          
+          if (newFilesForThisEmployee > 0 && uploadedFilesData.length > 0) {
+            const startIndex = Object.keys(existingServerFiles)
+              .slice(0, empIndex)
+              .reduce((sum, idx) => {
+                return sum + ((editData.ai_employees[idx]?.knowledge_sources?.uploaded_files || [])
+                  .filter(f => f.pending_upload && f.fileObject).length);
+              }, 0);
+            
+            employeeFiles.push(...uploadedFilesData.slice(startIndex, startIndex + newFilesForThisEmployee));
+          }
+
+          // Build workflows array
+          const workflows = (employee.workflows || []).map((workflow) => ({
+            name: workflow.name || "",
+            instruction: workflow.instruction || ""
+          }));
+
+          return {
+            name: employee.name || `AI Employee ${empIndex + 1}`,
+            type: capitalizeWords(employee.type || ""),
+            template: mapTemplate(employee.template || ""),
+            preferred_language: capitalizeWords(employee.preferred_language || "English"),
+            voice_gender: formatVoiceGender(employee.voice_gender || "Gender Neutral"),
+            agent_personality: employee.agent_personality || "",
+            voice_style: employee.voice_style || "",
+            special_instructions: employee.special_instructions || "",
+            workflows: workflows,
+            knowledge_sources: {
+              website_url: ensureValidUrl(employee.knowledge_sources?.website_url || ""),
+              social_links: employee.knowledge_sources?.social_links || {},
+              faqs_text: employee.knowledge_sources?.faqs_text || "",
+              uploaded_files: employeeFiles,
+            },
+            deployment_targets: {
+              channels: mapDeploymentTargets(employee?.deployment_targets?.channels || []),
+              deployment_notes: employee.deployment_targets?.deployment_notes || "",
+            },
+            deployment_service: {
+              service_type: mapDeploymentService(employee.deployment_service?.service_type || ""),
+            },
+            consent_options: {
+              recording_enabled: employee.consent_options?.recording_enabled || false,
+              transcript_email_optin: employee.consent_options?.transcript_email_optin || false,
+              privacy_notes: employee.consent_options?.privacy_notes || "",
+            },
+            instructions: {
+              dos_and_donts: employee.instructions?.dos_donts || employee.instructions?.dos_and_donts || "",
+              fallback_contacts: employee.instructions?.fallback_contacts || "",
+            },
+            targets: {
+              success_goals: employee.success_targets?.description || employee.targets?.success_goals || "",
+              success_metrics: employee.success_targets?.metrics || employee.targets?.success_metrics || "",
+            },
+          };
+        }),
+      };
+
+      console.log('📤 Sending payload:', JSON.stringify(payloadData, null, 2));
+
+      // Update client data with uploaded file references
+      const updateResponse = await shivaiApiService.updateClientData(editData._id, payloadData);
+      console.log('✅ Update response:', updateResponse);
+
+      // Check if response is successful
+      if (updateResponse && (updateResponse.success === true || updateResponse.statusCode === 200)) {
+        // Update local state
+        setClients((prev) => 
+          prev.map((client) =>
+            client._id === editData._id ? { ...client, ...editData, ...payloadData } : client
+          )
+        );
+
+        toast.success(updateResponse.message || "Client data updated successfully!", { id: 'save-toast' });
+        setIsEditing(false);
+        handleBackToList();
+      } else {
+        throw new Error(updateResponse?.message || 'Update failed');
+      }
     } catch (error) {
       console.error("Error saving client data:", error);
-      toast.error("Failed to save client data");
+      const errorMessage = error?.response?.data?.message || error?.message || "Failed to save client data";
+      toast.error(errorMessage, { id: 'save-toast' });
     }
   };
 
   const handleCancelEdit = () => {
+    setIsEditing(false);
     handleBackToList();
+  };
+
+  const handleToggleEdit = () => {
+    setIsEditing(!isEditing);
   };
 
   const handleApproveClient = async (client) => {
@@ -466,6 +734,67 @@ const ClientManagement = () => {
     } finally {
       setActionLoading(false);
     }
+  };
+
+  // File handling functions
+  const handleViewFile = async (file) => {
+    try {
+      const s3Key = file?.s3_key || file?.key;
+      
+      if (!s3Key) {
+        toast.error('File key not found');
+        return;
+      }
+
+      const response = await shivaiApiService.downloadFileByS3Key(s3Key);
+      const blob = response.data;
+      const url = window.URL.createObjectURL(blob);
+      window.open(url, '_blank');
+      setTimeout(() => window.URL.revokeObjectURL(url), 100);
+      
+    } catch (error) {
+      console.error('Error viewing file:', error);
+      toast.error('Failed to view file');
+    }
+  };
+
+  const handleDownloadFile = async (file) => {
+    try {
+      const s3Key = file?.s3_key || file?.key;
+      const fileName = file?.name || file?.filename || 'download';
+      
+      if (!s3Key) {
+        toast.error('File key not found');
+        return;
+      }
+
+      // Use shivaiApiService to download file with s3_key in body
+      const response = await shivaiApiService.downloadFileByS3Key(s3Key);
+      
+      // Create object URL from blob response
+      const blob = response.data;
+      const url = window.URL.createObjectURL(blob);
+      
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = fileName;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      // Clean up the object URL
+      window.URL.revokeObjectURL(url);
+      
+      toast.success('Download started');
+    } catch (error) {
+      console.error('Error downloading file:', error);
+      toast.error('Failed to download file');
+    }
+  };
+
+  const handleViewFAQ = (faqText) => {
+    // Create a modal or alert to display FAQ text
+    alert(faqText);
   };
 
   // Form field update functions
@@ -575,7 +904,8 @@ const ClientManagement = () => {
             onChange={(e) => onChange(e.target.value)}
             rows={rows}
             placeholder={placeholder}
-            className={`w-full px-4 py-2 rounded-lg border ${currentTheme.border} ${currentTheme.cardBg} ${currentTheme.text} focus:outline-none focus:ring-2 focus:ring-blue-500/20 resize-vertical`}
+            disabled={!isEditing}
+            className={`w-full px-4 py-2 rounded-lg border ${currentTheme.border} ${currentTheme.cardBg} ${currentTheme.text} focus:outline-none focus:ring-2 focus:ring-blue-500/20 resize-vertical ${!isEditing ? 'opacity-60 cursor-not-allowed' : ''}`}
           />
         ) : type === "select" ? (
           children
@@ -585,24 +915,15 @@ const ClientManagement = () => {
             value={value || ""}
             onChange={(e) => onChange(e.target.value)}
             placeholder={placeholder}
-            className={`w-full px-4 py-2 rounded-lg border ${currentTheme.border} ${currentTheme.cardBg} ${currentTheme.text} focus:outline-none focus:ring-2 focus:ring-blue-500/20`}
+            disabled={!isEditing}
+            className={`w-full px-4 py-2 rounded-lg border ${currentTheme.border} ${currentTheme.cardBg} ${currentTheme.text} focus:outline-none focus:ring-2 focus:ring-blue-500/20 ${!isEditing ? 'opacity-60 cursor-not-allowed' : ''}`}
           />
         )}
       </div>
     );
   };
 
-  // Loading state
-  if (loading && viewMode === "list") {
-    return (
-      <div className={`flex items-center justify-center min-h-[400px] ${currentTheme.bg}`}>
-        <div className={`${currentTheme.text} text-lg flex items-center gap-3`}>
-          <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-500"></div>
-          Loading client data...
-        </div>
-      </div>
-    );
-  }
+  // Remove whole component loading - we'll show loading in the table instead
 
   // Edit View
   if (viewMode === "edit" && editData) {
@@ -628,20 +949,32 @@ const ClientManagement = () => {
               </h2>
             </div>
             <div className="flex gap-2 sm:gap-3">
-              <button
-                onClick={handleCancelEdit}
-                className={`flex-1 sm:flex-none px-3 sm:px-4 py-2 border ${currentTheme.border} rounded-lg ${currentTheme.text} ${currentTheme.hover} transition-all duration-200 flex items-center justify-center gap-2 text-sm sm:text-base`}
-              >
-                <RiCloseLine className="w-4 h-4" />
-                <span className="hidden sm:inline">Cancel</span>
-              </button>
-              <button
-                onClick={handleSaveEdit}
-                className="flex-1 sm:flex-none admin-btn-primary px-3 sm:px-4 py-2 text-sm sm:text-base"
-              >
-                <RiCheckLine className="w-4 h-4" />
-                <span className="hidden sm:inline">Save</span>
-              </button>
+              {!isEditing ? (
+                <button
+                  onClick={handleToggleEdit}
+                  className={`flex-1 sm:flex-none px-3 sm:px-4 py-2 rounded-lg admin-btn-primary transition-all duration-200 flex items-center justify-center gap-2 text-sm sm:text-base`}
+                >
+                  <RiEditLine className="w-4 h-4" />
+                  <span className="hidden sm:inline">Edit</span>
+                </button>
+              ) : (
+                <>
+                  <button
+                    onClick={handleCancelEdit}
+                    className={`flex-1 sm:flex-none px-3 sm:px-4 py-2 border ${currentTheme.border} rounded-lg ${currentTheme.text} ${currentTheme.hover} transition-all duration-200 flex items-center justify-center gap-2 text-sm sm:text-base`}
+                  >
+                    <RiCloseLine className="w-4 h-4" />
+                    <span className="hidden sm:inline">Cancel</span>
+                  </button>
+                  <button
+                    onClick={handleSaveEdit}
+                    className="flex-1 sm:flex-none admin-btn-primary px-3 sm:px-4 py-2 text-sm sm:text-base flex items-center justify-center gap-2"
+                  >
+                    <RiCheckLine className="w-4 h-4" />
+                    <span className="hidden sm:inline">Save</span>
+                  </button>
+                </>
+              )}
             </div>
           </div>
         </div>
@@ -671,7 +1004,8 @@ const ClientManagement = () => {
                   onChange={(e) =>
                     updateEditData("company_basics.name", e.target.value)
                   }
-                  className={`w-full px-3 md:px-4 py-2 text-sm md:text-base rounded-lg border ${currentTheme.border} ${currentTheme.cardBg} ${currentTheme.text} focus:outline-none focus:ring-2 focus:ring-blue-500/20`}
+                  disabled={!isEditing}
+                  className={`w-full px-3 md:px-4 py-2 text-sm md:text-base rounded-lg border ${currentTheme.border} focus:outline-none focus:ring-2 focus:ring-blue-500/20 ${!isEditing ? 'bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 cursor-not-allowed' : `${currentTheme.cardBg} ${currentTheme.text}`}`}
                 />
               </div>
               <div>
@@ -686,7 +1020,8 @@ const ClientManagement = () => {
                     updateEditData("company_basics.description", e.target.value)
                   }
                   rows={3}
-                  className={`w-full px-3 md:px-4 py-2 text-sm md:text-base rounded-lg border ${currentTheme.border} ${currentTheme.cardBg} ${currentTheme.text} focus:outline-none focus:ring-2 focus:ring-blue-500/20`}
+                  disabled={!isEditing}
+                  className={`w-full px-3 md:px-4 py-2 text-sm md:text-base rounded-lg border ${currentTheme.border} focus:outline-none focus:ring-2 focus:ring-blue-500/20 ${!isEditing ? 'bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 cursor-not-allowed' : `${currentTheme.cardBg} ${currentTheme.text}`}`}
                 />
               </div>
               <div>
@@ -703,7 +1038,8 @@ const ClientManagement = () => {
                       e.target.value
                     )
                   }
-                  className={`w-full px-3 md:px-4 py-2 text-sm md:text-base rounded-lg border ${currentTheme.border} ${currentTheme.cardBg} ${currentTheme.text} focus:outline-none focus:ring-2 focus:ring-blue-500/20`}
+                  disabled={!isEditing}
+                  className={`w-full px-3 md:px-4 py-2 text-sm md:text-base rounded-lg border ${currentTheme.border} focus:outline-none focus:ring-2 focus:ring-blue-500/20 ${!isEditing ? 'bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 cursor-not-allowed' : `${currentTheme.cardBg} ${currentTheme.text}`}`}
                 >
                   <option value="1-10">1-10</option>
                   <option value="11-50">11-50</option>
@@ -730,7 +1066,8 @@ const ClientManagement = () => {
                         .filter((i) => i)
                     )
                   }
-                  className={`w-full px-3 md:px-4 py-2 text-sm md:text-base rounded-lg border ${currentTheme.border} ${currentTheme.cardBg} ${currentTheme.text} focus:outline-none focus:ring-2 focus:ring-blue-500/20`}
+                  disabled={!isEditing}
+                  className={`w-full px-3 md:px-4 py-2 text-sm md:text-base rounded-lg border ${currentTheme.border} focus:outline-none focus:ring-2 focus:ring-blue-500/20 ${!isEditing ? 'bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 cursor-not-allowed' : `${currentTheme.cardBg} ${currentTheme.text}`}`}
                   placeholder="Technology, SaaS"
                 />
               </div>
@@ -746,7 +1083,8 @@ const ClientManagement = () => {
                   onChange={(e) =>
                     updateEditData("company_basics.website", e.target.value)
                   }
-                  className={`w-full px-3 md:px-4 py-2 text-sm md:text-base rounded-lg border ${currentTheme.border} ${currentTheme.cardBg} ${currentTheme.text} focus:outline-none focus:ring-2 focus:ring-blue-500/20`}
+                  disabled={!isEditing}
+                  className={`w-full px-3 md:px-4 py-2 text-sm md:text-base rounded-lg border ${currentTheme.border} focus:outline-none focus:ring-2 focus:ring-blue-500/20 ${!isEditing ? 'bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 cursor-not-allowed' : `${currentTheme.cardBg} ${currentTheme.text}`}`}
                 />
               </div>
               <div>
@@ -764,7 +1102,8 @@ const ClientManagement = () => {
                       e.target.value
                     )
                   }
-                  className={`w-full px-3 md:px-4 py-2 text-sm md:text-base rounded-lg border ${currentTheme.border} ${currentTheme.cardBg} ${currentTheme.text} focus:outline-none focus:ring-2 focus:ring-blue-500/20`}
+                  disabled={!isEditing}
+                  className={`w-full px-3 md:px-4 py-2 text-sm md:text-base rounded-lg border ${currentTheme.border} focus:outline-none focus:ring-2 focus:ring-blue-500/20 ${!isEditing ? 'bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 cursor-not-allowed' : `${currentTheme.cardBg} ${currentTheme.text}`}`}
                 />
               </div>
               <div>
@@ -782,46 +1121,12 @@ const ClientManagement = () => {
                       e.target.value
                     )
                   }
-                  className={`w-full px-3 md:px-4 py-2 text-sm md:text-base rounded-lg border ${currentTheme.border} ${currentTheme.cardBg} ${currentTheme.text} focus:outline-none focus:ring-2 focus:ring-blue-500/20`}
+                  disabled={!isEditing}
+                  className={`w-full px-3 md:px-4 py-2 text-sm md:text-base rounded-lg border ${currentTheme.border} focus:outline-none focus:ring-2 focus:ring-blue-500/20 ${!isEditing ? 'bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 cursor-not-allowed' : `${currentTheme.cardBg} ${currentTheme.text}`}`}
                 />
               </div>
-              <div>
-                <label
-                  className={`text-xs ${currentTheme.textSecondary} uppercase block mb-2`}
-                >
-                  LinkedIn Profile
-                </label>
-                <input
-                  type="url"
-                  value={editData?.company_basics?.linkedin_profile || ""}
-                  onChange={(e) =>
-                    updateEditData(
-                      "company_basics.linkedin_profile",
-                      e.target.value
-                    )
-                  }
-                  className={`w-full px-3 md:px-4 py-2 text-sm md:text-base rounded-lg border ${currentTheme.border} ${currentTheme.cardBg} ${currentTheme.text} focus:outline-none focus:ring-2 focus:ring-blue-500/20`}
-                />
-              </div>
-              <div>
-                <label
-                  className={`text-xs ${currentTheme.textSecondary} uppercase block mb-2`}
-                >
-                  Company Address
-                </label>
-                <input
-                  type="text"
-                  value={editData?.company_basics?.address || ""}
-                  onChange={(e) =>
-                    updateEditData(
-                      "company_basics.address",
-                      e.target.value
-                    )
-                  }
-                  placeholder="Street, City, State, Country"
-                  className={`w-full px-3 md:px-4 py-2 text-sm md:text-base rounded-lg border ${currentTheme.border} ${currentTheme.cardBg} ${currentTheme.text} focus:outline-none focus:ring-2 focus:ring-blue-500/20`}
-                />
-              </div>
+            
+             
               <div>
                 <label
                   className={`text-xs ${currentTheme.textSecondary} uppercase block mb-2`}
@@ -836,7 +1141,8 @@ const ClientManagement = () => {
                     updateEditData("company_basics.primary_region.countries", countries);
                   }}
                   placeholder="USA, Canada, UK (comma separated)"
-                  className={`w-full px-3 md:px-4 py-2 text-sm md:text-base rounded-lg border ${currentTheme.border} ${currentTheme.cardBg} ${currentTheme.text} focus:outline-none focus:ring-2 focus:ring-blue-500/20`}
+                  disabled={!isEditing}
+                  className={`w-full px-3 md:px-4 py-2 text-sm md:text-base rounded-lg border ${currentTheme.border} focus:outline-none focus:ring-2 focus:ring-blue-500/20 ${!isEditing ? 'bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 cursor-not-allowed' : `${currentTheme.cardBg} ${currentTheme.text}`}`}
                 />
               </div>
               <div>
@@ -853,7 +1159,8 @@ const ClientManagement = () => {
                     updateEditData("company_basics.primary_region.states", states);
                   }}
                   placeholder="California, New York, Texas (comma separated)"
-                  className={`w-full px-3 md:px-4 py-2 text-sm md:text-base rounded-lg border ${currentTheme.border} ${currentTheme.cardBg} ${currentTheme.text} focus:outline-none focus:ring-2 focus:ring-blue-500/20`}
+                  disabled={!isEditing}
+                  className={`w-full px-3 md:px-4 py-2 text-sm md:text-base rounded-lg border ${currentTheme.border} focus:outline-none focus:ring-2 focus:ring-blue-500/20 ${!isEditing ? 'bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 cursor-not-allowed' : `${currentTheme.cardBg} ${currentTheme.text}`}`}
                 />
               </div>
               <div>
@@ -870,7 +1177,8 @@ const ClientManagement = () => {
                     updateEditData("company_basics.primary_region.cities", cities);
                   }}
                   placeholder="New York, Los Angeles, Chicago (comma separated)"
-                  className={`w-full px-3 md:px-4 py-2 text-sm md:text-base rounded-lg border ${currentTheme.border} ${currentTheme.cardBg} ${currentTheme.text} focus:outline-none focus:ring-2 focus:ring-blue-500/20`}
+                  disabled={!isEditing}
+                  className={`w-full px-3 md:px-4 py-2 text-sm md:text-base rounded-lg border ${currentTheme.border} focus:outline-none focus:ring-2 focus:ring-blue-500/20 ${!isEditing ? 'bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 cursor-not-allowed' : `${currentTheme.cardBg} ${currentTheme.text}`}`}
                 />
               </div>
             </div>
@@ -898,7 +1206,8 @@ const ClientManagement = () => {
                   onChange={(e) =>
                     updateEditData("plan_details.type", e.target.value)
                   }
-                  className={`w-full px-3 md:px-4 py-2 text-sm md:text-base rounded-lg border ${currentTheme.border} ${currentTheme.cardBg} ${currentTheme.text} focus:outline-none focus:ring-2 focus:ring-blue-500/20`}
+                  disabled={!isEditing}
+                  className={`w-full px-3 md:px-4 py-2 text-sm md:text-base rounded-lg border ${currentTheme.border} focus:outline-none focus:ring-2 focus:ring-blue-500/20 ${!isEditing ? 'bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 cursor-not-allowed' : `${currentTheme.cardBg} ${currentTheme.text}`}`}
                 >
                   <option value="Starter Plan">Starter Plan</option>
                   <option value="Professional Plan">Professional Plan</option>
@@ -921,7 +1230,8 @@ const ClientManagement = () => {
                       parseFloat(e.target.value)
                     )
                   }
-                  className={`w-full px-3 md:px-4 py-2 text-sm md:text-base rounded-lg border ${currentTheme.border} ${currentTheme.cardBg} ${currentTheme.text} focus:outline-none focus:ring-2 focus:ring-blue-500/20`}
+                  disabled={!isEditing}
+                  className={`w-full px-3 md:px-4 py-2 text-sm md:text-base rounded-lg border ${currentTheme.border} focus:outline-none focus:ring-2 focus:ring-blue-500/20 ${!isEditing ? 'bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 cursor-not-allowed' : `${currentTheme.cardBg} ${currentTheme.text}`}`}
                 />
               </div>
               <div>
@@ -939,7 +1249,8 @@ const ClientManagement = () => {
                       parseInt(e.target.value)
                     )
                   }
-                  className={`w-full px-3 md:px-4 py-2 text-sm md:text-base rounded-lg border ${currentTheme.border} ${currentTheme.cardBg} ${currentTheme.text} focus:outline-none focus:ring-2 focus:ring-blue-500/20`}
+                  disabled={!isEditing}
+                  className={`w-full px-3 md:px-4 py-2 text-sm md:text-base rounded-lg border ${currentTheme.border} focus:outline-none focus:ring-2 focus:ring-blue-500/20 ${!isEditing ? 'bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 cursor-not-allowed' : `${currentTheme.cardBg} ${currentTheme.text}`}`}
                 />
               </div>
 
@@ -958,7 +1269,8 @@ const ClientManagement = () => {
                       )
                     }
                     placeholder="Contact Name"
-                    className={`w-full px-3 md:px-4 py-2 text-sm md:text-base rounded-lg border ${currentTheme.border} ${currentTheme.cardBg} ${currentTheme.text} focus:outline-none focus:ring-2 focus:ring-blue-500/20`}
+                    disabled={!isEditing}
+                    className={`w-full px-3 md:px-4 py-2 text-sm md:text-base rounded-lg border ${currentTheme.border} focus:outline-none focus:ring-2 focus:ring-blue-500/20 ${!isEditing ? 'bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 cursor-not-allowed' : `${currentTheme.cardBg} ${currentTheme.text}`}`}
                   />
                   <input
                     type="email"
@@ -970,7 +1282,8 @@ const ClientManagement = () => {
                       )
                     }
                     placeholder="Contact Email"
-                    className={`w-full px-3 md:px-4 py-2 text-sm md:text-base rounded-lg border ${currentTheme.border} ${currentTheme.cardBg} ${currentTheme.text} focus:outline-none focus:ring-2 focus:ring-blue-500/20`}
+                    disabled={!isEditing}
+                    className={`w-full px-3 md:px-4 py-2 text-sm md:text-base rounded-lg border ${currentTheme.border} focus:outline-none focus:ring-2 focus:ring-blue-500/20 ${!isEditing ? 'bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 cursor-not-allowed' : `${currentTheme.cardBg} ${currentTheme.text}`}`}
                   />
                   <input
                     type="tel"
@@ -982,7 +1295,8 @@ const ClientManagement = () => {
                       )
                     }
                     placeholder="Contact Phone"
-                    className={`w-full px-3 md:px-4 py-2 text-sm md:text-base rounded-lg border ${currentTheme.border} ${currentTheme.cardBg} ${currentTheme.text} focus:outline-none focus:ring-2 focus:ring-blue-500/20`}
+                    disabled={!isEditing}
+                    className={`w-full px-3 md:px-4 py-2 text-sm md:text-base rounded-lg border ${currentTheme.border} focus:outline-none focus:ring-2 focus:ring-blue-500/20 ${!isEditing ? 'bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 cursor-not-allowed' : `${currentTheme.cardBg} ${currentTheme.text}`}`}
                   />
                   <input
                     type="text"
@@ -994,7 +1308,8 @@ const ClientManagement = () => {
                       )
                     }
                     placeholder="Billing Company Name (if different)"
-                    className={`w-full px-3 md:px-4 py-2 text-sm md:text-base rounded-lg border ${currentTheme.border} ${currentTheme.cardBg} ${currentTheme.text} focus:outline-none focus:ring-2 focus:ring-blue-500/20`}
+                    disabled={!isEditing}
+                    className={`w-full px-3 md:px-4 py-2 text-sm md:text-base rounded-lg border ${currentTheme.border} focus:outline-none focus:ring-2 focus:ring-blue-500/20 ${!isEditing ? 'bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 cursor-not-allowed' : `${currentTheme.cardBg} ${currentTheme.text}`}`}
                   />
                 </div>
               </div>
@@ -1016,7 +1331,8 @@ const ClientManagement = () => {
                       )
                     }
                     placeholder="Street Address"
-                    className={`w-full px-3 md:px-4 py-2 text-sm md:text-base rounded-lg border ${currentTheme.border} ${currentTheme.cardBg} ${currentTheme.text} focus:outline-none focus:ring-2 focus:ring-blue-500/20`}
+                    disabled={!isEditing}
+                    className={`w-full px-3 md:px-4 py-2 text-sm md:text-base rounded-lg border ${currentTheme.border} focus:outline-none focus:ring-2 focus:ring-blue-500/20 ${!isEditing ? 'bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 cursor-not-allowed' : `${currentTheme.cardBg} ${currentTheme.text}`}`}
                   />
                   <div className="grid grid-cols-2 gap-3">
                     <input
@@ -1031,7 +1347,8 @@ const ClientManagement = () => {
                         )
                       }
                       placeholder="City"
-                      className={`w-full px-3 md:px-4 py-2 text-sm md:text-base rounded-lg border ${currentTheme.border} ${currentTheme.cardBg} ${currentTheme.text} focus:outline-none focus:ring-2 focus:ring-blue-500/20`}
+                      disabled={!isEditing}
+                      className={`w-full px-3 md:px-4 py-2 text-sm md:text-base rounded-lg border ${currentTheme.border} focus:outline-none focus:ring-2 focus:ring-blue-500/20 ${!isEditing ? 'bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 cursor-not-allowed' : `${currentTheme.cardBg} ${currentTheme.text}`}`}
                     />
                     <input
                       type="text"
@@ -1045,7 +1362,8 @@ const ClientManagement = () => {
                         )
                       }
                       placeholder="State"
-                      className={`w-full px-3 md:px-4 py-2 text-sm md:text-base rounded-lg border ${currentTheme.border} ${currentTheme.cardBg} ${currentTheme.text} focus:outline-none focus:ring-2 focus:ring-blue-500/20`}
+                      disabled={!isEditing}
+                      className={`w-full px-3 md:px-4 py-2 text-sm md:text-base rounded-lg border ${currentTheme.border} focus:outline-none focus:ring-2 focus:ring-blue-500/20 ${!isEditing ? 'bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 cursor-not-allowed' : `${currentTheme.cardBg} ${currentTheme.text}`}`}
                     />
                   </div>
                   <div className="grid grid-cols-2 gap-3">
@@ -1062,7 +1380,8 @@ const ClientManagement = () => {
                         )
                       }
                       placeholder="Postal Code"
-                      className={`w-full px-3 md:px-4 py-2 text-sm md:text-base rounded-lg border ${currentTheme.border} ${currentTheme.cardBg} ${currentTheme.text} focus:outline-none focus:ring-2 focus:ring-blue-500/20`}
+                      disabled={!isEditing}
+                      className={`w-full px-3 md:px-4 py-2 text-sm md:text-base rounded-lg border ${currentTheme.border} focus:outline-none focus:ring-2 focus:ring-blue-500/20 ${!isEditing ? 'bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 cursor-not-allowed' : `${currentTheme.cardBg} ${currentTheme.text}`}`}
                     />
                     <input
                       type="text"
@@ -1076,7 +1395,8 @@ const ClientManagement = () => {
                         )
                       }
                       placeholder="Country"
-                      className={`w-full px-3 md:px-4 py-2 text-sm md:text-base rounded-lg border ${currentTheme.border} ${currentTheme.cardBg} ${currentTheme.text} focus:outline-none focus:ring-2 focus:ring-blue-500/20`}
+                      disabled={!isEditing}
+                      className={`w-full px-3 md:px-4 py-2 text-sm md:text-base rounded-lg border ${currentTheme.border} focus:outline-none focus:ring-2 focus:ring-blue-500/20 ${!isEditing ? 'bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 cursor-not-allowed' : `${currentTheme.cardBg} ${currentTheme.text}`}`}
                     />
                   </div>
                 </div>
@@ -1105,7 +1425,8 @@ const ClientManagement = () => {
               </h3>
               <button
                 onClick={addAIEmployee}
-                className="admin-btn-primary px-4 py-2.5 text-sm w-full sm:w-auto flex items-center justify-center gap-2 font-medium"
+                disabled={!isEditing}
+                className={`admin-btn-primary px-4 py-2.5 text-sm w-full sm:w-auto flex items-center justify-center gap-2 font-medium ${!isEditing ? 'opacity-60 cursor-not-allowed' : ''}`}
               >
                 <RiUserAddLine className="w-4 h-4" />
                 Add AI Employee
@@ -1121,13 +1442,15 @@ const ClientManagement = () => {
                   <p className={`${currentTheme.textSecondary} text-sm mb-4`}>
                     Add your first AI employee to get started with automation
                   </p>
-                  <button
-                    onClick={addAIEmployee}
-                    className="admin-btn-primary px-6 py-2.5 text-sm font-medium"
-                  >
-                    <RiUserAddLine className="w-4 h-4 mr-2" />
-                    Create First AI Employee
-                  </button>
+                  {isEditing && (
+                    <button
+                      onClick={addAIEmployee}
+                      className="admin-btn-primary px-6 py-2.5 text-sm font-medium"
+                    >
+                      <RiUserAddLine className="w-4 h-4 mr-2" />
+                      Create First AI Employee
+                    </button>
+                  )}
                 </div>
               ) : (
                 (editData?.ai_employees || []).map((ai, idx) => (
@@ -1172,7 +1495,8 @@ const ClientManagement = () => {
                         onChange={(e) =>
                           updateAIEmployee(idx, "name", e.target.value)
                         }
-                        className={`w-full px-3 py-2 rounded-lg border ${currentTheme.border} ${currentTheme.cardBg} ${currentTheme.text} text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20`}
+                        disabled={!isEditing}
+                        className={`w-full px-3 py-2 rounded-lg border ${currentTheme.border} text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 ${!isEditing ? 'bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 cursor-not-allowed' : `${currentTheme.cardBg} ${currentTheme.text}`}`}
                       />
                     </div>
                     <div>
@@ -1187,7 +1511,8 @@ const ClientManagement = () => {
                         onChange={(e) =>
                           updateAIEmployee(idx, "type", e.target.value)
                         }
-                        className={`w-full px-3 py-2 rounded-lg border ${currentTheme.border} ${currentTheme.cardBg} ${currentTheme.text} text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20`}
+                        disabled={!isEditing}
+                        className={`w-full px-3 py-2 rounded-lg border ${currentTheme.border} text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 ${!isEditing ? 'bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 cursor-not-allowed' : `${currentTheme.cardBg} ${currentTheme.text}`}`}
                       />
                     </div>
                     <div>
@@ -1202,7 +1527,8 @@ const ClientManagement = () => {
                         onChange={(e) =>
                           updateAIEmployee(idx, "template", e.target.value)
                         }
-                        className={`w-full px-3 py-2 rounded-lg border ${currentTheme.border} ${currentTheme.cardBg} ${currentTheme.text} text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20`}
+                        disabled={!isEditing}
+                        className={`w-full px-3 py-2 rounded-lg border ${currentTheme.border} text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 ${!isEditing ? 'bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 cursor-not-allowed' : `${currentTheme.cardBg} ${currentTheme.text}`}`}
                       />
                     </div>
                     <div>
@@ -1221,7 +1547,8 @@ const ClientManagement = () => {
                             e.target.value
                           )
                         }
-                        className={`w-full px-3 py-2 rounded-lg border ${currentTheme.border} ${currentTheme.cardBg} ${currentTheme.text} text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20`}
+                        disabled={!isEditing}
+                        className={`w-full px-3 py-2 rounded-lg border ${currentTheme.border} text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 ${!isEditing ? 'bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 cursor-not-allowed' : `${currentTheme.cardBg} ${currentTheme.text}`}`}
                       />
                     </div>
                     <div>
@@ -1235,7 +1562,8 @@ const ClientManagement = () => {
                         onChange={(e) =>
                           updateAIEmployee(idx, "voice_gender", e.target.value)
                         }
-                        className={`w-full px-3 py-2 rounded-lg border ${currentTheme.border} ${currentTheme.cardBg} ${currentTheme.text} text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20`}
+                        disabled={!isEditing}
+                        className={`w-full px-3 py-2 rounded-lg border ${currentTheme.border} text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 ${!isEditing ? 'bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 cursor-not-allowed' : `${currentTheme.cardBg} ${currentTheme.text}`}`}
                       >
                         <option value="Male">Male</option>
                         <option value="Female">Female</option>
@@ -1258,7 +1586,8 @@ const ClientManagement = () => {
                             e.target.value
                           )
                         }
-                        className={`w-full px-3 py-2 rounded-lg border ${currentTheme.border} ${currentTheme.cardBg} ${currentTheme.text} text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20`}
+                        disabled={!isEditing}
+                        className={`w-full px-3 py-2 rounded-lg border ${currentTheme.border} text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 ${!isEditing ? 'bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 cursor-not-allowed' : `${currentTheme.cardBg} ${currentTheme.text}`}`}
                       />
                     </div>
                     <div>
@@ -1278,7 +1607,8 @@ const ClientManagement = () => {
                           )
                         }
                         placeholder="e.g., Professional, Friendly, Energetic"
-                        className={`w-full px-3 py-2 rounded-lg border ${currentTheme.border} ${currentTheme.cardBg} ${currentTheme.text} text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20`}
+                        disabled={!isEditing}
+                        className={`w-full px-3 py-2 rounded-lg border ${currentTheme.border} text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 ${!isEditing ? 'bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 cursor-not-allowed' : `${currentTheme.cardBg} ${currentTheme.text}`}`}
                       />
                     </div>
                     <div className="md:col-span-2">
@@ -1297,7 +1627,8 @@ const ClientManagement = () => {
                           )
                         }
                         rows={2}
-                        className={`w-full px-3 py-2 rounded-lg border ${currentTheme.border} ${currentTheme.cardBg} ${currentTheme.text} text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20`}
+                        disabled={!isEditing}
+                        className={`w-full px-3 py-2 rounded-lg border ${currentTheme.border} text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 ${!isEditing ? 'bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 cursor-not-allowed' : `${currentTheme.cardBg} ${currentTheme.text}`}`}
                       />
                     </div>
 
@@ -1389,7 +1720,8 @@ const ClientManagement = () => {
                                         )
                                       }));
                                     }}
-                                    className={`w-full px-3 py-2 rounded-lg border ${currentTheme.border} ${currentTheme.cardBg} ${currentTheme.text} text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20`}
+                                    disabled={!isEditing}
+                                    className={`w-full px-3 py-2 rounded-lg border ${currentTheme.border} text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 ${!isEditing ? 'bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 cursor-not-allowed' : `${currentTheme.cardBg} ${currentTheme.text}`}`}
                                   >
                                     <option value="">Select Integration</option>
                                     <option value="WhatsApp Business">WhatsApp Business</option>
@@ -1433,7 +1765,8 @@ const ClientManagement = () => {
                                     }}
                                     rows={3}
                                     placeholder="Enter specific instructions for this workflow integration..."
-                                    className={`w-full px-3 py-2 rounded-lg border ${currentTheme.border} ${currentTheme.cardBg} ${currentTheme.text} text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20`}
+                                    disabled={!isEditing}
+                                    className={`w-full px-3 py-2 rounded-lg border ${currentTheme.border} text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 ${!isEditing ? 'bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 cursor-not-allowed' : `${currentTheme.cardBg} ${currentTheme.text}`}`}
                                   />
                                 </div>
                                 
@@ -1539,7 +1872,8 @@ const ClientManagement = () => {
                             }));
                           }}
                           placeholder="https://example.com"
-                          className={`w-full px-3 py-2 rounded-lg border ${currentTheme.border} ${currentTheme.cardBg} ${currentTheme.text} text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20`}
+                          disabled={!isEditing}
+                          className={`w-full px-3 py-2 rounded-lg border ${currentTheme.border} text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 ${!isEditing ? 'bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 cursor-not-allowed' : `${currentTheme.cardBg} ${currentTheme.text}`}`}
                         />
                       </div>
                       
@@ -1567,7 +1901,8 @@ const ClientManagement = () => {
                           }}
                           rows={4}
                           placeholder="Enter frequently asked questions and answers, or any text-based knowledge..."
-                          className={`w-full px-3 py-2 rounded-lg border ${currentTheme.border} ${currentTheme.cardBg} ${currentTheme.text} text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20`}
+                          disabled={!isEditing}
+                          className={`w-full px-3 py-2 rounded-lg border ${currentTheme.border} text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 ${!isEditing ? 'bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 cursor-not-allowed' : `${currentTheme.cardBg} ${currentTheme.text}`}`}
                         />
                       </div>
                       
@@ -1658,17 +1993,19 @@ const ClientManagement = () => {
                           <input
                             type="file"
                             multiple
+                            disabled={!isEditing}
                             onChange={(e) => {
                               const files = Array.from(e.target.files || []);
                               if (files.length > 0) {
-                                // For now, just add file info to the list (actual upload would happen on save)
+                                // Add file objects for upload on save
                                 const newFiles = files.map(file => ({
                                   name: file.name,
                                   original_name: file.name,
                                   file_size: file.size,
                                   file_type: file.type,
-                                  // Mark as pending upload
-                                  pending_upload: true
+                                  // Mark as pending upload and store the actual File object
+                                  pending_upload: true,
+                                  fileObject: file // Store the File object for later upload
                                 }));
                                 
                                 setEditData(prev => ({
@@ -1723,7 +2060,8 @@ const ClientManagement = () => {
                             onChange={(e) => updateAIEmployee(idx, "instructions.dos_donts", e.target.value)}
                             rows={4}
                             placeholder="Be professional, Don't share personal information..."
-                            className={`w-full px-3 py-2 rounded-lg border ${currentTheme.border} ${currentTheme.cardBg} ${currentTheme.text} text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20`}
+                            disabled={!isEditing}
+                            className={`w-full px-3 py-2 rounded-lg border ${currentTheme.border} text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 ${!isEditing ? 'bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 cursor-not-allowed' : `${currentTheme.cardBg} ${currentTheme.text}`}`}
                           />
                         </div>
                         <div>
@@ -1735,7 +2073,8 @@ const ClientManagement = () => {
                             value={ai?.instructions?.fallback_contacts || ""}
                             onChange={(e) => updateAIEmployee(idx, "instructions.fallback_contacts", e.target.value)}
                             placeholder="atharkatheri@gmail.com"
-                            className={`w-full px-3 py-2 rounded-lg border ${currentTheme.border} ${currentTheme.cardBg} ${currentTheme.text} text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20`}
+                            disabled={!isEditing}
+                            className={`w-full px-3 py-2 rounded-lg border ${currentTheme.border} text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 ${!isEditing ? 'bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 cursor-not-allowed' : `${currentTheme.cardBg} ${currentTheme.text}`}`}
                           />
                         </div>
                       </div>
@@ -1758,7 +2097,8 @@ const ClientManagement = () => {
                             onChange={(e) => updateAIEmployee(idx, "success_targets.description", e.target.value)}
                             rows={3}
                             placeholder="Lead qualification, booking appointments, FAQ deflection..."
-                            className={`w-full px-3 py-2 rounded-lg border ${currentTheme.border} ${currentTheme.cardBg} ${currentTheme.text} text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20`}
+                            disabled={!isEditing}
+                            className={`w-full px-3 py-2 rounded-lg border ${currentTheme.border} text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 ${!isEditing ? 'bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 cursor-not-allowed' : `${currentTheme.cardBg} ${currentTheme.text}`}`}
                           />
                         </div>
                         <div>
@@ -1777,7 +2117,8 @@ const ClientManagement = () => {
                                     updateAIEmployee(idx, "success_targets.metrics", newMetrics);
                                   }}
                                   placeholder="80% FAQ resolution rate"
-                                  className={`flex-1 px-3 py-2 rounded-lg border ${currentTheme.border} ${currentTheme.cardBg} ${currentTheme.text} text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20`}
+                                  disabled={!isEditing}
+                                  className={`flex-1 px-3 py-2 rounded-lg border ${currentTheme.border} text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 ${!isEditing ? 'bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 cursor-not-allowed' : `${currentTheme.cardBg} ${currentTheme.text}`}`}
                                 />
                                 <button
                                   onClick={() => {
@@ -1824,7 +2165,8 @@ const ClientManagement = () => {
                                 name={`service_type_${idx}`}
                                 checked={ai?.deployment?.service_type === 'shivai'}
                                 onChange={(e) => updateAIEmployee(idx, "deployment.service_type", "shivai")}
-                                className="w-4 h-4 text-blue-500"
+                                disabled={!isEditing}
+                                className={`w-4 h-4 text-blue-500 ${!isEditing ? 'opacity-60 cursor-not-allowed' : ''}`}
                               />
                               <span className="text-sm">Shivai</span>
                             </label>
@@ -1834,7 +2176,8 @@ const ClientManagement = () => {
                                 name={`service_type_${idx}`}
                                 checked={ai?.deployment?.service_type === 'self'}
                                 onChange={(e) => updateAIEmployee(idx, "deployment.service_type", "self")}
-                                className="w-4 h-4 text-blue-500"
+                                disabled={!isEditing}
+                                className={`w-4 h-4 text-blue-500 ${!isEditing ? 'opacity-60 cursor-not-allowed' : ''}`}
                               />
                               <span className="text-sm">Self-managed</span>
                             </label>
@@ -1845,7 +2188,7 @@ const ClientManagement = () => {
                             Channels
                           </label>
                           <div className="flex flex-wrap gap-2">
-                            {['Website', 'WhatsApp', 'Mobile App'].map((channel) => (
+                            {['Website', 'Mobile App'].map((channel) => (
                               <label key={channel} className={`flex items-center gap-2 px-3 py-2 border ${currentTheme.border} rounded-full cursor-pointer text-sm transition-colors ${(ai?.deployment?.channels || []).includes(channel) ? 'bg-blue-50 border-blue-200 dark:bg-blue-900/20' : ''}`}>
                                 <input
                                   type="checkbox"
@@ -1857,7 +2200,8 @@ const ClientManagement = () => {
                                       : channels.filter(c => c !== channel);
                                     updateAIEmployee(idx, "deployment.channels", newChannels);
                                   }}
-                                  className="w-3 h-3 text-blue-500"
+                                  disabled={!isEditing}
+                                  className={`w-3 h-3 text-blue-500 ${!isEditing ? 'opacity-60 cursor-not-allowed' : ''}`}
                                 />
                                 {channel}
                               </label>
@@ -1873,7 +2217,8 @@ const ClientManagement = () => {
                             onChange={(e) => updateAIEmployee(idx, "deployment.notes", e.target.value)}
                             rows={3}
                             placeholder="Phase 1: Website implementation..."
-                            className={`w-full px-3 py-2 rounded-lg border ${currentTheme.border} ${currentTheme.cardBg} ${currentTheme.text} text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20`}
+                            disabled={!isEditing}
+                            className={`w-full px-3 py-2 rounded-lg border ${currentTheme.border} text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 ${!isEditing ? 'bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 cursor-not-allowed' : `${currentTheme.cardBg} ${currentTheme.text}`}`}
                           />
                         </div>
                       </div>
@@ -1893,7 +2238,8 @@ const ClientManagement = () => {
                               type="checkbox"
                               checked={ai?.privacy_options?.recording_enabled || false}
                               onChange={(e) => updateAIEmployee(idx, "privacy_options.recording_enabled", e.target.checked)}
-                              className="w-4 h-4 text-blue-500 rounded"
+                              disabled={!isEditing}
+                              className={`w-4 h-4 text-blue-500 rounded ${!isEditing ? 'opacity-50 cursor-not-allowed' : ''}`}
                             />
                             <span className="text-sm">Recording Enabled</span>
                           </label>
@@ -1902,7 +2248,8 @@ const ClientManagement = () => {
                               type="checkbox"
                               checked={ai?.privacy_options?.transcript_email || false}
                               onChange={(e) => updateAIEmployee(idx, "privacy_options.transcript_email", e.target.checked)}
-                              className="w-4 h-4 text-blue-500 rounded"
+                              disabled={!isEditing}
+                              className={`w-4 h-4 text-blue-500 rounded ${!isEditing ? 'opacity-50 cursor-not-allowed' : ''}`}
                             />
                             <span className="text-sm">Transcript Email Opt-in</span>
                           </label>
@@ -1916,7 +2263,8 @@ const ClientManagement = () => {
                             value={ai?.privacy_options?.privacy_notes || ""}
                             onChange={(e) => updateAIEmployee(idx, "privacy_options.privacy_notes", e.target.value)}
                             placeholder="Privacy enabled"
-                            className={`w-full px-3 py-2 rounded-lg border ${currentTheme.border} ${currentTheme.cardBg} ${currentTheme.text} text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20`}
+                            disabled={!isEditing}
+                            className={`w-full px-3 py-2 rounded-lg border ${currentTheme.border} text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 ${!isEditing ? 'bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 cursor-not-allowed' : `${currentTheme.cardBg} ${currentTheme.text}`}`}
                           />
                         </div>
                       </div>
@@ -1949,9 +2297,14 @@ const ClientManagement = () => {
               <span className="text-xs md:text-sm font-medium text-blue-500">Total</span>
             </div>
             <h3 className={`text-2xl md:text-3xl font-semibold ${currentTheme.text} mb-1 md:mb-2`}>
-              {getCount("pending") + getCount("onboarded") + getCount("approved")}
+              {paginationMeta?.total || totalItems || getCount("all")}
             </h3>
             <p className={`text-xs md:text-sm font-medium ${currentTheme.text}`}>All Clients</p>
+            {paginationMeta && (
+              <p className={`text-xs ${currentTheme.textSecondary} mt-1`}>
+                Page {paginationMeta.page || currentPage} of {paginationMeta.totalPages || totalPages}
+              </p>
+            )}
           </div>
 
           {/* Pending Clients Card */}
@@ -1990,7 +2343,7 @@ const ClientManagement = () => {
               Client Requests
             </h2>
             <p className={`${currentTheme.textSecondary} text-xs md:text-sm mt-1`}>
-              ({getCount("pending") + getCount("onboarded")} total)
+              ({paginationMeta?.total || totalItems || getCount("all")} total)
             </p>
           </div>
 
@@ -2018,37 +2371,49 @@ const ClientManagement = () => {
 
         {/* Tabs */}
         <div className={`flex gap-1 mb-4 md:mb-6 border-b ${currentTheme.border} overflow-x-auto scrollbar-hide -mx-3 sm:mx-0 px-3 sm:px-0`}>
-          {["pending", "onboarded", "approved", "rejected"].map((tab) => (
-            <button
-              key={tab}
-              onClick={() => setActiveTab(tab)}
-              className={`flex-shrink-0 px-3 md:px-4 py-2 md:py-3 text-sm md:text-base font-medium transition-all duration-200 border-b-2 whitespace-nowrap ${
-                activeTab === tab
-                  ? `${currentTheme.activeBorder} ${currentTheme.text}`
-                  : `border-transparent ${currentTheme.textSecondary} ${currentTheme.hover}`
-              }`}
-            >
-              <div className="flex items-center gap-1.5 md:gap-2">
-                {tab === "pending" && <RiTimeLine className="w-3.5 h-3.5 md:w-4 md:h-4" />}
-                {tab === "onboarded" && <RiCheckLine className="w-3.5 h-3.5 md:w-4 md:h-4" />}
-                {tab === "approved" && <RiCheckDoubleLine className="w-3.5 h-3.5 md:w-4 md:h-4" />}
-                {tab === "rejected" && <RiCloseLine className="w-3.5 h-3.5 md:w-4 md:h-4" />}
-                <span className="capitalize text-sm md:text-base">{tab}</span>
-                <span className={`px-1.5 md:px-2 py-0.5 md:py-1 rounded-full text-xs ${
+          {["all", "newlySignup", "pending", "onboarded", "approved", "rejected"].map((tab) => {
+            const tabConfig = {
+              all: { icon: RiListCheck2, label: "All" },
+              newlySignup: { icon: RiUserAddLine, label: "Newly Signup" },
+              pending: { icon: RiTimeLine, label: "Pending" },
+              onboarded: { icon: RiCheckLine, label: "Onboarded" },
+              approved: { icon: RiCheckDoubleLine, label: "Approved" },
+              rejected: { icon: RiCloseLine, label: "Rejected" },
+            };
+            const { icon: TabIcon, label } = tabConfig[tab];
+            
+            return (
+              <button
+                key={tab}
+                onClick={() => setActiveTab(tab)}
+                className={`flex-shrink-0 px-3 md:px-4 py-2 md:py-3 text-sm md:text-base font-medium transition-all duration-200 border-b-2 whitespace-nowrap ${
                   activeTab === tab
-                    ? `${currentTheme.activeBg} ${currentTheme.text}`
-                    : `${currentTheme.textSecondary}`
-                }`}>
-                  {getCount(tab)}
-                </span>
-              </div>
-            </button>
-          ))}
+                    ? `${currentTheme.activeBorder} ${currentTheme.text}`
+                    : `border-transparent ${currentTheme.textSecondary} ${currentTheme.hover}`
+                }`}
+              >
+                <div className="flex items-center gap-1.5 md:gap-2">
+                  <TabIcon className="w-3.5 h-3.5 md:w-4 md:h-4" />
+                  <span className="text-sm md:text-base">{label}</span>
+                </div>
+              </button>
+            );
+          })}
         </div>
 
         {/* Client List */}
         <div className="space-y-3 md:space-y-4">
-          {currentPageClients.length === 0 ? (
+          {loading ? (
+            <div className={`text-center py-12 md:py-16 rounded-lg ${currentTheme.cardBg} border ${currentTheme.border}`}>
+              <div className="animate-spin rounded-full h-10 w-10 md:h-12 md:w-12 border-b-2 border-blue-500 mx-auto mb-3"></div>
+              <h3 className={`text-base md:text-lg font-semibold ${currentTheme.text} mb-2`}>
+                Loading clients...
+              </h3>
+              <p className={`text-sm ${currentTheme.textSecondary}`}>
+                Please wait while we fetch the data
+              </p>
+            </div>
+          ) : currentPageClients.length === 0 ? (
             <div className={`text-center py-8 md:py-12 rounded-lg ${currentTheme.cardBg} border ${currentTheme.border}`}>
               <RiUserLine className={`w-10 h-10 md:w-12 md:h-12 mx-auto mb-2 md:mb-3 ${currentTheme.textSecondary}`} />
               <h3 className={`text-base md:text-lg font-semibold ${currentTheme.text} mb-1 md:mb-2`}>
@@ -2123,7 +2488,7 @@ const ClientManagement = () => {
         {totalPages > 1 && (
           <div className={`flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 md:gap-3 mt-4 md:mt-6 p-3 md:p-4 rounded-lg ${currentTheme.searchBg}`}>
             <div className={`text-xs md:text-sm ${currentTheme.textSecondary} text-center sm:text-left`}>
-              Showing {(currentPage - 1) * itemsPerPage + 1} to {Math.min(currentPage * itemsPerPage, totalItems)} of {totalItems}
+              Showing {((paginationMeta?.page || currentPage) - 1) * (paginationMeta?.limit || itemsPerPage) + 1} to {Math.min((paginationMeta?.page || currentPage) * (paginationMeta?.limit || itemsPerPage), paginationMeta?.total || totalItems)} of {paginationMeta?.total || totalItems}
             </div>
 
             <div className="flex items-center justify-center gap-2">
@@ -2140,7 +2505,7 @@ const ClientManagement = () => {
               </button>
 
               <span className={`mx-2 md:mx-3 text-xs md:text-sm ${currentTheme.text}`}>
-                {currentPage}/{totalPages}
+                {paginationMeta?.page || currentPage}/{paginationMeta?.totalPages || totalPages}
               </span>
 
               <button

@@ -24,7 +24,7 @@ const errorCallBack = (error) => {
 
   console.log("Error Status:", status);
   console.log("Error Data:", errorData);
-  
+
   if (!error.response) {
     console.error("🚨 Network error:", error.message);
   } else if (
@@ -66,7 +66,7 @@ const apiService = {
 const shivaiApiService = {
   // Basic API methods
   ...apiService,
-  
+
   // User management methods
   getAllUsers: async () => {
     try {
@@ -79,7 +79,10 @@ const shivaiApiService = {
       // Fallback to alternative endpoint if needed
       try {
         const fallbackResponse = await apiClient.get("/v1/admin/users");
-        console.log("✅ Users fetched via fallback endpoint:", fallbackResponse.data);
+        console.log(
+          "✅ Users fetched via fallback endpoint:",
+          fallbackResponse.data
+        );
         return fallbackResponse.data;
       } catch (fallbackError) {
         console.error("❌ Fallback endpoint also failed:", fallbackError);
@@ -99,8 +102,13 @@ const shivaiApiService = {
       console.error("❌ Error fetching onboarding data:", error);
       // Try alternative endpoint patterns
       try {
-        const fallbackResponse = await apiClient.get(`/v1/onboarding/user/${userId}`);
-        console.log("✅ Onboarding data fetched via fallback endpoint:", fallbackResponse.data);
+        const fallbackResponse = await apiClient.get(
+          `/v1/onboarding/user/${userId}`
+        );
+        console.log(
+          "✅ Onboarding data fetched via fallback endpoint:",
+          fallbackResponse.data
+        );
         return fallbackResponse.data;
       } catch (fallbackError) {
         console.error("❌ Fallback endpoint also failed:", fallbackError);
@@ -113,13 +121,19 @@ const shivaiApiService = {
     try {
       console.log("🔍 Fetching all onboarding data...");
       const response = await apiClient.get("/v1/admin/onboarding");
-      console.log("✅ All onboarding data fetched successfully:", response.data);
+      console.log(
+        "✅ All onboarding data fetched successfully:",
+        response.data
+      );
       return response.data;
     } catch (error) {
       console.error("❌ Error fetching all onboarding data:", error);
       try {
         const fallbackResponse = await apiClient.get("/v1/onboarding");
-        console.log("✅ Onboarding data fetched via fallback endpoint:", fallbackResponse.data);
+        console.log(
+          "✅ Onboarding data fetched via fallback endpoint:",
+          fallbackResponse.data
+        );
         return fallbackResponse.data;
       } catch (fallbackError) {
         console.error("❌ Fallback endpoint also failed:", fallbackError);
@@ -151,8 +165,13 @@ const shivaiApiService = {
       console.error("❌ Error fetching file:", error);
       // Try alternative endpoints
       try {
-        const fallbackResponse = await apiClient.get(`/v1/admin/files/${fileId}`);
-        console.log("✅ File data fetched via fallback:", fallbackResponse.data);
+        const fallbackResponse = await apiClient.get(
+          `/v1/admin/files/${fileId}`
+        );
+        console.log(
+          "✅ File data fetched via fallback:",
+          fallbackResponse.data
+        );
         return fallbackResponse.data;
       } catch (fallbackError) {
         console.error("❌ Fallback file fetch also failed:", fallbackError);
@@ -165,7 +184,7 @@ const shivaiApiService = {
     try {
       console.log(`⬇️ Downloading file with ID: ${fileId}`);
       const response = await apiClient.get(`/v1/files/${fileId}/download`, {
-        responseType: 'blob'
+        responseType: "blob",
       });
       console.log("✅ File downloaded successfully");
       return response;
@@ -173,9 +192,12 @@ const shivaiApiService = {
       console.error("❌ Error downloading file:", error);
       // Try alternative endpoints
       try {
-        const fallbackResponse = await apiClient.get(`/v1/admin/files/${fileId}/download`, {
-          responseType: 'blob'
-        });
+        const fallbackResponse = await apiClient.get(
+          `/v1/admin/files/${fileId}/download`,
+          {
+            responseType: "blob",
+          }
+        );
         console.log("✅ File downloaded via fallback");
         return fallbackResponse;
       } catch (fallbackError) {
@@ -185,13 +207,37 @@ const shivaiApiService = {
     }
   },
 
+  // Download file by S3 key
+  downloadFileByS3Key: async (s3Key) => {
+    try {
+      console.log(`⬇️ Downloading file with S3 key: ${s3Key}`);
+      const response = await apiClient.post(
+        "/v1/onboarding/download",
+        {
+          s3_key: s3Key,
+        },
+        {
+          responseType: "blob",
+        }
+      );
+      console.log("✅ File downloaded successfully");
+      return response;
+    } catch (error) {
+      console.error("❌ Error downloading file by S3 key:", error);
+      throw error;
+    }
+  },
+
   // Onboarding status management methods
   approveClient: async (clientId) => {
     try {
       console.log(`✅ Approving client with ID: ${clientId}`);
-      const response = await apiClient.patch(`/v1/onboarding/${clientId}/status`, {
-        status: 'approved'
-      });
+      const response = await apiClient.patch(
+        `/v1/onboarding/${clientId}/status`,
+        {
+          status: "approved",
+        }
+      );
       console.log("✅ Client approved successfully:", response.data);
       return response.data;
     } catch (error) {
@@ -200,13 +246,16 @@ const shivaiApiService = {
     }
   },
 
-  rejectClient: async (clientId, reason = 'Application rejected by admin') => {
+  rejectClient: async (clientId, reason = "Application rejected by admin") => {
     try {
       console.log(`❌ Rejecting client with ID: ${clientId}`);
-      const response = await apiClient.patch(`/v1/onboarding/${clientId}/status`, {
-        status: 'rejected',
-        rejectionReason: reason
-      });
+      const response = await apiClient.patch(
+        `/v1/onboarding/${clientId}/status`,
+        {
+          status: "rejected",
+          rejectionReason: reason,
+        }
+      );
       console.log("✅ Client rejected successfully:", response.data);
       return response.data;
     } catch (error) {
@@ -222,14 +271,56 @@ const shivaiApiService = {
       if (reason) {
         payload.rejectionReason = reason;
       }
-      const response = await apiClient.patch(`/v1/onboarding/${clientId}/status`, payload);
+      const response = await apiClient.patch(
+        `/v1/onboarding/${clientId}/status`,
+        payload
+      );
       console.log("✅ Client status updated successfully:", response.data);
       return response.data;
     } catch (error) {
       console.error("❌ Error updating client status:", error);
       throw error;
     }
-  }
+  },
+
+  updateClientData: async (clientId, data) => {
+    try {
+      console.log(`🔄 Updating client data for ID: ${clientId}`);
+      const response = await apiClient.put(
+        `/v1/onboarding/${clientId}`,
+        data
+      );
+      console.log("✅ Client data updated successfully:", response.data);
+      return response.data;
+    } catch (error) {
+      console.error("❌ Error updating client data:", error);
+      throw error;
+    }
+  },
+
+  // Upload multiple files for onboarding
+  uploadOnboardingFiles: async (files) => {
+    try {
+      console.log(`📤 Uploading ${files.length} files...`);
+      
+      const formData = new FormData();
+      files.forEach((file) => {
+        formData.append("files", file);
+      });
+
+      const response = await apiClient.post("/v1/onboarding/upload", formData, {
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
+      });
+
+      console.log("✅ Files uploaded successfully:", response.data);
+      return response.data;
+    } catch (error) {
+      console.error("❌ Error uploading files:", error);
+      throw error;
+    }
+  },
 };
 
 export default apiService;

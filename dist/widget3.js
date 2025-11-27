@@ -1,9 +1,44 @@
 (function () {
   "use strict";
+  
+  // ✅ Load LiveKit SDK dynamically
+  function loadLiveKitSDK() {
+    return new Promise((resolve, reject) => {
+      // Check if already loaded
+      if (typeof LivekitClient !== 'undefined') {
+        console.log('✅ LiveKit already loaded');
+        resolve();
+        return;
+      }
+      
+      console.log('📦 Loading LiveKit SDK...');
+      
+      // Load livekit-client directly (components-core not needed)
+      const clientScript = document.createElement('script');
+      clientScript.src = 'https://unpkg.com/livekit-client@2.5.8/dist/livekit-client.umd.js';
+      clientScript.onload = () => {
+        console.log('✅ LiveKit client loaded successfully');
+        resolve();
+      };
+      clientScript.onerror = () => {
+        console.error('❌ Failed to load LiveKit client');
+        reject(new Error('Failed to load LiveKit client'));
+      };
+      document.head.appendChild(clientScript);
+    });
+  }
+  
   try {
     localStorage.removeItem("shivai-trigger-position");
     localStorage.removeItem("shivai-widget-position");
   } catch (e) {}
+  
+  // LiveKit variables
+  let room = null;
+  let localAudioTrack = null;
+  let remoteAudioTrack = null;
+  
+  // Legacy variables (keeping for compatibility)
   let ws = null;
   let audioContext = null;
   let mediaStream = null;
@@ -32,6 +67,24 @@
   let audioStreamComplete = false;
   let ringAudio = null;
   let messageBubble = null;
+  let connectionTimeout = null;
+  let aiResponseTimeout = null;
+  let retryCount = 0;
+  const MAX_RETRIES = 2;
+  const CONNECTION_TIMEOUT = 15000; // 15 seconds
+  const AI_RESPONSE_TIMEOUT = 20000; // 20 seconds after connection
+  
+  // ✅ Enhanced latency tracking using audio events
+  let latencyMetrics = {
+    userSpeechStartTime: null,
+    userSpeechEndTime: null,
+    agentResponseStartTime: null,
+    measurements: [],
+    maxSamples: 30,
+    isSpeaking: false,
+    isAgentSpeaking: false
+  };
+  
   let liveMessages = [
     "📞 Call ShivAI!",
     "📞 Call ShivAI!",
@@ -259,6 +312,124 @@
     oscillator.start(soundContext.currentTime);
     oscillator.stop(soundContext.currentTime + duration);
   }
+  
+  // ✅ LiveKit: Track when user stops speaking (using audio level monitoring)
+  function monitorLocalAudioLevel(track) {
+    const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+    const analyser = audioContext.createAnalyser();
+    const mediaStream = new MediaStream([track.mediaStreamTrack]);
+    const source = audioContext.createMediaStreamSource(mediaStream);
+    
+    source.connect(analyser);
+    analyser.fftSize = 256;
+    
+    const bufferLength = analyser.frequencyBinCount;
+    const dataArray = new Uint8Array(bufferLength);
+    
+    const SPEECH_THRESHOLD = 30;
+    const SILENCE_DURATION = 800; // 800ms of silence = end of speech
+    let silenceStart = null;
+    
+    function checkAudioLevel() {
+      if (!isConnected) return;
+      
+      analyser.getByteFrequencyData(dataArray);
+      const average = dataArray.reduce((a, b) => a + b) / bufferLength;
+      
+      if (average > SPEECH_THRESHOLD) {
+        // User is speaking
+        if (!latencyMetrics.isSpeaking) {
+          latencyMetrics.isSpeaking = true;
+          latencyMetrics.userSpeechStartTime = performance.now();
+          console.log('👤 User started speaking');
+          updateStatus("🎤 Listening...", "listening");
+        }
+        silenceStart = null;
+      } else {
+        // Silence detected
+        if (latencyMetrics.isSpeaking) {
+          if (!silenceStart) {
+            silenceStart = performance.now();
+          } else if (performance.now() - silenceStart > SILENCE_DURATION) {
+            // User stopped speaking
+            latencyMetrics.isSpeaking = false;
+            latencyMetrics.userSpeechEndTime = performance.now();
+            console.log('👤 User stopped speaking');
+            updateStatus("🤔 Processing...", "speaking");
+            silenceStart = null;
+          }
+        }
+      }
+      
+      requestAnimationFrame(checkAudioLevel);
+    }
+    
+    checkAudioLevel();
+  }
+
+  // ✅ LiveKit: Track when agent starts responding
+  function monitorRemoteAudioLevel(track) {
+    const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+    const analyser = audioContext.createAnalyser();
+    const mediaStream = new MediaStream([track.mediaStreamTrack]);
+    const source = audioContext.createMediaStreamSource(mediaStream);
+    
+    source.connect(analyser);
+    analyser.fftSize = 256;
+    
+    const bufferLength = analyser.frequencyBinCount;
+    const dataArray = new Uint8Array(bufferLength);
+    
+    const SPEECH_THRESHOLD = 20;
+    
+    function checkAudioLevel() {
+      // Clear AI response timeout when agent starts speaking
+      if (aiResponseTimeout && !hasReceivedFirstAIResponse) {
+        clearTimeout(aiResponseTimeout);
+        aiResponseTimeout = null;
+        console.log('✅ AI response received - timeout cleared');
+      }
+      if (!isConnected) return;
+      
+      analyser.getByteFrequencyData(dataArray);
+      const average = dataArray.reduce((a, b) => a + b) / bufferLength;
+      
+      if (average > SPEECH_THRESHOLD && !latencyMetrics.isAgentSpeaking) {
+        // Agent started responding
+        latencyMetrics.isAgentSpeaking = true;
+        
+        // Start timer on first AI response
+        if (!hasReceivedFirstAIResponse) {
+          hasReceivedFirstAIResponse = true;
+          startCallTimer();
+          console.log('🎉 First AI response - timer started');
+        }
+        
+        if (latencyMetrics.userSpeechEndTime) {
+          latencyMetrics.agentResponseStartTime = performance.now();
+          const latency = latencyMetrics.agentResponseStartTime - latencyMetrics.userSpeechEndTime;
+          
+          latencyMetrics.measurements.push(latency);
+          if (latencyMetrics.measurements.length > latencyMetrics.maxSamples) {
+            latencyMetrics.measurements.shift();
+          }
+          
+          console.log(`⚡ Response latency: ${Math.round(latency)}ms`);
+          updateStatus("🤖 AI Speaking...", "speaking");
+          
+          latencyMetrics.userSpeechEndTime = null;
+        }
+      } else if (average <= SPEECH_THRESHOLD && latencyMetrics.isAgentSpeaking) {
+        latencyMetrics.isAgentSpeaking = false;
+        updateStatus("🟢 Connected - Speak naturally!", "connected");
+      }
+      
+      requestAnimationFrame(checkAudioLevel);
+    }
+    
+    checkAudioLevel();
+  }
+  
   function makeDraggable(element) {
     let isDragging = false;
     let startX, startY, initialX, initialY;
@@ -2189,6 +2360,7 @@
     connectBtn.title = "End Call";
     callTimerInterval = setInterval(updateCallTimer, 1000);
     updateCallTimer();
+    console.log("⏱️ Call timer started");
   }
   function stopCallTimer() {
     if (callTimerInterval) {
@@ -2310,291 +2482,243 @@
       hasReceivedFirstAIResponse = false;
       shouldAutoUnmute = true;
       audioStreamComplete = false;
-      await showProgressiveConnectionStates();
-      const selectedLanguage = languageSelect.value;
-      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-        updateStatus("❌ Microphone not supported", "disconnected");
-        alert(
-          "Your browser doesn't support microphone access. Please use a modern browser like Chrome, Safari, or Firefox."
-        );
-        throw new Error("getUserMedia not supported");
-      }
-      updateStatus("Requesting microphone...", "connecting");
-      try {
-        mediaStream = await navigator.mediaDevices.getUserMedia({
-          audio: {
-            channelCount: 1,
-            sampleRate: 24000,
-            echoCancellation: true,
-            noiseSuppression: true,
-            autoGainControl: false,
-          },
-        });
-        console.log("Microphone access granted");
-        if (shouldAutoUnmute) {
-          mediaStream.getAudioTracks().forEach((track) => {
-            track.enabled = false;
-          });
-          console.log("🔇 Microphone muted initially");
-        }
-      } catch (micError) {
-        console.error("Error accessing microphone:", micError);
-        try {
-          console.log("Trying fallback microphone settings...");
-          mediaStream = await navigator.mediaDevices.getUserMedia({
-            audio: true,
-          });
-          console.log("Microphone access granted with fallback settings");
-          if (shouldAutoUnmute) {
-            mediaStream.getAudioTracks().forEach((track) => {
-              track.enabled = false;
+      
+      // Clear any existing timeouts
+      if (connectionTimeout) clearTimeout(connectionTimeout);
+      if (aiResponseTimeout) clearTimeout(aiResponseTimeout);
+      
+      // Set connection timeout
+      connectionTimeout = setTimeout(() => {
+        if (!isConnected) {
+          console.error('❌ Connection timeout - AI server not responding');
+          updateStatus('⚠️ Connection timeout', 'disconnected');
+          if (retryCount < MAX_RETRIES) {
+            retryCount++;
+            console.log(`🔄 Retrying connection... Attempt ${retryCount}/${MAX_RETRIES}`);
+            stopConversation().then(() => {
+              setTimeout(() => startConversation(), 2000);
             });
-            console.log("🔇 Microphone muted initially (fallback)");
+          } else {
+            updateStatus('❌ Unable to connect. Please try again later.', 'disconnected');
+            alert('Unable to connect to AI. The service might be busy. Please try again in a few moments.');
+            stopConversation();
+            retryCount = 0;
           }
-        } catch (fallbackError) {
-          console.error("Fallback microphone access failed:", fallbackError);
-          updateStatus("❌ Microphone access denied", "disconnected");
-          let errorMessage = "Microphone access is required for voice calls.";
-          if (fallbackError.name === "NotAllowedError") {
-            errorMessage +=
-              "\n\nPlease allow microphone permissions in your browser settings.";
-          } else if (fallbackError.name === "NotFoundError") {
-            errorMessage +=
-              "\n\nNo microphone found. Please check your device.";
-          }
-          alert(errorMessage);
-          throw new Error("Microphone access denied");
         }
+      }, CONNECTION_TIMEOUT);
+      
+      await showProgressiveConnectionStates();
+      
+      const selectedLanguage = languageSelect.value;
+      const deviceType = /Mobile|Android|iPhone/i.test(navigator.userAgent) ? 'mobile' : 'desktop';
+      
+      // Check LiveKit support
+      if (typeof LivekitClient === 'undefined') {
+        console.error('❌ LiveKit client library not loaded');
+        updateStatus("❌ LiveKit not available", "disconnected");
+        alert("LiveKit library is not loaded. Please refresh the page.");
+        throw new Error("LiveKit not available");
       }
-      statusDiv.className = "call-info-status connecting";
-      updateStatus("Connecting to backend...", "connecting");
-      const startCallResponse = await fetch(
-        "https://shivai-com-backend.onrender.com/api/v1/calls/start-call",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Connection: "keep-alive",
-          },
-          body: JSON.stringify({
-            timestamp: new Date().toISOString(),
-            warmedUp: false,
-          }),
-          cache: "no-store",
-        }
-      );
-      if (!startCallResponse.ok) {
-        throw new Error(`Start call API failed: ${startCallResponse.status}`);
-      }
-      const startCallData = await startCallResponse.json();
-      console.log("📋 [API] Full start call response:", startCallData);
-      if (!startCallData.success || !startCallData.data) {
-        throw new Error(startCallData.message || "Failed to start call");
-      }
-      const { callId, pythonServiceUrl } = startCallData.data;
-      console.log(
-        "✅ [API] Call started successfully - CallId:",
-        callId,
-        "URL:",
-        pythonServiceUrl
-      );
+      
+      updateStatus("Connecting to LiveKit...", "connecting");
+      
+      // Get LiveKit token from backend
+      const callId = `call_${Date.now()}`;
       window.currentCallId = callId;
-      console.log(
-        "💾 [STORAGE] CallId stored in window.currentCallId:",
-        window.currentCallId
-      );
-      const audioContextOptions = {
-        sampleRate: 24000,
-        latencyHint: "interactive",
-      };
-      if (isIOS()) {
-        audioContextOptions.latencyHint = "playback";
-        console.log(
-          "🍎 [iOS] Using iOS-optimized audio settings with 25x amplification and enhanced soft clipping"
-        );
-      } else {
-        console.log(
-          "🤖 [Android] Using standard audio settings with 12x amplification"
-        );
+      
+      const response = await fetch('https://test-livekit-agent.onrender.com/token', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          agent_id: 'test-agent',
+          language: selectedLanguage,
+          call_id: callId,
+          device: deviceType,
+          user_agent: navigator.userAgent
+        })
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Failed to get LiveKit token: ${response.status}`);
       }
-      audioContext = new (window.AudioContext || window.webkitAudioContext)(
-        audioContextOptions
-      );
-      if (audioContext.state === "suspended") {
-        await audioContext.resume();
-        if (isIOS() && audioContext.state === "suspended") {
-          setTimeout(async () => {
-            try {
-              await audioContext.resume();
-              console.log("🍎 [iOS] Audio context resumed after delay");
-            } catch (e) {
-              console.warn("🍎 [iOS] Failed to resume audio context:", e);
-            }
-          }, 100);
+      
+      const data = await response.json();
+      console.log('✅ [LiveKit] Token received');
+      
+      // Create LiveKit room
+      room = new LivekitClient.Room({
+        adaptiveStream: true,
+        dynacast: true,
+        audioCaptureDefaults: {
+          noiseSuppression: true,
+          echoCancellation: true,
+          autoGainControl: true,
+          channelCount: 1,
+          sampleRate: 48000,
+          sampleSize: 16,
         }
-      }
-      setupPlaybackProcessor();
-      ws = new WebSocket(
-        pythonServiceUrl || "wss://python.service.callshivai.com"
-      );
-      ws.onopen = async () => {
-        console.log("🟢 [WEBSOCKET] Connected to server");
+      });
+      
+      // ✅ Track remote audio (agent speaking)
+      room.on(LivekitClient.RoomEvent.TrackSubscribed, (track, publication, participant) => {
+        if (track.kind === LivekitClient.Track.Kind.Audio) {
+          // Create Web Audio API gain boost for louder volume
+          const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+          const source = audioContext.createMediaStreamSource(new MediaStream([track.mediaStreamTrack]));
+            const gainNode = audioContext.createGain();
+            gainNode.gain.value = isIOS() ? 2.0 : 1.0;  // 🔊 2x volume boost for iOS, 1x for other devices
+            source.connect(gainNode);
+          gainNode.connect(audioContext.destination);
+          
+          // Keep regular element too
+          const audioElement = track.attach();
+          audioElement.volume = 1.0;
+          document.body.appendChild(audioElement);
+          audioElement.play();
+          
+          remoteAudioTrack = track;
+          monitorRemoteAudioLevel(track);
+          console.log('🔊 Agent audio track received with 2x volume boost - monitoring started');
+        }
+      });
+      
+      // Room connected
+      room.on(LivekitClient.RoomEvent.Connected, async () => {
+        console.log('✅ Connected to LiveKit room');
         isConnected = true;
-        updateStatus("Waiting for AI response...", "connecting");
-        showLoadingStatus("AI is preparing to speak...");
-        playSound("call-start");
-        if (muteBtn) {
-          muteBtn.style.display = "none";
-          isMuted = true;
-          console.log(
-            "🔇 Starting with microphone muted internally - will auto-unmute after AI responds"
-          );
+        retryCount = 0; // Reset retry count on successful connection
+        
+        // Clear connection timeout
+        if (connectionTimeout) {
+          clearTimeout(connectionTimeout);
+          connectionTimeout = null;
         }
+        
+        updateStatus('✅ Connected - Waiting for AI...', 'connected');
+        playSound('call-start');
+        
         languageSelect.disabled = true;
-        console.log("Connected to server");
-        const clientIp = await getClientIP();
-        const agentIdInput = document.getElementById("agent-id-input");
-        ws.send(
-          JSON.stringify({
-            type: "config",
-            language: selectedLanguage,
-            agent_id: "id123",
-            client_ip: clientIp || null,
-            callId: window.currentCallId || null,
-          })
-        );
-
-        startAudioStreaming();
-      };
-      ws.onmessage = async (event) => {
-        const data = JSON.parse(event.data);
-        const eventType = data.type;
-        if (eventType === "input_audio_buffer.speech_started") {
-          updateStatus("🎤 Listening...", "listening");
-          stopAllScheduledAudio({ preserveStatus: true });
-          currentUserTranscript = "";
-          lastUserMessageDiv = null;
-          if (!visualizerInterval) {
-            visualizerInterval = setInterval(
-              () => animateVisualizer(true),
-              100
-            );
-          }
-        } else if (eventType === "input_audio_buffer.speech_stopped") {
-          console.log("🛑 [USER] Speech stopped");
-          updateStatus("🤔 Processing...", "speaking");
-          if (visualizerInterval) {
-            clearInterval(visualizerInterval);
-            visualizerInterval = null;
-            animateVisualizer(false);
-          }
-        } else if (eventType === "deepgram.transcript") {
-          const transcript = data.transcript;
-          const isFinal = data.is_final;
-          if (transcript && transcript.trim()) {
-            console.log(
-              `📝 [USER ${isFinal ? "FINAL" : "INTERIM"}]:`,
-              transcript
-            );
-            if (!lastUserMessageDiv) {
-              lastUserMessageDiv = addMessage("user", transcript);
-              currentUserTranscript = transcript;
-            } else {
-              if (isFinal) {
-                currentUserTranscript = transcript;
-                updateMessage(lastUserMessageDiv, transcript);
-                console.log("✅ [USER] Final transcript saved:", transcript);
-                lastUserMessageDiv = null;
-              } else {
-                updateMessage(lastUserMessageDiv, transcript);
-              }
-            }
-          }
-        } else if (eventType === "response.audio_transcript.delta") {
-          console.log("📝 [AI DELTA]:", data.delta);
-          currentAssistantTranscript += data.delta;
-          if (!hasReceivedFirstAIResponse && data.delta && data.delta.trim()) {
-            hasReceivedFirstAIResponse = true;
-            clearLoadingStatus();
-            updateStatus("🤖 AI Speaking...", "speaking");
-            startCallTimer();
-            if (shouldAutoUnmute && isMuted) {
-              setTimeout(() => {
-                if (isMuted && mediaStream) {
-                  isMuted = false;
-                  mediaStream.getAudioTracks().forEach((track) => {
-                    track.enabled = true;
-                  });
-                  console.log("🎤 Auto-unmuted microphone after AI response");
-                  updateStatus("🎤 Ready to listen", "connected");
-                }
-                shouldAutoUnmute = false;
-              }, 2500);
-            }
-            console.log(
-              "🎉 First AI response received - loading cleared, timer started"
-            );
-          }
-        } else if (eventType === "response.audio_transcript.done") {
-          if (currentAssistantTranscript && currentAssistantTranscript.trim()) {
-            console.log("✅ [AI RESPONSE]:", currentAssistantTranscript);
-            addMessage("assistant", currentAssistantTranscript);
-          }
-          currentAssistantTranscript = "";
-        } else if (eventType === "response.audio.delta") {
-          console.log("🔊 [AI AUDIO] Received audio chunk");
-          scheduleAudioChunk(base64ToArrayBuffer(data.delta));
+        stopRingSound();
+        
+        // Set AI response timeout
+        aiResponseTimeout = setTimeout(() => {
           if (!hasReceivedFirstAIResponse) {
-            hasReceivedFirstAIResponse = true;
-            clearLoadingStatus();
-            updateStatus("🤖 AI Speaking...", "speaking");
-            startCallTimer();
-            if (shouldAutoUnmute && isMuted) {
-              setTimeout(() => {
-                if (isMuted && mediaStream) {
-                  isMuted = false;
-                  mediaStream.getAudioTracks().forEach((track) => {
-                    track.enabled = true;
-                  });
-                  console.log("🎤 Auto-unmuted microphone after AI response");
-                  updateStatus("🎤 Ready to listen", "connected");
-                }
-                shouldAutoUnmute = false;
-              }, 2500);
-            }
-            console.log(
-              "🎉 First AI audio received - loading cleared, timer started"
-            );
+            console.warn('⚠️ AI not responding - may be initializing');
+            updateStatus('⚠️ AI is taking longer than usual...', 'connected');
+            
+            // Extended timeout
+            setTimeout(() => {
+              if (!hasReceivedFirstAIResponse) {
+                console.error('❌ AI response timeout');
+                updateStatus('❌ AI not responding', 'disconnected');
+                alert('AI agent is not responding. Please try again.');
+                stopConversation();
+              }
+            }, 15000); // Additional 15 secondsclear token
           }
-        } else if (eventType === "response.done") {
-          console.log("✅ [AI] Response complete");
-          audioStreamComplete = true;
-          if (!assistantSpeaking) {
-            updateStatus("🟢 Connected - Speak naturally!", "connected");
-          }
-        } else if (eventType === "error") {
-          console.error("❌ [ERROR] from server:", data);
-          updateStatus("❌ Error occurred", "disconnected");
+        }, AI_RESPONSE_TIMEOUT);
+        
+        // Don't start timer here - wait for first AI response
+      });
+      
+      // Room disconnected
+      room.on(LivekitClient.RoomEvent.Disconnected, (reason) => {
+        console.log('Disconnected from LiveKit room', reason);
+        if (isConnected) {
+          updateStatus('❌ Connection lost', 'disconnected');
         }
-      };
-      ws.onerror = (error) => {
-        console.error("WebSocket error:", error);
-        clearLoadingStatus();
-        updateStatus("❌ Connection error", "disconnected");
         stopConversation();
-      };
-      ws.onclose = () => {
-        console.log("WebSocket closed");
-        clearLoadingStatus();
-        stopConversation();
-      };
+      });
+      
+      // Connection state change
+      room.on(LivekitClient.RoomEvent.ConnectionStateChanged, (state) => {
+        console.log('🔗 Connection state:', state);
+        if (state === LivekitClient.ConnectionState.Reconnecting) {
+          updateStatus('🔄 Reconnecting...', 'connecting');
+        } else if (state === LivekitClient.ConnectionState.Disconnected) {
+          updateStatus('❌ Disconnected', 'disconnected');
+        }
+      });
+      
+      // Data received
+      room.on(LivekitClient.RoomEvent.DataReceived, (payload, participant) => {
+        try {
+          const data = JSON.parse(new TextDecoder().decode(payload));
+          console.log('📨 Data received:', data);
+          
+          // Handle transcripts and events from agent
+          if (data.type === 'transcript') {
+            if (data.role === 'user') {
+              if (!lastUserMessageDiv) {
+                lastUserMessageDiv = addMessage("user", data.text);
+              } else {
+                updateMessage(lastUserMessageDiv, data.text);
+              }
+            } else if (data.role === 'assistant') {
+              addMessage("assistant", data.text);
+            }
+          }
+        } catch (e) {
+          console.error('Error parsing data:', e);
+        }
+      });
+      
+      // Connect to room
+      await room.connect(data.url, data.token);
+      console.log('🔗 LiveKit room connected successfully');
+      
+      // ✅ Enable microphone and monitor local audio
+      await room.localParticipant.setMicrophoneEnabled(true, {
+        noiseSuppression: true,
+        echoCancellation: true,
+        autoGainControl: true,
+        channelCount: 1,
+        sampleRate: 48000,
+        sampleSize: 16,
+      });
+      
+      // Get local audio track and start monitoring
+      const audioTracks = Array.from(room.localParticipant.audioTrackPublications.values());
+      if (audioTracks.length > 0) {
+        localAudioTrack = audioTracks[0].track;
+        monitorLocalAudioLevel(localAudioTrack);
+        console.log('🎤 Microphone monitoring started');
+      }
+      
+      console.log('🎤 Microphone enabled with LiveKit');
+      
     } catch (error) {
-      console.error("Error:", error);
+      console.error("❌ Connection Error:", error);
       clearLoadingStatus();
-      alert(
-        "Failed to access microphone or connect to server. Please ensure:\n1. Backend server is running\n2. Microphone permissions are granted"
-      );
-      stopConversation();
+      
+      // Clear timeouts
+      if (connectionTimeout) clearTimeout(connectionTimeout);
+      if (aiResponseTimeout) clearTimeout(aiResponseTimeout);
+      
+      // Show user-friendly error message
+      let errorMsg = 'Connection failed';
+      if (error.message.includes('token')) {
+        errorMsg = 'Authentication failed';
+      } else if (error.message.includes('timeout')) {
+        errorMsg = 'Connection timeout';
+      } else if (error.message.includes('network')) {
+        errorMsg = 'Network error';
+      }
+      
+      updateStatus(`❌ ${errorMsg}`, "disconnected");
+      
+      // Retry logic
+      if (retryCount < MAX_RETRIES && !error.message.includes('token')) {
+        retryCount++;
+        console.log(`🔄 Retrying connection... Attempt ${retryCount}/${MAX_RETRIES}`);
+        setTimeout(() => startConversation(), 2000);
+      } else {
+        if (retryCount >= MAX_RETRIES) {
+          alert('Unable to connect after multiple attempts. Please check your internet connection and try again.');
+        }
+        stopConversation();
+        retryCount = 0;
+      }
     }
   }
   async function stopConversation() {
@@ -2606,6 +2730,16 @@
     isMuted = false;
     stopCallTimer();
     clearLoadingStatus();
+    
+    // Clear all timeouts
+    if (connectionTimeout) {
+      clearTimeout(connectionTimeout);
+      connectionTimeout = null;
+    }
+    if (aiResponseTimeout) {
+      clearTimeout(aiResponseTimeout);
+      aiResponseTimeout = null;
+    }
     try {
       playSound("call-end");
     } catch (e) {
@@ -2636,36 +2770,17 @@
         window.currentCallId = null;
       }
     }
-    stopAllScheduledAudio();
-    teardownPlaybackProcessor();
-    if (audioWorkletNode) {
-      audioWorkletNode.disconnect();
-      audioWorkletNode = null;
+    
+    // Disconnect LiveKit room
+    if (room) {
+      await room.disconnect();
+      room = null;
+      console.log("🔴 LiveKit room disconnected");
     }
-    if (mediaStream) {
-      console.log("Stopping microphone and closing media stream...");
-      mediaStream.getTracks().forEach((track) => {
-        console.log(
-          `Stopping track: ${track.kind}, state: ${track.readyState}`
-        );
-        track.stop();
-        track.enabled = false;
-      });
-      mediaStream = null;
-      console.log("Microphone closed successfully");
-    }
-    if (ws) {
-      ws.close();
-      ws = null;
-    }
-    if (audioContext) {
-      try {
-        await audioContext.close();
-      } catch (error) {
-        console.error("Error closing audio context:", error);
-      }
-      audioContext = null;
-    }
+    
+    localAudioTrack = null;
+    remoteAudioTrack = null;
+    
     if (visualizerInterval) {
       clearInterval(visualizerInterval);
       visualizerInterval = null;
@@ -2682,27 +2797,19 @@
       isMuted = false;
     }
     languageSelect.disabled = false;
-    console.log("Conversation stopped");
+    
+    // Remove any attached audio elements
+    document.querySelectorAll('audio').forEach(el => el.remove());
+    
+    console.log("✅ Conversation stopped - LiveKit cleanup complete");
   }
+  
+  // Remove unused WebSocket audio streaming function
   function startAudioStreaming() {
-    const source = audioContext.createMediaStreamSource(mediaStream);
-    const processor = audioContext.createScriptProcessor(4096, 1, 1);
-    processor.onaudioprocess = (e) => {
-      if (!isConnected || !ws || ws.readyState !== WebSocket.OPEN) return;
-      const inputData = e.inputBuffer.getChannelData(0);
-      const pcm16 = convertFloat32ToPCM16(inputData);
-      const base64Audio = arrayBufferToBase64(pcm16);
-      ws.send(
-        JSON.stringify({
-          type: "audio",
-          audio: base64Audio,
-        })
-      );
-    };
-    source.connect(processor);
-    processor.connect(audioContext.destination);
-    audioWorkletNode = processor;
+    // This function is no longer needed with LiveKit
+    console.log("startAudioStreaming called but not needed with LiveKit");
   }
+  
   function base64ToArrayBuffer(base64) {
     const binaryString = atob(base64);
     const len = binaryString.length;
@@ -2857,9 +2964,31 @@
   window.addEventListener("beforeunload", () => {
     stopConversation();
   });
+  
+  // ✅ Load LiveKit SDK first, then initialize widget
   if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", initWidget);
+    document.addEventListener("DOMContentLoaded", () => {
+      loadLiveKitSDK()
+        .then(() => {
+          console.log('🚀 Initializing widget with LiveKit support');
+          initWidget();
+        })
+        .catch((error) => {
+          console.error('❌ Failed to load LiveKit SDK:', error);
+          console.log('⚠️ Initializing widget anyway (LiveKit features may not work)');
+          initWidget();
+        });
+    });
   } else {
-    initWidget();
+    loadLiveKitSDK()
+      .then(() => {
+        console.log('🚀 Initializing widget with LiveKit support');
+        initWidget();
+      })
+      .catch((error) => {
+        console.error('❌ Failed to load LiveKit SDK:', error);
+        console.log('⚠️ Initializing widget anyway (LiveKit features may not work)');
+        initWidget();
+      });
   }
 })(window, document);
