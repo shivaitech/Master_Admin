@@ -32,10 +32,124 @@ import {
   RiSettingsLine,
   RiAddLine,
   RiListCheck2,
+  RiArrowDownLine,
+  RiSettings4Line,
 } from "react-icons/ri";
 import { useTheme } from "../contexts/ThemeContext";
 import { shivaiApiService } from "../../../Redux-config/apisModel/apiService";
 import { Target } from "lucide-react";
+
+// Industry options from onboarding (Step 3)
+const industryOptions = [
+  { value: "saas-software", label: "SaaS & Software Development" },
+  { value: "technology-it", label: "Technology / IT Services" },
+  { value: "healthcare-clinics", label: "Healthcare & Clinics" },
+  { value: "finance-insurance", label: "Finance & Insurance" },
+  { value: "retail-ecommerce", label: "Retail & E-Commerce" },
+  { value: "education-training", label: "Education & Training" },
+  { value: "real-estate-property", label: "Real Estate & Property" },
+  { value: "hospitality-travel", label: "Hospitality & Travel" },
+  { value: "food-beverage", label: "Food & Beverage (Restaurants, Cafes, Catering)" },
+  { value: "automotive-transportation", label: "Automotive & Transportation" },
+  { value: "legal-professional", label: "Legal & Professional Services" },
+  { value: "manufacturing-industrial", label: "Manufacturing & Industrial" },
+  { value: "consulting-business", label: "Consulting & Business Services" },
+  { value: "marketing-advertising", label: "Marketing & Advertising" },
+  { value: "construction-home", label: "Construction & Home Services" },
+  { value: "logistics-supply", label: "Logistics & Supply Chain" },
+  { value: "media-entertainment", label: "Media & Entertainment" },
+  { value: "beauty-wellness", label: "Beauty, Wellness & Personal Care" },
+  { value: "nonprofit-community", label: "Nonprofit & Community Organizations" },
+  { value: "other", label: "Other" }
+];
+
+// Agent configuration options from Step 3
+const agentTypeOptions = [
+  { value: "sales", label: "Sales & Business Development" },
+  { value: "support", label: "Customer Support & Service" },
+  { value: "appointment", label: "Appointment & Scheduling" },
+  { value: "order", label: "Order Management & Billing" },
+  { value: "product", label: "Product / Service Explainers" },
+  { value: "feedback", label: "Feedback & Engagement" },
+  { value: "custom", label: "Custom Workflows" }
+];
+
+const templateOptions = [
+  { value: "sales-business-development", label: "Sales & Business Development" },
+  { value: "customer-support-service", label: "Customer Support & Service" },
+  { value: "appointment-scheduling", label: "Appointment & Scheduling" },
+  { value: "order-billing", label: "Order Management & Billing" },
+  { value: "product-service-explainers", label: "Product / Service Explainers" },
+  { value: "feedback-engagement", label: "Feedback & Engagement" },
+  { value: "custom-workflows", label: "Custom Workflows" }
+];
+
+const languageOptions = [
+  { value: "All", label: "🌍 Multilingual" },
+  { value: "ar", label: "🇸🇦 Arabic" },
+  { value: "zh", label: "🇨🇳 Chinese" },
+  { value: "nl", label: "🇳🇱 Dutch" },
+  { value: "en-GB", label: "🇬🇧 English (UK)" },
+  { value: "en-US", label: "🇺🇸 English (US)" },
+  { value: "en-IN", label: "🇮🇳 English (India)" },
+  { value: "fr", label: "🇫🇷 French" },
+  { value: "de", label: "🇩🇪 German" },
+  { value: "hi", label: "🇮🇳 Hindi" },
+  { value: "it", label: "🇮🇹 Italian" },
+  { value: "ja", label: "🇯🇵 Japanese" },
+  { value: "ko", label: "🇰🇷 Korean" },
+  { value: "pt", label: "🇵🇹 Portuguese" },
+  { value: "pl", label: "🇵🇱 Polish" },
+  { value: "ru", label: "🇷🇺 Russian" },
+  { value: "es", label: "🇪🇸 Spanish" },
+  { value: "tr", label: "🇹🇷 Turkish" }
+];
+
+const voiceGenderOptions = [
+  { value: "neutral", label: "Gender Neutral" },
+  { value: "male", label: "Male" },
+  { value: "female", label: "Female" }
+];
+
+// Plan options from onboarding (Step 3)
+const planOptions = [
+  {
+    id: "starter",
+    name: "Starter",
+    apiKey: "Starter Plan",
+    description: "Perfect for small businesses",
+    maxAgents: 1,
+    aiEmployees: 1,
+    price: "$49/mo"
+  },
+  {
+    id: "professional", 
+    name: "Professional",
+    apiKey: "Professional Plan",
+    description: "For Growing Teams & Small Businesses",
+    maxAgents: 5,
+    aiEmployees: 5,
+    price: "$149/mo"
+  },
+  {
+    id: "business",
+    name: "Business", 
+    apiKey: "Business Plan",
+    description: "For Scaling Companies & Mid-Sized Teams",
+    maxAgents: 15,
+    aiEmployees: 15,
+    price: "$299/mo"
+  },
+  {
+    id: "custom",
+    name: "Custom",
+    apiKey: "Custom Plan", 
+    description: "For Large Organizations & Enterprises",
+    maxAgents: 999,
+    aiEmployees: 999,
+    price: "Custom"
+  }
+];
 
 const ClientManagement = () => {
   const { theme, currentTheme } = useTheme();
@@ -58,6 +172,10 @@ const ClientManagement = () => {
   const [actionLoading, setActionLoading] = useState(false);
   const [error, setError] = useState(null);
   const [isEditing, setIsEditing] = useState(false); // Track if fields are editable
+  
+  // Industry dropdown state
+  const [showIndustryDropdown, setShowIndustryDropdown] = useState(false);
+  const [industrySearch, setIndustrySearch] = useState("");
 
   // Pagination states
   const [currentPage, setCurrentPage] = useState(1);
@@ -69,6 +187,18 @@ const ClientManagement = () => {
   // Track which tabs have been visited to avoid unnecessary count fetches
   const visitedTabsRef = useRef(new Set());
   const fetchInProgressRef = useRef(false);
+
+  // Click outside handler for industry dropdown
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (!event.target.closest('[data-industry-dropdown]')) {
+        console.log('Clicking outside industry dropdown');
+        setShowIndustryDropdown(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   // Debounced search effect - also resets page
   useEffect(() => {
@@ -215,7 +345,13 @@ const ClientManagement = () => {
             industry: [user?.onboarding?.region || "Not specified"],
           },
           plan_details: {
-            type: user?.onboarding?.plan_type || user?.plan_type || "Selected",
+            type: user?.userData?.onboarding?.plan_type || user?.onboarding?.plan_type || user?.plan_type || "Selected",
+            ai_employee_limit: user?.onboarding?.ai_employee_count || user?.ai_employee_count || 1,
+            monthly_price: (() => {
+              const planType = user?.userData?.onboarding?.plan_type || user?.onboarding?.plan_type;
+              const plan = planOptions.find(p => p.apiKey === planType);
+              return plan?.price === "Custom" ? 0 : parseFloat(plan?.price?.replace(/[$\/mo,]/g, "") || "0");
+            })()
           },
           ai_employees: user?.onboarding?.ai_employees || Array.from(
             { length: user?.onboarding?.ai_employee_count || 0 },
@@ -815,13 +951,18 @@ const ClientManagement = () => {
   };
 
   const updateIndustry = (industries) => {
-    setEditData((prev) => ({
-      ...prev,
-      company_basics: {
-        ...prev?.company_basics,
-        industry: industries,
-      },
-    }));
+    console.log('updateIndustry called with:', industries);
+    setEditData((prev) => {
+      const newData = {
+        ...prev,
+        company_basics: {
+          ...prev?.company_basics,
+          industry: industries,
+        },
+      };
+      console.log('Updated editData:', newData);
+      return newData;
+    });
   };
 
   const addChannel = (channel) => {
@@ -885,9 +1026,31 @@ const ClientManagement = () => {
   const updateAIEmployee = (index, field, value) => {
     setEditData((prev) => ({
       ...prev,
-      ai_employees: (prev?.ai_employees || []).map((emp, i) =>
-        i === index ? { ...emp, [field]: value } : emp
-      ),
+      ai_employees: (prev?.ai_employees || []).map((emp, i) => {
+        if (i !== index) return emp;
+        
+        const newEmp = { ...emp };
+        
+        // Handle nested field paths like "instructions.dos_donts"
+        if (field.includes('.')) {
+          const keys = field.split('.');
+          let current = newEmp;
+          
+          // Navigate to the parent object
+          for (let j = 0; j < keys.length - 1; j++) {
+            if (!current[keys[j]]) current[keys[j]] = {};
+            current = current[keys[j]];
+          }
+          
+          // Set the final value
+          current[keys[keys.length - 1]] = value;
+        } else {
+          // Simple field update
+          newEmp[field] = value;
+        }
+        
+        return newEmp;
+      }),
     }));
   };
 
@@ -1049,27 +1212,115 @@ const ClientManagement = () => {
                   <option value="1000+">1000+</option>
                 </select>
               </div>
-              <div>
+              <div className="relative">
                 <label
                   className={`text-xs ${currentTheme.textSecondary} uppercase block mb-2`}
                 >
-                  Industry (comma separated)
+                  Industry (select up to 4)
                 </label>
-                <input
-                  type="text"
-                  value={(editData?.company_basics?.industry || []).join(", ")}
-                  onChange={(e) =>
-                    updateIndustry(
-                      e.target.value
-                        .split(",")
-                        .map((i) => i.trim())
-                        .filter((i) => i)
-                    )
-                  }
-                  disabled={!isEditing}
-                  className={`w-full px-3 md:px-4 py-2 text-sm md:text-base rounded-lg border ${currentTheme.border} focus:outline-none focus:ring-2 focus:ring-blue-500/20 ${!isEditing ? 'bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 cursor-not-allowed' : `${currentTheme.cardBg} ${currentTheme.text}`}`}
-                  placeholder="Technology, SaaS"
-                />
+                <div className="relative" data-industry-dropdown>
+                  <input
+                    type="text"
+                    value={industrySearch}
+                    onChange={(e) => setIndustrySearch(e.target.value)}
+                    onFocus={() => setShowIndustryDropdown(true)}
+                    onClick={() => isEditing && setShowIndustryDropdown(true)}
+                    disabled={!isEditing}
+                    className={`w-full px-3 md:px-4 py-2 text-sm md:text-base rounded-lg border ${currentTheme.border} focus:outline-none focus:ring-2 focus:ring-blue-500/20 ${!isEditing ? 'bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 cursor-not-allowed' : `${currentTheme.cardBg} ${currentTheme.text}`} ${(editData?.company_basics?.industry || []).length >= 4 ? 'cursor-not-allowed' : ''}`}
+                    placeholder={(editData?.company_basics?.industry || []).length >= 4 ? "Maximum 4 industries selected" : "Search or select industries"}
+                  />
+                  <RiArrowDownLine
+                    className={`absolute right-2.5 top-2.5 w-4 h-4 text-gray-400 transition-transform cursor-pointer ${showIndustryDropdown ? "rotate-180" : ""}`}
+                    onClick={() => isEditing && setShowIndustryDropdown(!showIndustryDropdown)}
+                  />
+
+                  {/* Selected Industries Display */}
+                  {(editData?.company_basics?.industry || []).length > 0 && (
+                    <div className="flex flex-wrap gap-2 mt-2">
+                      {(editData?.company_basics?.industry || []).map((industry, index) => {
+                        const industryLabel = industryOptions.find(opt => opt.value === industry)?.label || industry;
+                        return (
+                          <span key={index} className="bg-blue-100 text-blue-800 px-2 py-1 rounded-md text-sm flex items-center gap-1">
+                            {industryLabel}
+                            {isEditing && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const newIndustries = (editData?.company_basics?.industry || []).filter((_, i) => i !== index);
+                                  updateIndustry(newIndustries);
+                                }}
+                                className="text-blue-600 hover:text-blue-800"
+                              >
+                                <RiCloseLine className="w-3 h-3" />
+                              </button>
+                            )}
+                          </span>
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  {/* Dropdown Options */}
+                  {showIndustryDropdown && isEditing && (
+                    <div 
+                      className={`absolute z-50 w-full mt-1 ${currentTheme.cardBg} border ${currentTheme.border} rounded-lg shadow-xl max-h-48 overflow-y-auto`}
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      {industryOptions
+                        .filter(option =>
+                          option.label.toLowerCase().includes(industrySearch.toLowerCase()) &&
+                          !(editData?.company_basics?.industry || []).includes(option.value)
+                        )
+                        .map((option) => (
+                          <div
+                            key={option.value}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              console.log('Industry option clicked:', option.value);
+                              const currentIndustries = editData?.company_basics?.industry || [];
+                              console.log('Current industries:', currentIndustries);
+                              if (option.value === "other") {
+                                setIndustrySearch("Add your industry type");
+                              } else if (currentIndustries.length < 4 && !currentIndustries.includes(option.value)) {
+                                console.log('Adding industry:', option.value);
+                                updateIndustry([...currentIndustries, option.value]);
+                                setIndustrySearch("");
+                                setTimeout(() => setShowIndustryDropdown(false), 100);
+                              } else {
+                                console.log('Max industries reached or already selected');
+                              }
+                            }}
+                            className={`px-3 py-2 border-b ${currentTheme.border} last:border-b-0 ${(editData?.company_basics?.industry || []).length >= 4 ? 'cursor-not-allowed text-gray-400 bg-gray-50' : 'hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer'}`}
+                          >
+                            {option.label}
+                            {(editData?.company_basics?.industry || []).length >= 4 && (
+                              <span className="text-xs text-gray-400 ml-2">(Max reached)</span>
+                            )}
+                          </div>
+                        ))}
+                      {industrySearch &&
+                        !industryOptions.some(opt => opt.label.toLowerCase().includes(industrySearch.toLowerCase())) &&
+                        !(editData?.company_basics?.industry || []).includes(industrySearch) && (
+                          <div
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              console.log('Custom industry add clicked:', industrySearch);
+                              const currentIndustries = editData?.company_basics?.industry || [];
+                              if (currentIndustries.length < 4 && !currentIndustries.includes(industrySearch)) {
+                                console.log('Adding custom industry:', industrySearch);
+                                updateIndustry([...currentIndustries, industrySearch]);
+                                setIndustrySearch("");
+                                setTimeout(() => setShowIndustryDropdown(false), 100);
+                              }
+                            }}
+                            className={`px-3 py-2 font-medium ${(editData?.company_basics?.industry || []).length >= 4 ? 'cursor-not-allowed text-gray-400 bg-gray-50' : 'hover:bg-blue-50 cursor-pointer text-blue-600'}`}
+                          >
+                            + Add "{industrySearch}"
+                          </div>
+                        )}
+                    </div>
+                  )}
+                </div>
               </div>
               <div>
                 <label
@@ -1203,16 +1454,26 @@ const ClientManagement = () => {
                 </label>
                 <select
                   value={editData?.plan_details?.type || ""}
-                  onChange={(e) =>
-                    updateEditData("plan_details.type", e.target.value)
-                  }
+                  onChange={(e) => {
+                    const selectedPlan = planOptions.find(p => p.apiKey === e.target.value);
+                    updateEditData("plan_details.type", e.target.value);
+                    if (selectedPlan) {
+                      updateEditData("plan_details.ai_employee_limit", selectedPlan.aiEmployees);
+                      updateEditData("plan_details.monthly_price", 
+                        selectedPlan.price === "Custom" ? 0 : 
+                        parseFloat(selectedPlan.price.replace(/[$\/mo,]/g, "") || "0")
+                      );
+                    }
+                  }}
                   disabled={!isEditing}
                   className={`w-full px-3 md:px-4 py-2 text-sm md:text-base rounded-lg border ${currentTheme.border} focus:outline-none focus:ring-2 focus:ring-blue-500/20 ${!isEditing ? 'bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 cursor-not-allowed' : `${currentTheme.cardBg} ${currentTheme.text}`}`}
                 >
-                  <option value="Starter Plan">Starter Plan</option>
-                  <option value="Professional Plan">Professional Plan</option>
-                  <option value="Advanced Plan">Advanced Plan</option>
-                  <option value="Enterprise Plan">Enterprise Plan</option>
+                  <option value="">Select Plan</option>
+                  {planOptions.map((option) => (
+                    <option key={option.id} value={option.apiKey}>
+                      {option.name} - {option.price}
+                    </option>
+                  ))}
                 </select>
               </div>
               <div>
@@ -1230,8 +1491,9 @@ const ClientManagement = () => {
                       parseFloat(e.target.value)
                     )
                   }
-                  disabled={!isEditing}
-                  className={`w-full px-3 md:px-4 py-2 text-sm md:text-base rounded-lg border ${currentTheme.border} focus:outline-none focus:ring-2 focus:ring-blue-500/20 ${!isEditing ? 'bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 cursor-not-allowed' : `${currentTheme.cardBg} ${currentTheme.text}`}`}
+                  disabled={!isEditing || editData?.plan_details?.type !== "Custom Plan"}
+                  placeholder={editData?.plan_details?.type === "Custom Plan" ? "Enter custom price" : "Auto-populated from plan"}
+                  className={`w-full px-3 md:px-4 py-2 text-sm md:text-base rounded-lg border ${currentTheme.border} focus:outline-none focus:ring-2 focus:ring-blue-500/20 ${(!isEditing || editData?.plan_details?.type !== "Custom Plan") ? 'bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 cursor-not-allowed' : `${currentTheme.cardBg} ${currentTheme.text}`}`}
                 />
               </div>
               <div>
@@ -1249,8 +1511,9 @@ const ClientManagement = () => {
                       parseInt(e.target.value)
                     )
                   }
-                  disabled={!isEditing}
-                  className={`w-full px-3 md:px-4 py-2 text-sm md:text-base rounded-lg border ${currentTheme.border} focus:outline-none focus:ring-2 focus:ring-blue-500/20 ${!isEditing ? 'bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 cursor-not-allowed' : `${currentTheme.cardBg} ${currentTheme.text}`}`}
+                  disabled={!isEditing || editData?.plan_details?.type !== "Custom Plan"}
+                  placeholder={editData?.plan_details?.type === "Custom Plan" ? "Enter custom limit" : "Auto-populated from plan"}
+                  className={`w-full px-3 md:px-4 py-2 text-sm md:text-base rounded-lg border ${currentTheme.border} focus:outline-none focus:ring-2 focus:ring-blue-500/20 ${(!isEditing || editData?.plan_details?.type !== "Custom Plan") ? 'bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 cursor-not-allowed' : `${currentTheme.cardBg} ${currentTheme.text}`}`}
                 />
               </div>
 
@@ -1505,15 +1768,21 @@ const ClientManagement = () => {
                       >
                         Type
                       </label>
-                      <input
-                        type="text"
+                      <select
                         value={ai?.type || ""}
                         onChange={(e) =>
                           updateAIEmployee(idx, "type", e.target.value)
                         }
                         disabled={!isEditing}
                         className={`w-full px-3 py-2 rounded-lg border ${currentTheme.border} text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 ${!isEditing ? 'bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 cursor-not-allowed' : `${currentTheme.cardBg} ${currentTheme.text}`}`}
-                      />
+                      >
+                        <option value="">Select type</option>
+                        {agentTypeOptions.map((option) => (
+                          <option key={option.value} value={option.label}>
+                            {option.label}
+                          </option>
+                        ))}
+                      </select>
                     </div>
                     <div>
                       <label
@@ -1521,15 +1790,21 @@ const ClientManagement = () => {
                       >
                         Template
                       </label>
-                      <input
-                        type="text"
+                      <select
                         value={ai?.template || ""}
                         onChange={(e) =>
                           updateAIEmployee(idx, "template", e.target.value)
                         }
                         disabled={!isEditing}
                         className={`w-full px-3 py-2 rounded-lg border ${currentTheme.border} text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 ${!isEditing ? 'bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 cursor-not-allowed' : `${currentTheme.cardBg} ${currentTheme.text}`}`}
-                      />
+                      >
+                        <option value="">Select template</option>
+                        {templateOptions.map((option) => (
+                          <option key={option.value} value={option.label}>
+                            {option.label}
+                          </option>
+                        ))}
+                      </select>
                     </div>
                     <div>
                       <label
@@ -1537,8 +1812,7 @@ const ClientManagement = () => {
                       >
                         Language
                       </label>
-                      <input
-                        type="text"
+                      <select
                         value={ai?.preferred_language || ""}
                         onChange={(e) =>
                           updateAIEmployee(
@@ -1549,7 +1823,14 @@ const ClientManagement = () => {
                         }
                         disabled={!isEditing}
                         className={`w-full px-3 py-2 rounded-lg border ${currentTheme.border} text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 ${!isEditing ? 'bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 cursor-not-allowed' : `${currentTheme.cardBg} ${currentTheme.text}`}`}
-                      />
+                      >
+                        <option value="">Select language</option>
+                        {languageOptions.map((option) => (
+                          <option key={option.value} value={option.label}>
+                            {option.label}
+                          </option>
+                        ))}
+                      </select>
                     </div>
                     <div>
                       <label
@@ -1565,9 +1846,13 @@ const ClientManagement = () => {
                         disabled={!isEditing}
                         className={`w-full px-3 py-2 rounded-lg border ${currentTheme.border} text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 ${!isEditing ? 'bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 cursor-not-allowed' : `${currentTheme.cardBg} ${currentTheme.text}`}`}
                       >
-                        <option value="Male">Male</option>
-                        <option value="Female">Female</option>
-                        <option value="Gender Neutral">Gender Neutral</option>
+                        <option value="">Select voice gender</option>
+                        {voiceGenderOptions.map((option) => (
+                          <option key={option.value} value={option.label}>
+                            {option.label}
+                          </option>
+                        ))}
+
                       </select>
                     </div>
                     <div>
@@ -2056,8 +2341,8 @@ const ClientManagement = () => {
                             Do's and Don'ts
                           </label>
                           <textarea
-                            value={ai?.instructions?.dos_donts || ""}
-                            onChange={(e) => updateAIEmployee(idx, "instructions.dos_donts", e.target.value)}
+                            value={ai?.instructions?.dos_and_donts || ""}
+                            onChange={(e) => updateAIEmployee(idx, "instructions.dos_and_donts", e.target.value)}
                             rows={4}
                             placeholder="Be professional, Don't share personal information..."
                             disabled={!isEditing}
@@ -2163,8 +2448,8 @@ const ClientManagement = () => {
                               <input
                                 type="radio"
                                 name={`service_type_${idx}`}
-                                checked={ai?.deployment?.service_type === 'shivai'}
-                                onChange={(e) => updateAIEmployee(idx, "deployment.service_type", "shivai")}
+                                checked={ai?.deployment_service?.service_type === 'shivai'}
+                                onChange={(e) => updateAIEmployee(idx, "deployment_service.service_type", "shivai")}
                                 disabled={!isEditing}
                                 className={`w-4 h-4 text-blue-500 ${!isEditing ? 'opacity-60 cursor-not-allowed' : ''}`}
                               />
@@ -2174,8 +2459,8 @@ const ClientManagement = () => {
                               <input
                                 type="radio"
                                 name={`service_type_${idx}`}
-                                checked={ai?.deployment?.service_type === 'self'}
-                                onChange={(e) => updateAIEmployee(idx, "deployment.service_type", "self")}
+                                checked={ai?.deployment_service?.service_type === 'self'}
+                                onChange={(e) => updateAIEmployee(idx, "deployment_service.service_type", "self")}
                                 disabled={!isEditing}
                                 className={`w-4 h-4 text-blue-500 ${!isEditing ? 'opacity-60 cursor-not-allowed' : ''}`}
                               />
@@ -2213,8 +2498,8 @@ const ClientManagement = () => {
                             Deployment Notes
                           </label>
                           <textarea
-                            value={ai?.deployment?.notes || ""}
-                            onChange={(e) => updateAIEmployee(idx, "deployment.notes", e.target.value)}
+                            value={ai?.deployment_targets?.deployment_notes || ""}
+                            onChange={(e) => updateAIEmployee(idx, "deployment_targets.deployment_notes", e.target.value)}
                             rows={3}
                             placeholder="Phase 1: Website implementation..."
                             disabled={!isEditing}
@@ -2236,8 +2521,8 @@ const ClientManagement = () => {
                           <label className="flex items-center gap-2">
                             <input
                               type="checkbox"
-                              checked={ai?.privacy_options?.recording_enabled || false}
-                              onChange={(e) => updateAIEmployee(idx, "privacy_options.recording_enabled", e.target.checked)}
+                              checked={ai?.consent_options?.recording_enabled || false}
+                              onChange={(e) => updateAIEmployee(idx, "consent_options.recording_enabled", e.target.checked)}
                               disabled={!isEditing}
                               className={`w-4 h-4 text-blue-500 rounded ${!isEditing ? 'opacity-50 cursor-not-allowed' : ''}`}
                             />
@@ -2246,8 +2531,8 @@ const ClientManagement = () => {
                           <label className="flex items-center gap-2">
                             <input
                               type="checkbox"
-                              checked={ai?.privacy_options?.transcript_email || false}
-                              onChange={(e) => updateAIEmployee(idx, "privacy_options.transcript_email", e.target.checked)}
+                              checked={ai?.consent_options?.transcript_email_optin || false}
+                              onChange={(e) => updateAIEmployee(idx, "consent_options.transcript_email_optin", e.target.checked)}
                               disabled={!isEditing}
                               className={`w-4 h-4 text-blue-500 rounded ${!isEditing ? 'opacity-50 cursor-not-allowed' : ''}`}
                             />
@@ -2260,8 +2545,8 @@ const ClientManagement = () => {
                           </label>
                           <input
                             type="text"
-                            value={ai?.privacy_options?.privacy_notes || ""}
-                            onChange={(e) => updateAIEmployee(idx, "privacy_options.privacy_notes", e.target.value)}
+                            value={ai?.consent_options?.privacy_notes || ""}
+                            onChange={(e) => updateAIEmployee(idx, "consent_options.privacy_notes", e.target.value)}
                             placeholder="Privacy enabled"
                             disabled={!isEditing}
                             className={`w-full px-3 py-2 rounded-lg border ${currentTheme.border} text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 ${!isEditing ? 'bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 cursor-not-allowed' : `${currentTheme.cardBg} ${currentTheme.text}`}`}
@@ -2457,7 +2742,11 @@ const ClientManagement = () => {
                   <div>
                     <p className={`text-xs ${currentTheme.textSecondary} uppercase mb-0.5`}>Plan</p>
                     <p className={`${currentTheme.text} font-medium text-xs md:text-sm truncate`}>
-                      {client?.userData?.onboarding?.plan_type || client?.plan_details?.type || "No plan"}
+                      {(() => {
+                        const planType = client?.userData?.onboarding?.plan_type || client?.plan_details?.type;
+                        const plan = planOptions.find(p => p.apiKey === planType);
+                        return plan ? `${plan.name} (${plan.price})` : planType || "No plan";
+                      })()}
                     </p>
                   </div>
                   <div>
@@ -2528,3 +2817,4 @@ const ClientManagement = () => {
 };
 
 export default ClientManagement;
+
