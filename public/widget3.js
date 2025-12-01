@@ -61,6 +61,7 @@
   let masterGainNode = null;
   let soundContext = null;
   let soundsEnabled = true;
+  let connectingSoundInterval = null;
   let userInteracted = false;
   let audioBufferingStarted = false;
   let minBufferChunks = 3;
@@ -182,14 +183,39 @@
     }
   }
   function playConnectingSound() {
-    const frequencies = [440, 554, 659];
-    let delay = 0;
-    frequencies.forEach((freq, index) => {
-      setTimeout(() => {
-        generateTone(freq, 0.15, 0.3);
-      }, delay);
-      delay += 120;
-    });
+    // Stop any existing connecting sound
+    if (connectingSoundInterval) {
+      clearInterval(connectingSoundInterval);
+      connectingSoundInterval = null;
+    }
+    
+    // Use ring1.mp3 for connecting sound
+    try {
+      if (!ringAudio) {
+        ringAudio = new Audio('./assets/Rings/ring1.mp3');
+        ringAudio.volume = 0.7;
+      }
+      ringAudio.loop = true; // Loop until stopped
+      ringAudio.currentTime = 0;
+      ringAudio.play().catch(error => {
+        console.warn("Could not play connecting sound:", error);
+      });
+      console.log("🔊 Playing connecting sound (ring1.mp3)");
+    } catch (error) {
+      console.warn("Error playing connecting sound:", error);
+    }
+  }
+  
+  function stopConnectingSound() {
+    if (ringAudio) {
+      ringAudio.pause();
+      ringAudio.currentTime = 0;
+      ringAudio.loop = false;
+    }
+    if (connectingSoundInterval) {
+      clearInterval(connectingSoundInterval);
+      connectingSoundInterval = null;
+    }
   }
   
   function playRingSound() {
@@ -212,6 +238,7 @@
     if (ringAudio) {
       ringAudio.pause();
       ringAudio.currentTime = 0;
+      ringAudio.loop = false;
     }
   }
   function playDiallingSound() {
@@ -331,7 +358,7 @@
     let silenceStart = null;
     
     function checkAudioLevel() {
-      if (!isConnected) return;
+      if (!isConnected || isMuted) return;
       
       analyser.getByteFrequencyData(dataArray);
       const average = dataArray.reduce((a, b) => a + b) / bufferLength;
@@ -405,6 +432,9 @@
           console.log('🎉 First AI response - timer started');
         }
         
+        // Always update status when AI starts speaking
+        updateStatus("🤖 AI Speaking...", "speaking");
+        
         if (latencyMetrics.userSpeechEndTime) {
           latencyMetrics.agentResponseStartTime = performance.now();
           const latency = latencyMetrics.agentResponseStartTime - latencyMetrics.userSpeechEndTime;
@@ -415,7 +445,6 @@
           }
           
           console.log(`⚡ Response latency: ${Math.round(latency)}ms`);
-          updateStatus("🤖 AI Speaking...", "speaking");
           
           latencyMetrics.userSpeechEndTime = null;
         }
@@ -822,6 +851,7 @@
       <div class="empty-state-text">Start a conversation to see transcripts here</div>
       </div>
       </div>
+      
       <div class="controls">
       <div class="call-timer" id="call-timer" style="display: none;">00:00</div>
       <button class="control-btn-icon mute" id="shivai-mute" style="display: none;" title="Mute Microphone">
@@ -875,6 +905,7 @@
     visualizerBars = document.querySelectorAll(".visualizer-bar");
     languageSelect = document.getElementById("shivai-language");
     callTimerElement = document.getElementById("call-timer");
+    
     setDefaultLanguage();
   }
   function setDefaultLanguage() {
@@ -1577,6 +1608,158 @@
       box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
       background-color: white;
       }
+      
+      .form-group {
+        margin-bottom: 16px;
+      }
+      
+      .agent-input-styled {
+        width: 100%;
+        padding: 10px 14px;
+        border-radius: 8px;
+        border: 1.5px solid #d1d5db;
+        background: white;
+        font-size: 14px;
+        color: #111827;
+        transition: all 0.2s ease;
+        font-weight: 500;
+      }
+      
+      .agent-input-styled:focus {
+        outline: none;
+        border-color: #3b82f6;
+        box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+      }
+      
+      .agent-input-styled::placeholder {
+        color: #6b7280;
+        font-weight: 400;
+      }
+      
+      .audio-controls-section {
+        margin-bottom: 20px;
+        padding: 12px;
+        background: #f8fafc;
+        border-radius: 8px;
+        border: 1px solid #e2e8f0;
+      }
+      
+      .checkbox-group {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 10px;
+      }
+      
+      .checkbox-group:last-child {
+        margin-bottom: 0;
+      }
+      
+      .checkbox-group input[type="checkbox"] {
+        width: 16px;
+        height: 16px;
+        margin: 0;
+        cursor: pointer;
+        accent-color: #3b82f6;
+      }
+      
+      .checkbox-group label {
+        margin: 0;
+        font-size: 13px;
+        font-weight: 500;
+        color: #4b5563;
+        cursor: pointer;
+        line-height: 1.4;
+      }
+      
+      .latency-monitor {
+        margin-top: 15px;
+        padding: 12px;
+        background: linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%);
+        border-radius: 8px;
+        border: 1px solid #cbd5e1;
+        font-size: 11px;
+      }
+      
+      .latency-header {
+        font-size: 13px;
+        font-weight: 600;
+        color: #1e293b;
+        margin-bottom: 10px;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+      
+      .latency-grid {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 8px;
+        margin-bottom: 10px;
+      }
+      
+      .latency-metric {
+        background: white;
+        padding: 8px;
+        border-radius: 6px;
+        border: 1px solid #e2e8f0;
+        text-align: center;
+      }
+      
+      .latency-label {
+        font-size: 9px;
+        font-weight: 600;
+        color: #64748b;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        margin-bottom: 2px;
+      }
+      
+      .latency-value {
+        font-size: 14px;
+        font-weight: 700;
+        color: #1e293b;
+      }
+      
+      .latency-value.good {
+        color: #059669;
+      }
+      
+      .latency-value.medium {
+        color: #d97706;
+      }
+      
+      .latency-value.bad {
+        color: #dc2626;
+      }
+      
+      .latency-chart {
+        background: white;
+        padding: 8px;
+        border-radius: 6px;
+        height: 50px;
+        position: relative;
+        overflow: hidden;
+        margin-bottom: 8px;
+        border: 1px solid #e2e8f0;
+      }
+      
+      .latency-bar {
+        position: absolute;
+        bottom: 0;
+        width: 2px;
+        background: #3b82f6;
+        transition: height 0.3s ease;
+        border-radius: 1px 1px 0 0;
+      }
+      
+      .latency-stats {
+        font-size: 9px;
+        color: #64748b;
+        text-align: center;
+        line-height: 1.3;
+      }
+      
       .call-controls-row {
       display: flex;
       align-items: stretch;
@@ -2122,6 +2305,18 @@
   }
   function closeWidget() {
     console.log("🔴 Widget closing - checking call state");
+    
+    // Disconnect LiveKit room if connected
+    if (room) {
+      console.log("🔴 Disconnecting LiveKit room on widget close");
+      room.disconnect().then(() => {
+        console.log("🔴 LiveKit room disconnected successfully");
+      }).catch((err) => {
+        console.warn("Error disconnecting LiveKit room:", err);
+      });
+      room = null;
+    }
+    
     console.log("🔴 Performing complete cleanup on widget close");
     isConnected = false;
     isConnecting = false;
@@ -2241,6 +2436,7 @@
       isConnected = false;
       isConnecting = false;
       stopRingSound(); // Stop ring sound when hanging up
+      stopConnectingSound(); // Stop connecting sound when hanging up
       clearLoadingStatus();
       stopCallTimer();
       if (ws) {
@@ -2271,6 +2467,7 @@
       } catch (error) {
         console.error("Failed to start conversation:", error);
         stopRingSound(); // Stop ring sound on error
+        stopConnectingSound(); // Stop connecting sound on error
         isConnected = false;
         isConnecting = false;
         hasReceivedFirstAIResponse = false;
@@ -2313,9 +2510,25 @@
   }
   function handleMuteClick(e) {
     e.stopPropagation();
-    if (!isConnected || !mediaStream) return;
+    if (!isConnected || !room) return;
+    
     isMuted = !isMuted;
+    
+    if (isMuted) {
+      room.localParticipant.setMicrophoneEnabled(false);
+    } else {
+      room.localParticipant.setMicrophoneEnabled(true, {
+        noiseSuppression: true,
+        echoCancellation: true,
+        autoGainControl: true,
+        channelCount: 1,
+        sampleRate: 48000,
+        sampleSize: 16,
+      });
+    }
+    
     updateMuteButton();
+    console.log(`🎤 Microphone ${isMuted ? 'muted' : 'unmuted'} by user`);
   }
   function updateStatus(status, className) {
     const statusText = statusDiv.querySelector(".status-text");
@@ -2347,6 +2560,7 @@
   }
   function startCallTimer() {
     stopRingSound(); // Stop ring sound when call timer starts
+    stopConnectingSound(); // Stop connecting sound when call timer starts
     callStartTime = Date.now();
     if (callTimerElement) {
       callTimerElement.style.display = "block";
@@ -2361,6 +2575,31 @@
     callTimerInterval = setInterval(updateCallTimer, 1000);
     updateCallTimer();
     console.log("⏱️ Call timer started");
+    
+    // Unmute microphone after 3 seconds
+    setTimeout(async () => {
+      if (isConnected && room) {
+        await room.localParticipant.setMicrophoneEnabled(true, {
+          noiseSuppression: true,
+          echoCancellation: true,
+          autoGainControl: true,
+          channelCount: 1,
+          sampleRate: 48000,
+          sampleSize: 16,
+        });
+        isMuted = false;
+        
+        // Start monitoring local audio now that microphone is enabled
+        const audioTracks = Array.from(room.localParticipant.audioTrackPublications.values());
+        if (audioTracks.length > 0) {
+          localAudioTrack = audioTracks[0].track;
+          monitorLocalAudioLevel(localAudioTrack);
+          console.log('🎤 Microphone monitoring started after unmute');
+        }
+        
+        console.log("🎤 Microphone auto-unmuted after 3 seconds");
+      }
+    }, 3000);
   }
   function stopCallTimer() {
     if (callTimerInterval) {
@@ -2507,10 +2746,18 @@
         }
       }, CONNECTION_TIMEOUT);
       
-      await showProgressiveConnectionStates();
-      
       const selectedLanguage = languageSelect.value;
       const deviceType = /Mobile|Android|iPhone/i.test(navigator.userAgent) ? 'mobile' : 'desktop';
+      
+      // Use default audio configuration like HTML version
+      const audioConfig = {
+        noiseSuppression: true,
+        echoCancellation: true,
+        autoGainControl: false,
+        channelCount: 1,
+        sampleRate: 48000,
+        sampleSize: 16,
+      };
       
       // Check LiveKit support
       if (typeof LivekitClient === 'undefined') {
@@ -2520,17 +2767,17 @@
         throw new Error("LiveKit not available");
       }
       
-      updateStatus("Connecting to LiveKit...", "connecting");
+      updateStatus("Connecting...", "connecting");
       
       // Get LiveKit token from backend
       const callId = `call_${Date.now()}`;
       window.currentCallId = callId;
       
-      const response = await fetch('https://test-livekit-agent.onrender.com/token', {
+      const response = await fetch('https://token-server-i5u4.onrender.com/token', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          agent_id: 'test-agent',
+          agent_id: 'id123',
           language: selectedLanguage,
           call_id: callId,
           device: deviceType,
@@ -2545,32 +2792,17 @@
       const data = await response.json();
       console.log('✅ [LiveKit] Token received');
       
-      // Create LiveKit room
+      // Create LiveKit room with custom audio configuration
       room = new LivekitClient.Room({
         adaptiveStream: true,
         dynacast: true,
-        audioCaptureDefaults: {
-          noiseSuppression: true,
-          echoCancellation: true,
-          autoGainControl: true,
-          channelCount: 1,
-          sampleRate: 48000,
-          sampleSize: 16,
-        }
+        audioCaptureDefaults: audioConfig
       });
       
       // ✅ Track remote audio (agent speaking)
       room.on(LivekitClient.RoomEvent.TrackSubscribed, (track, publication, participant) => {
         if (track.kind === LivekitClient.Track.Kind.Audio) {
-          // Create Web Audio API gain boost for louder volume
-          const audioContext = new (window.AudioContext || window.webkitAudioContext)();
-          const source = audioContext.createMediaStreamSource(new MediaStream([track.mediaStreamTrack]));
-            const gainNode = audioContext.createGain();
-            gainNode.gain.value = isIOS() ? 2.0 : 1.0;  // 🔊 2x volume boost for iOS, 1x for other devices
-            source.connect(gainNode);
-          gainNode.connect(audioContext.destination);
-          
-          // Keep regular element too
+          // Use simple audio element without gain processing
           const audioElement = track.attach();
           audioElement.volume = 1.0;
           document.body.appendChild(audioElement);
@@ -2578,7 +2810,7 @@
           
           remoteAudioTrack = track;
           monitorRemoteAudioLevel(track);
-          console.log('🔊 Agent audio track received with 2x volume boost - monitoring started');
+          console.log('🔊 Agent audio track received - monitoring started');
         }
       });
       
@@ -2594,11 +2826,16 @@
           connectionTimeout = null;
         }
         
-        updateStatus('✅ Connected - Waiting for AI...', 'connected');
-        playSound('call-start');
+        updateStatus('✅ Connected - Speak now!', 'connected');
         
         languageSelect.disabled = true;
-        stopRingSound();
+        
+        // Enable microphone but keep it muted initially
+        await room.localParticipant.setMicrophoneEnabled(true, audioConfig);
+        
+        // Mute microphone until call timer starts + 3 seconds
+        await room.localParticipant.setMicrophoneEnabled(false);
+        isMuted = true;
         
         // Set AI response timeout
         aiResponseTimeout = setTimeout(() => {
@@ -2614,9 +2851,22 @@
                 alert('AI agent is not responding. Please try again.');
                 stopConversation();
               }
-            }, 15000); // Additional 15 secondsclear token
+            }, 15000); // Additional 15 seconds
           }
         }, AI_RESPONSE_TIMEOUT);
+        
+        // Enable microphone with custom audio configuration
+        await room.localParticipant.setMicrophoneEnabled(true, audioConfig);
+        
+        // Get local audio track and start monitoring
+        const audioTracks = Array.from(room.localParticipant.audioTrackPublications.values());
+        if (audioTracks.length > 0) {
+          localAudioTrack = audioTracks[0].track;
+          monitorLocalAudioLevel(localAudioTrack);
+          console.log('🎤 Microphone monitoring started');
+        }
+        
+        console.log('🎤 Microphone enabled with custom settings:', audioConfig);
         
         // Don't start timer here - wait for first AI response
       });
@@ -2665,19 +2915,14 @@
       
       // Connect to room
       await room.connect(data.url, data.token);
-      console.log('🔗 LiveKit room connected successfully');
+      console.log('🔗 Room connected successfully');
       
-      // ✅ Enable microphone and monitor local audio
-      await room.localParticipant.setMicrophoneEnabled(true, {
-        noiseSuppression: true,
-        echoCancellation: true,
-        autoGainControl: true,
-        channelCount: 1,
-        sampleRate: 48000,
-        sampleSize: 16,
-      });
+      // 🔇 Start with microphone disabled (muted)
+      await room.localParticipant.setMicrophoneEnabled(false);
+      isMuted = true;
+      console.log('🔇 Microphone muted until call timer starts');
       
-      // Get local audio track and start monitoring
+      // Get local audio track and start monitoring (will be null until enabled)
       const audioTracks = Array.from(room.localParticipant.audioTrackPublications.values());
       if (audioTracks.length > 0) {
         localAudioTrack = audioTracks[0].track;
@@ -2939,6 +3184,7 @@
   function stopAllScheduledAudio(options = {}) {
     const preserveStatus = options.preserveStatus === true;
     stopRingSound(); // Stop ring sound when stopping all audio
+    stopConnectingSound(); // Stop connecting sound when stopping all audio
     playbackBufferQueue = [];
     playbackBufferOffset = 0;
     audioBufferingStarted = false;
