@@ -1,14 +1,16 @@
+
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
     <title>LiveKit Voice Assistant - Realtime API</title>
     <script src="https://unpkg.com/@livekit/components-core@0.11.5/dist/livekit-components-core.umd.js"></script>
-    <script src="https://unpkg.com/livekit-client@2.5.8/dist/livekit-client.umd.js"></script>
+    <script src="https://unpkg.com/livekit-client@latest/dist/livekit-client.umd.js"></script>
 
     <style>
-        /* ... (keep all your existing styles) ... */
+       /* ... (keep all your existing styles) ... */
         * {
             margin: 0;
             padding: 0;
@@ -366,40 +368,152 @@
         .transcript-box::-webkit-scrollbar-thumb:hover {
             background: #555;
         }
+
+        h1 { text-align: center; color: #333; margin-bottom: 10px; font-size: 28px; }
+        .subtitle { text-align: center; color: #666; margin-bottom: 20px; font-size: 14px; }
+
+        .form-row { display: flex; gap: 12px; }
+        .form-row .form-group { flex: 1; }
+
+        .form-group { margin-bottom: 12px; }
+        label { display: block; margin-bottom: 8px; color: #333; font-weight: 600; font-size: 14px; }
+        input, select { width: 100%; padding: 10px 12px; border: 2px solid #e0e0e0; border-radius: 10px; font-size: 14px; transition: all 0.2s; }
+        input:focus, select:focus { outline: none; border-color: #667eea; box-shadow: 0 0 0 3px rgba(102,126,234,0.08); }
+
+        .checkbox-group { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+        .checkbox-group input[type="checkbox"] { width: auto; margin: 0; }
+        .checkbox-group label { margin: 0; font-size: 13px; font-weight: 500; }
+
+        button { padding: 12px; border: none; border-radius: 10px; font-size: 15px; font-weight: 600; cursor: pointer; transition: all 0.2s; }
+        #startBtn { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; width: 100%; }
+        #endBtn { background: #f44336; color: white; display: none; width: 100%; margin-top: 8px; }
+
+        .status { text-align: center; padding: 10px; border-radius: 10px; margin-top: 12px; font-size: 14px; font-weight: 600; display: none; }
+        .status.connecting { background: #fff3e0; color: #f57c00; display: block; }
+        .status.connected { background: #e8f5e9; color: #2e7d32; display: block; }
+        .status.error { background: #ffebee; color: #c62828; display: block; }
+
+        .audio-visualizer { display: none; margin: 12px auto; text-align: center; }
+        .audio-visualizer.active { display: block; }
+        .wave { display: inline-block; width: 4px; height: 20px; background: #667eea; margin: 0 2px; border-radius: 2px; animation: wave 1s ease-in-out infinite; }
+        .wave:nth-child(2) { animation-delay: 0.1s; } .wave:nth-child(3) { animation-delay: 0.2s; } .wave:nth-child(4) { animation-delay: 0.3s; } .wave:nth-child(5) { animation-delay: 0.4s; }
+        @keyframes wave { 0%, 100% { height: 20px; } 50% { height: 40px; } }
+
+        /* Chat UI */
+        .chat-box {
+            margin-top: 18px;
+            border: 1px solid #e6e6e6;
+            border-radius: 12px;
+            overflow: hidden;
+            display: flex; /* Always visible for testing */
+            flex-direction: column;
+            height: 320px;
+        }
+        .chat-box.active {
+            display: flex !important;
+        }
+        .chat-header {
+            background: linear-gradient(90deg,#f7f9fc,#eef2ff);
+            padding: 10px 12px;
+            font-weight: 700;
+            font-size: 14px;
+            color: #333;
+            border-bottom: 1px solid #eee;
+        }
+        .chat-messages {
+            padding: 12px;
+            flex: 1;
+            overflow-y: auto;
+            background: #fafafa;
+            font-size: 14px;
+        }
+        .chat-row { margin-bottom: 12px; display: flex; align-items: flex-start; }
+        .chat-row.user { justify-content: flex-end; }
+        .chat-row.agent { justify-content: flex-start; }
+        .chat-text { 
+            padding: 10px 14px; 
+            border-radius: 18px; 
+            max-width: 75%; 
+            word-break: break-word; 
+            font-size: 14px;
+            line-height: 1.4;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        .chat-text.agent { 
+            background: #f0f0f0; 
+            color: #333; 
+            border-bottom-left-radius: 6px;
+        }
+        .chat-text.user { 
+            background: #667eea; 
+            color: white; 
+            border-bottom-right-radius: 6px;
+        }
+        .chat-meta { 
+            font-size: 10px; 
+            color: #999; 
+            margin-top: 4px;
+            text-align: center;
+        }
+
+        .chat-input-row { display:flex; gap:8px; padding: 10px; border-top:1px solid #eee; background:white; }
+        .chat-input-row input[type="text"] { flex:1; padding:8px 10px; border-radius:8px; border:1px solid #ddd; font-size:14px; }
+        .chat-input-row button { padding:8px 12px; border-radius:8px; background:#667eea; color:white; border:none; cursor:pointer; }
+
+        /* Transcript and latency styles kept */
+        .latency-monitor { display: none; margin-top: 12px; padding: 12px; background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%); border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.06); }
+        .latency-monitor.active { display:block; }
+        .transcript-box { display:none; margin-top:12px; padding:12px; background:#f5f5f5; border-radius:10px; max-height:180px; overflow-y:auto; }
+        .transcript-box.active { display:block; }
+        .transcript-item { margin-bottom:8px; padding:8px; border-radius:8px; font-size:13px; line-height:1.4; }
+        .transcript-item.user { background: #e3f2fd; color:#1565c0; }
+        .transcript-item.agent { background: #f3e5f5; color:#6a1b9a; }
+
+        .noise-indicator { display:none; margin-top:10px; padding:8px 12px; background:#e8f5e9; border-radius:8px; font-size:12px; color:#2e7d32; text-align:center; }
+        .noise-indicator.active { display:block; }
+
+        .container::-webkit-scrollbar, .transcript-box::-webkit-scrollbar { width: 6px; }
+        .container::-webkit-scrollbar-track, .transcript-box::-webkit-scrollbar-track { background: #f1f1f1; border-radius: 10px; }
+        .container::-webkit-scrollbar-thumb, .transcript-box::-webkit-scrollbar-thumb { background: #888; border-radius: 10px; }
+        .container::-webkit-scrollbar-thumb:hover, .transcript-box::-webkit-scrollbar-thumb:hover { background: #555; }
+
+        /* small screen adjustments */
+        @media (max-width: 640px) {
+            .container { padding: 16px; }
+            .chat-box { height: 260px; }
+        }
     </style>
 </head>
 <body>
     <div class="container">
         <h1>🎙️ Voice Assistant</h1>
-        <p class="subtitle">
-            LiveKit
-            <!-- <span class="badge">⚡ Ultra Low Latency</span> -->
-        </p>
+        <p class="subtitle">LiveKit</p>
 
-        <div class="form-group">
-            <label for="agentId">Agent ID</label>
-            <input type="text" id="agentId" placeholder="Enter agent ID (optional)">
-        </div>
-
-        <div class="form-group">
-            <label for="language">Language</label>
-            <select id="language">
-                <option value="en">English</option>
-                <option value="es">Spanish</option>
-                <option value="fr">French</option>
-                <option value="de">German</option>
-                <option value="hi">Hindi</option>
-                <option value="pt">Portuguese</option>
-                <option value="zh">Chinese</option>
-                <option value="ja">Japanese</option>
-                <option value="ko">Korean</option>
-                <option value="ar">Arabic</option>
-                <option value="ru">Russian</option>
-                <option value="it">Italian</option>
-                <option value="nl">Dutch</option>
-                <option value="pl">Polish</option>
-                <option value="tr">Turkish</option>
-            </select>
+        <div class="form-row" style="margin-bottom:12px;">
+            <div class="form-group" style="flex:1;">
+                <label for="agentId">Agent ID</label>
+                <input type="text" id="agentId" placeholder="Enter agent ID (optional)">
+            </div>
+            <div class="form-group" style="width:150px;">
+                <label for="language">Language</label>
+                <select id="language">
+                    <option value="en">English</option>
+                    <option value="hi">Hindi</option>
+                    <option value="es">Spanish</option>
+                    <option value="fr">French</option>
+                    <option value="de">German</option>
+                    <option value="pt">Portuguese</option>
+                    <option value="zh">Chinese</option>
+                    <option value="ja">Japanese</option>
+                    <option value="ko">Korean</option>
+                    <option value="ar">Arabic</option>
+                    <option value="ru">Russian</option>
+                    <option value="it">Italian</option>
+                    <option value="nl">Dutch</option>
+                    <option value="pl">Polish</option>
+                    <option value="tr">Turkish</option>
+                </select>
+            </div>
         </div>
 
         <div class="checkbox-group">
@@ -417,66 +531,55 @@
             <label for="autoGainControl">📊 Enable Auto Gain Control</label>
         </div>
 
-        <button id="startBtn">Start Call</button>
-        <button id="endBtn">End Call</button>
-
-        <div class="noise-indicator" id="noiseIndicator">
-            🎙️ Audio processing active
+        <div style="display:flex; gap:8px; margin-bottom:8px;">
+            <button id="startBtn">Start Call</button>
+            <button id="endBtn">End Call</button>
         </div>
 
-        <div class="audio-visualizer">
-            <div class="wave"></div>
-            <div class="wave"></div>
-            <div class="wave"></div>
-            <div class="wave"></div>
-            <div class="wave"></div>
-        </div>
+        <div class="noise-indicator" id="noiseIndicator">🎙️ Audio processing active</div>
+        <div class="audio-visualizer"><div class="wave"></div><div class="wave"></div><div class="wave"></div><div class="wave"></div><div class="wave"></div></div>
 
         <div id="status" class="status"></div>
 
+        <!-- Chat UI -->
+        <div class="chat-box" id="chatBox" aria-live="polite">
+            <div class="chat-header">Realtime Chat</div>
+            <div id="chatMessages" class="chat-messages"></div>
+
+            <div class="chat-input-row">
+                <input id="chatInput" type="text" placeholder="Type a message..." autocomplete="off" />
+                <button id="sendChatBtn">Send</button>
+            </div>
+        </div>
+
         <!-- Latency Monitor -->
         <div id="latencyMonitor" class="latency-monitor">
-            <div class="latency-header">    
-                Latency
-            </div>
-            <div class="latency-grid">
-                <div class="latency-metric">
-                    <div class="latency-label">Current</div>
-                    <div id="currentLatency" class="latency-value">-- ms</div>
-                </div>
-                <div class="latency-metric">
-                    <div class="latency-label">Average</div>
-                    <div id="avgLatency" class="latency-value">-- ms</div>
-                </div>
-                <div class="latency-metric">
-                    <div class="latency-label">Best</div>
-                    <div id="minLatency" class="latency-value">-- ms</div>
-                </div>
-                <div class="latency-metric">
-                    <div class="latency-label">Worst</div>
-                    <div id="maxLatency" class="latency-value">-- ms</div>
-                </div>
+            <div class="latency-header">Latency</div>
+            <div class="latency-grid" style="display:grid; grid-template-columns:repeat(2,1fr); gap:8px;">
+                <div class="latency-metric"><div class="latency-label">Current</div><div id="currentLatency" class="latency-value">-- ms</div></div>
+                <div class="latency-metric"><div class="latency-label">Average</div><div id="avgLatency" class="latency-value">-- ms</div></div>
+                <div class="latency-metric"><div class="latency-label">Best</div><div id="minLatency" class="latency-value">-- ms</div></div>
+                <div class="latency-metric"><div class="latency-label">Worst</div><div id="maxLatency" class="latency-value">-- ms</div></div>
             </div>
             <div class="latency-chart" id="latencyChart"></div>
-            <div class="latency-stats">
-                <span id="totalExchanges">0 exchanges</span> • 
-                Target: <500ms excellent, 500-800ms good, >800ms needs improvement
-            </div>
+            <div class="latency-stats"><span id="totalExchanges">0 exchanges</span> • Target: &lt;500ms excellent, 500-800ms good, &gt;800ms needs improvement</div>
         </div>
 
         <!-- Transcript Box -->
         <div id="transcriptBox" class="transcript-box">
-            <h3 style="margin-bottom: 15px; color: #333; font-size: 16px;">📝 Conversation Log</h3>
+            <h3 style="margin-bottom: 8px; color: #333; font-size: 14px;">📝 Conversation Log</h3>
             <div id="transcriptContent"></div>
         </div>
     </div>
 
     <script>
+        // State
         let room = null;
         let isConnected = false;
         let localAudioTrack = null;
         let remoteAudioTrack = null;
 
+        // Elements
         const startBtn = document.getElementById('startBtn');
         const endBtn = document.getElementById('endBtn');
         const statusDiv = document.getElementById('status');
@@ -490,7 +593,13 @@
         const echoCancellationCheckbox = document.getElementById('echoCancellation');
         const autoGainControlCheckbox = document.getElementById('autoGainControl');
 
-        // ✅ FIXED: Enhanced latency tracking using audio events
+        // Chat elements
+        const chatBox = document.getElementById('chatBox');
+        const chatMessages = document.getElementById('chatMessages');
+        const chatInput = document.getElementById('chatInput');
+        const sendChatBtn = document.getElementById('sendChatBtn');
+
+        // Latency metrics unchanged
         let latencyMetrics = {
             userSpeechStartTime: null,
             userSpeechEndTime: null,
@@ -551,7 +660,7 @@
             if (measurements.length === 0) return;
             
             const maxValue = Math.max(...measurements, 1000);
-            const width = latencyChart.clientWidth;
+            const width = latencyChart.clientWidth || 300;
             const barWidth = Math.max(2, width / measurements.length - 2);
 
             measurements.forEach((value, index) => {
@@ -570,122 +679,216 @@
             });
         }
 
-        // ✅ FIXED: Track when user stops speaking (using audio level monitoring)
+        // Local audio monitoring - unchanged
         function monitorLocalAudioLevel(track) {
-            const audioContext = new (window.AudioContext || window.webkitAudioContext)();
-            const analyser = audioContext.createAnalyser();
-            const mediaStream = new MediaStream([track.mediaStreamTrack]);
-            const source = audioContext.createMediaStreamSource(mediaStream);
-            
-            source.connect(analyser);
-            analyser.fftSize = 256;
-            
-            const bufferLength = analyser.frequencyBinCount;
-            const dataArray = new Uint8Array(bufferLength);
-            
-            const SPEECH_THRESHOLD = 30; // Adjust based on your environment
-            const SILENCE_DURATION = 800; // 800ms of silence = end of speech
-            let silenceStart = null;
-            
-            function checkAudioLevel() {
-                if (!isConnected) return;
+            try {
+                const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                const analyser = audioContext.createAnalyser();
+                const mediaStream = new MediaStream([track.mediaStreamTrack]);
+                const source = audioContext.createMediaStreamSource(mediaStream);
                 
-                analyser.getByteFrequencyData(dataArray);
-                const average = dataArray.reduce((a, b) => a + b) / bufferLength;
+                source.connect(analyser);
+                analyser.fftSize = 256;
                 
-                if (average > SPEECH_THRESHOLD) {
-                    // User is speaking
-                    if (!latencyMetrics.isSpeaking) {
-                        latencyMetrics.isSpeaking = true;
-                        latencyMetrics.userSpeechStartTime = performance.now();
-                        console.log('👤 User started speaking');
-                        addLog('You started speaking', 'user');
-                    }
-                    silenceStart = null;
-                } else {
-                    // Silence detected
-                    if (latencyMetrics.isSpeaking) {
-                        if (!silenceStart) {
-                            silenceStart = performance.now();
-                        } else if (performance.now() - silenceStart > SILENCE_DURATION) {
-                            // User stopped speaking
-                            latencyMetrics.isSpeaking = false;
-                            latencyMetrics.userSpeechEndTime = performance.now();
-                            console.log('👤 User stopped speaking');
-                            addLog('You finished speaking', 'user');
-                            silenceStart = null;
+                const bufferLength = analyser.frequencyBinCount;
+                const dataArray = new Uint8Array(bufferLength);
+                
+                const SPEECH_THRESHOLD = 30; // Adjust
+                const SILENCE_DURATION = 800;
+                let silenceStart = null;
+                
+                function checkAudioLevel() {
+                    if (!isConnected) return;
+                    analyser.getByteFrequencyData(dataArray);
+                    const average = dataArray.reduce((a, b) => a + b, 0) / bufferLength;
+                    if (average > SPEECH_THRESHOLD) {
+                        if (!latencyMetrics.isSpeaking) {
+                            latencyMetrics.isSpeaking = true;
+                            latencyMetrics.userSpeechStartTime = performance.now();
+                            addLog('You started speaking', 'user');
+                        }
+                        silenceStart = null;
+                    } else {
+                        if (latencyMetrics.isSpeaking) {
+                            if (!silenceStart) silenceStart = performance.now();
+                            else if (performance.now() - silenceStart > SILENCE_DURATION) {
+                                latencyMetrics.isSpeaking = false;
+                                latencyMetrics.userSpeechEndTime = performance.now();
+                                addLog('You finished speaking', 'user');
+                                silenceStart = null;
+                            }
                         }
                     }
+                    requestAnimationFrame(checkAudioLevel);
                 }
-                
-                requestAnimationFrame(checkAudioLevel);
+                checkAudioLevel();
+            } catch(e) {
+                console.warn('Local audio monitor failed', e);
             }
-            
-            checkAudioLevel();
         }
 
-        // ✅ FIXED: Track when agent starts responding
+        // Remote audio monitoring - unchanged
         function monitorRemoteAudioLevel(track) {
-            const audioContext = new (window.AudioContext || window.webkitAudioContext)();
-            const analyser = audioContext.createAnalyser();
-            const mediaStream = new MediaStream([track.mediaStreamTrack]);
-            const source = audioContext.createMediaStreamSource(mediaStream);
-            
-            source.connect(analyser);
-            analyser.fftSize = 256;
-            
-            const bufferLength = analyser.frequencyBinCount;
-            const dataArray = new Uint8Array(bufferLength);
-            
-            const SPEECH_THRESHOLD = 20;
-            
-            function checkAudioLevel() {
-                if (!isConnected) return;
+            try {
+                const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                const analyser = audioContext.createAnalyser();
+                const mediaStream = new MediaStream([track.mediaStreamTrack]);
+                const source = audioContext.createMediaStreamSource(mediaStream);
                 
-                analyser.getByteFrequencyData(dataArray);
-                const average = dataArray.reduce((a, b) => a + b) / bufferLength;
+                source.connect(analyser);
+                analyser.fftSize = 256;
                 
-                if (average > SPEECH_THRESHOLD && !latencyMetrics.isAgentSpeaking) {
-                    // Agent started responding
-                    latencyMetrics.isAgentSpeaking = true;
+                const bufferLength = analyser.frequencyBinCount;
+                const dataArray = new Uint8Array(bufferLength);
+                
+                const SPEECH_THRESHOLD = 20;
+                
+                function checkAudioLevel() {
+                    if (!isConnected) return;
+                    analyser.getByteFrequencyData(dataArray);
+                    const average = dataArray.reduce((a, b) => a + b, 0) / bufferLength;
                     
-                    if (latencyMetrics.userSpeechEndTime) {
-                        latencyMetrics.agentResponseStartTime = performance.now();
-                        const latency = latencyMetrics.agentResponseStartTime - latencyMetrics.userSpeechEndTime;
+                    if (average > SPEECH_THRESHOLD && !latencyMetrics.isAgentSpeaking) {
+                        latencyMetrics.isAgentSpeaking = true;
                         
-                        latencyMetrics.measurements.push(latency);
-                        if (latencyMetrics.measurements.length > latencyMetrics.maxSamples) {
-                            latencyMetrics.measurements.shift();
+                        if (latencyMetrics.userSpeechEndTime) {
+                            latencyMetrics.agentResponseStartTime = performance.now();
+                            const latency = latencyMetrics.agentResponseStartTime - latencyMetrics.userSpeechEndTime;
+                            
+                            latencyMetrics.measurements.push(latency);
+                            if (latencyMetrics.measurements.length > latencyMetrics.maxSamples) latencyMetrics.measurements.shift();
+                            
+                            addLog(`Agent responded (${Math.round(latency)}ms)`, 'agent');
+                            updateLatencyDisplay();
+                            latencyMetrics.userSpeechEndTime = null;
                         }
-                        
-                        console.log(`⚡ Response latency: ${Math.round(latency)}ms`);
-                        addLog(`Agent responded (${Math.round(latency)}ms)`, 'agent');
-                        updateLatencyDisplay();
-                        
-                        latencyMetrics.userSpeechEndTime = null;
+                    } else if (average <= SPEECH_THRESHOLD && latencyMetrics.isAgentSpeaking) {
+                        latencyMetrics.isAgentSpeaking = false;
                     }
-                } else if (average <= SPEECH_THRESHOLD && latencyMetrics.isAgentSpeaking) {
-                    latencyMetrics.isAgentSpeaking = false;
+                    requestAnimationFrame(checkAudioLevel);
                 }
-                
-                requestAnimationFrame(checkAudioLevel);
+                checkAudioLevel();
+            } catch(e) {
+                console.warn('Remote audio monitor failed', e);
             }
-            
-            checkAudioLevel();
         }
 
         function addLog(text, source) {
             const item = document.createElement('div');
             item.className = `transcript-item ${source}`;
             const time = new Date().toLocaleTimeString();
-            item.innerHTML = `
-                <div class="transcript-label">${source === 'user' ? '👤 You' : '🤖 Agent'} - ${time}</div>
-                <div>${text}</div>
-            `;
+            item.innerHTML = `<div class="transcript-label">${source === 'user' ? '👤 You' : '🤖 Agent'} - ${time}</div><div>${text}</div>`;
             transcriptContent.appendChild(item);
             transcriptBox.scrollTop = transcriptBox.scrollHeight;
+            transcriptBox.classList.add('active');
         }
 
+        /* ---------------------------
+           CHAT FUNCTIONS
+           --------------------------- */
+        function appendChatMessage(sender, message, meta = {}) {
+            // Only show AI and user messages, skip system messages
+            if (meta.role === 'system') return;
+            
+            const row = document.createElement('div');
+            row.className = 'chat-row';
+            
+            const text = document.createElement('div');
+            text.className = 'chat-text';
+            
+            // Determine if it's user or AI
+            const isUser = meta.role === 'user' || sender === 'You' || sender.includes('You');
+            
+            if (isUser) {
+                row.classList.add('user');
+                text.classList.add('user');
+            } else {
+                row.classList.add('agent');
+                text.classList.add('agent');
+            }
+
+            text.innerHTML = message.replace(/\n/g, '<br/>');
+            row.appendChild(text);
+            
+            // Add timestamp if provided
+            if (meta.time) {
+                const metaDiv = document.createElement('div');
+                metaDiv.className = 'chat-meta';
+                metaDiv.textContent = meta.time;
+                row.appendChild(metaDiv);
+            }
+
+            chatMessages.appendChild(row);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+            
+            console.log('Chat message appended:', isUser ? 'User' : 'AI', message);
+        }
+
+        function sendChat() {
+            if (!isConnected || !room) {
+                setStatus('Join a room to send chat', 'error');
+                return;
+            }
+            const text = chatInput.value.trim();
+            if (!text) return;
+            
+            console.log('📤 Sending chat message:', text);
+            
+            try {
+                // Use proper LiveKit sendText method
+                if (typeof room.localParticipant.sendText === 'function') {
+                    console.log('Using sendText method');
+                    room.localParticipant.sendText(text, {
+                        topic: 'lk.chat',
+                    }).then((info) => {
+                        console.log('✅ Chat sent with sendText, stream ID:', info.id);
+                    }).catch((error) => {
+                        console.error('❌ sendText failed:', error);
+                        // Fallback to publishData if sendText fails
+                        fallbackSendChat(text);
+                    });
+                } else {
+                    console.log('sendText not available, using fallback publishData');
+                    fallbackSendChat(text);
+                }
+                
+                // Always show the message in our chat immediately
+                appendChatMessage('You', text, { time: new Date().toLocaleTimeString() });
+                chatInput.value = '';
+                chatInput.focus();
+            } catch (e) {
+                console.error('❌ Failed to send chat message:', e);
+                setStatus('Failed to send message', 'error');
+            }
+        }
+        
+        function fallbackSendChat(text) {
+            try {
+                console.log('Using fallback publishData method');
+                const chatMessage = { type: 'chat', text, timestamp: Date.now() };
+                const encoder = new TextEncoder();
+                const data = encoder.encode(JSON.stringify(chatMessage));
+                
+                room.localParticipant.publishData(data, {
+                    reliable: true,
+                    destinationIdentities: [], // send to all participants
+                });
+                
+                console.log('✅ Chat sent with publishData');
+            } catch (error) {
+                console.error('❌ publishData fallback failed:', error);
+            }
+        }
+
+        // Chat UI event listeners
+        sendChatBtn.addEventListener('click', sendChat);
+        chatInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') sendChat();
+        });
+
+        /* ---------------------------
+           ROOM / LIVEKIT LOGIC
+           --------------------------- */
         startBtn.addEventListener('click', async () => {
             try {
                 startBtn.disabled = true;
@@ -694,9 +897,8 @@
                 const agentId = agentIdInput.value.trim() || 'test-agent';
                 const language = languageSelect.value;
                 const callId = `call_${Date.now()}`;
-
                 const deviceType = /Mobile|Android|iPhone/i.test(navigator.userAgent) ? 'mobile' : 'desktop';
-                
+
                 const response = await fetch('https://token-server-i5u4.onrender.com/token', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -710,7 +912,7 @@
                 });
 
                 const data = await response.json();
-                
+
                 room = new LivekitClient.Room({
                     adaptiveStream: true,
                     dynacast: true,
@@ -721,16 +923,54 @@
                     }
                 });
 
-                // ✅ Track remote audio (agent speaking)
+                // Subscribe to audio tracks (agent speaking)
                 room.on(LivekitClient.RoomEvent.TrackSubscribed, (track, publication, participant) => {
                     if (track.kind === LivekitClient.Track.Kind.Audio) {
                         const audioElement = track.attach();
+                        audioElement.style.display = 'none';
                         document.body.appendChild(audioElement);
-                        audioElement.play();
-                        
+                        audioElement.play().catch(()=>{ /* autoplay may be blocked */ });
+
                         remoteAudioTrack = track;
                         monitorRemoteAudioLevel(track);
                         console.log('🔊 Agent audio track received - monitoring started');
+                    }
+                });
+
+                // Handle participant metadata changes (may contain transcripts)
+                room.on(LivekitClient.RoomEvent.ParticipantMetadataChanged, (metadata, participant) => {
+                    console.log('Participant metadata changed:', { metadata, participant: participant?.identity });
+                    if (metadata) {
+                        try {
+                            const data = JSON.parse(metadata);
+                            if (data.transcript || data.text) {
+                                appendChatMessage('AI Transcript', data.transcript || data.text, {
+                                    role: 'agent',
+                                    time: new Date().toLocaleTimeString(),
+                                    isVoiceTranscript: true
+                                });
+                            }
+                        } catch (e) {
+                            console.log('Metadata not JSON:', metadata);
+                        }
+                    }
+                });
+
+                // Handle room metadata changes
+                room.on(LivekitClient.RoomEvent.RoomMetadataChanged, (metadata) => {
+                    console.log('Room metadata changed:', metadata);
+                    if (metadata) {
+                        try {
+                            const data = JSON.parse(metadata);
+                            if (data.transcript || data.text) {
+                                appendChatMessage('Room Update', data.transcript || data.text, {
+                                    role: 'system',
+                                    time: new Date().toLocaleTimeString()
+                                });
+                            }
+                        } catch (e) {
+                            console.log('Room metadata not JSON:', metadata);
+                        }
                     }
                 });
 
@@ -741,13 +981,288 @@
                     transcriptBox.classList.add('active');
                     latencyMonitor.classList.add('active');
                     
-                    if (noiseSuppressionCheckbox.checked) {
-                        noiseIndicator.classList.add('active');
-                    }
-                    
+                    // Ensure chat box is visible
+                    chatBox.classList.add('active');
+                    chatBox.style.display = 'flex';
+                    console.log('Chat box activated and display set to flex');
+
+                    if (noiseSuppressionCheckbox.checked) noiseIndicator.classList.add('active');
                     startBtn.style.display = 'none';
                     endBtn.style.display = 'block';
                     isConnected = true;
+                    
+                    // Register text stream handlers according to LiveKit docs
+                    try {
+                        // Handler for transcriptions
+                        if (typeof room.registerTextStreamHandler === 'function') {
+                            console.log('📝 Registering text stream handlers...');
+                            
+                            room.registerTextStreamHandler('lk.transcription', async (reader, participantInfo) => {
+                                console.log('🎯 Transcription stream from:', participantInfo.identity);
+                                try {
+                                    const info = reader.info;
+                                    console.log('Stream info:', {
+                                        topic: info.topic,
+                                        id: info.id,
+                                        timestamp: info.timestamp,
+                                        size: info.size,
+                                        attributes: info.attributes
+                                    });
+                                    
+                                    // Check if this is a final transcription
+                                    const isFinal = info.attributes?.['lk.transcription_final'] === 'true';
+                                    const transcribedTrackId = info.attributes?.['lk.transcribed_track_id'];
+                                    const segmentId = info.attributes?.['lk.segment_id'];
+                                    
+                                    console.log('Transcription attributes:', { isFinal, transcribedTrackId, segmentId });
+                                    
+                                    // Read the complete text
+                                    const text = await reader.readAll();
+                                    
+                                    if (text && text.trim()) {
+                                        const isUser = participantInfo.identity === room.localParticipant?.identity;
+                                        const senderName = isUser ? 'You (Voice)' : 'AI Assistant (Voice)';
+                                        
+                                        // Add to chat
+                                        appendChatMessage(senderName, text, {
+                                            role: isUser ? 'user' : 'agent',
+                                            time: new Date().toLocaleTimeString(),
+                                            isVoiceTranscript: true
+                                        });
+                                        
+                                        // Add to transcript log
+                                        addLog(text, isUser ? 'user' : 'agent');
+                                        
+                                        console.log('✅ Transcription added:', { sender: senderName, text, isFinal });
+                                    }
+                                } catch (error) {
+                                    console.error('❌ Error processing transcription stream:', error);
+                                }
+                            });
+                            
+                            // Handler for chat messages
+                            room.registerTextStreamHandler('lk.chat', async (reader, participantInfo) => {
+                                console.log('💬 Chat stream from:', participantInfo.identity);
+                                try {
+                                    const text = await reader.readAll();
+                                    const isUser = participantInfo.identity === room.localParticipant?.identity;
+                                    
+                                    if (!isUser && text && text.trim()) {
+                                        appendChatMessage(participantInfo.identity, text, {
+                                            role: 'agent',
+                                            time: new Date().toLocaleTimeString()
+                                        });
+                                        
+                                        console.log('💬 Chat message added:', { sender: participantInfo.identity, text });
+                                    }
+                                } catch (error) {
+                                    console.error('❌ Error processing chat stream:', error);
+                                }
+                            });
+                            
+                            console.log('✅ Text stream handlers registered successfully');
+                        } else {
+                            console.warn('⚠️ registerTextStreamHandler not available, using fallback DataReceived');
+                            // Fallback to DataReceived for older versions (handled below)
+                        }
+                    } catch (error) {
+                        console.error('❌ Error setting up text stream handlers:', error);
+                    }
+
+                    // ADD COMPREHENSIVE EVENT MONITORING FOR ALL POSSIBLE TRANSCRIPT SOURCES
+                    console.log('🔍 Setting up comprehensive transcript monitoring...');
+                    
+                    // Monitor ALL room events for any transcript data
+                    const allEvents = Object.values(LivekitClient.RoomEvent);
+                    allEvents.forEach(eventName => {
+                        if (eventName !== LivekitClient.RoomEvent.Connected && 
+                            eventName !== LivekitClient.RoomEvent.Disconnected &&
+                            eventName !== LivekitClient.RoomEvent.TrackSubscribed) {
+                            room.on(eventName, (...args) => {
+                                console.log(`🔔 Room Event [${eventName}]:`, args);
+                                
+                                // Check if any argument contains transcript-like data
+                                args.forEach((arg, index) => {
+                                    if (typeof arg === 'string' && arg.length > 10) {
+                                        console.log(`📝 String data in ${eventName}[${index}]:`, arg);
+                                        
+                                        // Only add if it looks like natural language (not technical data)
+                                        if (arg.length > 10 && 
+                                            !arg.includes('{') && 
+                                            !arg.includes('http') && 
+                                            !arg.includes('subscribed') &&
+                                            !arg.includes('audioinput') &&
+                                            !arg.includes('excellent') &&
+                                            !/^[0-9a-f]+$/.test(arg) &&
+                                            /[a-zA-Z\s]{10,}/.test(arg) &&
+                                            !/^(subscribed|excellent|audioinput|connected|disconnected)$/i.test(arg)) {
+                                            appendChatMessage('AI Assistant', arg, {
+                                                role: 'agent',
+                                                time: new Date().toLocaleTimeString(),
+                                                isVoiceTranscript: true
+                                            });
+                                            addLog(arg, 'agent');
+                                        }
+                                    }
+                                    
+                                    // Check if object contains transcript data (but filter out technical data)
+                                    if (typeof arg === 'object' && arg !== null) {
+                                        ['text', 'transcript', 'message', 'content'].forEach(key => {
+                                            if (arg[key] && 
+                                                typeof arg[key] === 'string' && 
+                                                arg[key].length > 10 &&
+                                                !arg[key].includes('subscribed') &&
+                                                !arg[key].includes('audioinput') &&
+                                                !arg[key].includes('excellent') &&
+                                                !/^[0-9a-f]+$/.test(arg[key]) &&
+                                                /[a-zA-Z\s]{10,}/.test(arg[key])) {
+                                                console.log(`📝 Found ${key} in ${eventName}:`, arg[key]);
+                                                appendChatMessage('AI Assistant', arg[key], {
+                                                    role: 'agent',
+                                                    time: new Date().toLocaleTimeString(),
+                                                    isVoiceTranscript: true
+                                                });
+                                                addLog(arg[key], 'agent');
+                                            }
+                                        });
+                                    }
+                                });
+                            });
+                        }
+                    });
+                    
+                    // Chat is ready for real-time transcripts
+                    console.log('✅ Chat ready for real-time transcripts');
+
+                    // Add debugging info every 10 seconds
+                    const debugInterval = setInterval(() => {
+                        if (!isConnected || !room) {
+                            clearInterval(debugInterval);
+                            return;
+                        }
+                        
+                        console.log('🔍 Connection status:', {
+                            roomState: room.state,
+                            participantCount: room.participants.size,
+                            localParticipant: room.localParticipant?.identity,
+                            hasAudioTrack: !!localAudioTrack,
+                            micEnabled: room.localParticipant?.isMicrophoneEnabled
+                        });
+                    }, 30000); // Every 30 seconds
+                });
+
+                // Use DataReceived event for transcript capture (enhanced fallback)
+                room.on(LivekitClient.RoomEvent.DataReceived, (payload, participant, kind, topic) => {
+                    console.log('📨 DataReceived:', { 
+                        payloadLength: payload.length, 
+                        participant: participant?.identity, 
+                        kind, 
+                        topic 
+                    });
+                    
+                    try {
+                        const decoder = new TextDecoder();
+                        const text = decoder.decode(payload);
+                        console.log('📝 Raw decoded text:', text);
+                        
+                        // AGGRESSIVE TRANSCRIPT CAPTURE - try to extract any meaningful text
+                        if (text && text.trim().length > 2) {
+                            let transcriptText = text;
+                            let isTranscript = false;
+                            let participantName = participant?.identity || 'Agent';
+                            
+                            // Skip technical/system messages
+                            const skipPatterns = [
+                                'subscribed', 'audioinput', 'excellent', 'connected', 'disconnected',
+                                'enabled', 'disabled', 'true', 'false', 'null', 'undefined',
+                                /^[0-9a-f]{20,}$/, // long hex strings like device IDs
+                                /^\{.*\}$/, // JSON objects that are technical
+                                /^(muted|unmuted|active|inactive)$/i
+                            ];
+                            
+                            const shouldSkip = skipPatterns.some(pattern => {
+                                if (typeof pattern === 'string') {
+                                    return text.toLowerCase().includes(pattern) || text.toLowerCase() === pattern;
+                                } else {
+                                    return pattern.test(text.toLowerCase());
+                                }
+                            });
+                            
+                            if (shouldSkip) {
+                                console.log('🚫 Skipping technical/system message:', text);
+                                return;
+                            }
+                            
+                            // Try to parse as JSON first
+                            try {
+                                const jsonData = JSON.parse(text);
+                                console.log('📋 Parsed JSON data:', jsonData);
+                                
+                                // Look for transcript in various JSON fields
+                                const textFields = ['text', 'transcript', 'message', 'content', 'data', 'response'];
+                                for (const field of textFields) {
+                                    if (jsonData[field] && typeof jsonData[field] === 'string' && jsonData[field].trim().length > 2) {
+                                        transcriptText = jsonData[field];
+                                        isTranscript = true;
+                                        break;
+                                    }
+                                }
+                                
+                                // Check for role/speaker information
+                                if (jsonData.role || jsonData.speaker) {
+                                    const role = jsonData.role || jsonData.speaker;
+                                    if (role.includes('user')) {
+                                        participantName = 'You (Voice)';
+                                    } else if (role.includes('assistant') || role.includes('agent')) {
+                                        participantName = 'AI Assistant (Voice)';
+                                    }
+                                    isTranscript = true;
+                                }
+                            } catch (e) {
+                                // Not JSON, treat as plain text
+                                console.log('📄 Not JSON, treating as plain text');
+                                
+                                // If it looks like natural language text (not code/data), treat as transcript
+                                if (!text.includes('{') && !text.includes('http') && !text.includes('=') && 
+                                    /[a-zA-Z\s]{5,}/.test(text)) {
+                                    isTranscript = true;
+                                }
+                            }
+                            
+                            // Add transcript to UI if we found text
+                            if (transcriptText && transcriptText.trim().length > 2) {
+                                const isUser = participantName.includes('You') || 
+                                              (participant && participant.identity === room.localParticipant?.identity);
+                                              
+                                const senderName = isUser ? 'You (Voice)' : 'AI Assistant (Voice)';
+                                
+                                console.log('🎯 Adding transcript:', { 
+                                    sender: senderName, 
+                                    text: transcriptText, 
+                                    isTranscript,
+                                    topic 
+                                });
+                                
+                                // Add to chat with transcript styling
+                                appendChatMessage(senderName, transcriptText, {
+                                    role: isUser ? 'user' : 'agent',
+                                    time: new Date().toLocaleTimeString(),
+                                    isVoiceTranscript: true
+                                });
+                                
+                                // Add to transcript log
+                                addLog(transcriptText, isUser ? 'user' : 'agent');
+                                
+                                console.log('✅ Transcript added via DataReceived:', { 
+                                    sender: senderName, 
+                                    text: transcriptText.substring(0, 50) + '...' 
+                                });
+                            }
+                        }
+                    } catch (error) {
+                        console.error('❌ Error processing DataReceived:', error);
+                        // Don't show error messages in chat
+                    }
                 });
 
                 room.on(LivekitClient.RoomEvent.Disconnected, () => {
@@ -755,19 +1270,10 @@
                     cleanup();
                 });
 
-                room.on(LivekitClient.RoomEvent.DataReceived, (payload, participant) => {
-                    try {
-                        const data = JSON.parse(new TextDecoder().decode(payload));
-                        console.log('📨 Data received:', data);
-                    } catch (e) {
-                        console.error('Error parsing data:', e);
-                    }
-                });
-
                 await room.connect(data.url, data.token);
                 console.log('🔗 Room connected successfully');
 
-                // ✅ Enable microphone and monitor local audio
+                // Enable microphone and monitor local audio
                 await room.localParticipant.setMicrophoneEnabled(true, {
                     noiseSuppression: noiseSuppressionCheckbox.checked,
                     echoCancellation: echoCancellationCheckbox.checked,
@@ -785,54 +1291,56 @@
                     console.log('🎤 Microphone monitoring started');
                 }
 
-                console.log('🎤 Microphone enabled with settings:', {
-                    noiseSuppression: noiseSuppressionCheckbox.checked,
-                    echoCancellation: echoCancellationCheckbox.checked,
-                    autoGainControl: autoGainControlCheckbox.checked
-                });
+                // Optionally announce presence via data channel (inform others)
+                try {
+                    const joinMsg = { type: 'presence', text: 'joined', ts: Date.now(), identity: room.localParticipant.identity };
+                    const encoder = new TextEncoder();
+                    room.localParticipant.publishData(encoder.encode(JSON.stringify(joinMsg)), {
+                        reliable: true,
+                        destinationIdentities: [],
+                    });
+                } catch (e) {
+                    console.warn('presence publish failed', e);
+                }
 
             } catch (error) {
                 console.error('❌ Connection error:', error);
-                setStatus(`❌ Error: ${error.message}`, 'error');
+                setStatus(`❌ Error: ${error.message || error}`, 'error');
                 startBtn.disabled = false;
             }
         });
 
         endBtn.addEventListener('click', async () => {
-            if (room) {
-                await room.disconnect();
-            }
+            if (room) await room.disconnect();
             cleanup();
         });
 
         function cleanup() {
             if (room) {
-                room.disconnect();
+                try { room.disconnect(); } catch(e) { console.warn(e); }
                 room = null;
             }
-            
+
             isConnected = false;
             localAudioTrack = null;
             remoteAudioTrack = null;
-            
+
             startBtn.disabled = false;
             startBtn.style.display = 'block';
             endBtn.style.display = 'none';
             visualizer.classList.remove('active');
             noiseIndicator.classList.remove('active');
-            
+
             setStatus('Call ended', 'error');
-            
+
             // Keep latency data visible after call ends
             // Don't reset: latencyMonitor stays active to show results
-            
+
             document.querySelectorAll('audio').forEach(el => el.remove());
-            
+
             console.log('📊 Final latency stats:', {
                 measurements: latencyMetrics.measurements.length,
-                avg: latencyMetrics.measurements.length > 0 
-                    ? Math.round(latencyMetrics.measurements.reduce((a, b) => a + b, 0) / latencyMetrics.measurements.length)
-                    : 0
+                avg: latencyMetrics.measurements.length > 0 ? Math.round(latencyMetrics.measurements.reduce((a,b)=>a+b,0)/latencyMetrics.measurements.length) : 0
             });
         }
 
