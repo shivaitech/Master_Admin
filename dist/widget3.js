@@ -68,9 +68,14 @@
   let audioBufferingStarted = false;
   let minBufferChunks = 3;
   let audioStreamComplete = false;
-  
+  let isDisconnecting = false; // Track disconnect process to prevent multiple clicks
+  let aiJustFinished = false; // Track when AI just finished to prevent feedback
+
   // Mobile browser detection for fallbacks
-  const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+  const isMobile =
+    /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(
+      navigator.userAgent
+    );
   console.log("📱 Mobile browser detected:", isMobile);
   let ringAudio = null;
   let messageBubble = null;
@@ -107,6 +112,7 @@
   let statusDiv = null;
   let connectBtn = null;
   let messagesDiv = null;
+  let messageInputContainer = null; // Reference to message input interface
   let clearBtn = null;
   let muteBtn = null;
   let visualizerBars = null;
@@ -364,22 +370,61 @@
     const source = audioContext.createMediaStreamSource(mediaStream);
 
     source.connect(analyser);
-    analyser.fftSize = 256;
+    // Increase FFT size for better frequency resolution
+    analyser.fftSize = 2048;
+    // Adjust smoothing for more responsive detection
+    analyser.smoothingTimeConstant = 0.3;
 
     const bufferLength = analyser.frequencyBinCount;
     const dataArray = new Uint8Array(bufferLength);
 
-    const SPEECH_THRESHOLD = 30;
-    const SILENCE_DURATION = 800; // 800ms of silence = end of speech
+    // Higher threshold to prevent feedback detection and ensure user input only
+    const SPEECH_THRESHOLD = 60; // Increased from 45 to 60 for better feedback prevention
+    const SILENCE_DURATION = 500; // Increased from 400ms for more stable detection
     let silenceStart = null;
 
     function checkAudioLevel() {
       if (!isConnected || isMuted) return;
 
-      analyser.getByteFrequencyData(dataArray);
-      const average = dataArray.reduce((a, b) => a + b) / bufferLength;
+      // CRITICAL: Don't detect user speech if AI is currently speaking OR just finished
+      if (latencyMetrics.isAgentSpeaking || aiJustFinished) {
+        requestAnimationFrame(checkAudioLevel);
+        return;
+      }
 
-      if (average > SPEECH_THRESHOLD) {
+      analyser.getByteFrequencyData(dataArray);
+
+      // Use RMS (Root Mean Square) for better low-level detection
+      let sum = 0;
+      for (let i = 0; i < bufferLength; i++) {
+        sum += dataArray[i] * dataArray[i];
+      }
+      const rms = Math.sqrt(sum / bufferLength);
+
+      // Also calculate weighted average focusing on speech frequencies (300-3400 Hz)
+      const speechStart = Math.floor(
+        (300 / (audioContext.sampleRate / 2)) * bufferLength
+      );
+      const speechEnd = Math.floor(
+        (3400 / (audioContext.sampleRate / 2)) * bufferLength
+      );
+      let speechSum = 0;
+      let speechCount = 0;
+
+      for (let i = speechStart; i < Math.min(speechEnd, bufferLength); i++) {
+        speechSum += dataArray[i];
+        speechCount++;
+      }
+      const speechAverage = speechCount > 0 ? speechSum / speechCount : 0;
+
+      // Use the higher of RMS or speech-focused average
+      const audioLevel = Math.max(rms, speechAverage * 0.8);
+
+      console.log(
+        `🎤 Audio Level: ${audioLevel.toFixed(2)} (threshold: ${SPEECH_THRESHOLD})`
+      );
+
+      if (audioLevel > SPEECH_THRESHOLD) {
         // User is speaking
         if (!latencyMetrics.isSpeaking) {
           latencyMetrics.isSpeaking = true;
@@ -419,12 +464,16 @@
     const source = audioContext.createMediaStreamSource(mediaStream);
 
     source.connect(analyser);
-    analyser.fftSize = 256;
+    // Increase FFT size for better frequency resolution
+    analyser.fftSize = 2048;
+    // Adjust smoothing for more responsive detection
+    analyser.smoothingTimeConstant = 0.3;
 
     const bufferLength = analyser.frequencyBinCount;
     const dataArray = new Uint8Array(bufferLength);
 
-    const SPEECH_THRESHOLD = 20;
+    // Higher threshold for close proximity detection only
+    const SPEECH_THRESHOLD = 35; // Increased from 12 to 35 for close voices only
 
     function checkAudioLevel() {
       // Clear AI response timeout when agent starts speaking
@@ -436,9 +485,39 @@
       if (!isConnected) return;
 
       analyser.getByteFrequencyData(dataArray);
-      const average = dataArray.reduce((a, b) => a + b) / bufferLength;
 
-      if (average > SPEECH_THRESHOLD && !latencyMetrics.isAgentSpeaking) {
+      // Use peak detection for AI voice proximity
+      let peak = 0;
+      for (let i = 0; i < bufferLength; i++) {
+        if (dataArray[i] > peak) {
+          peak = dataArray[i];
+        }
+      }
+
+      // Focus on AI voice frequencies for close detection
+      const aiVoiceStart = Math.floor(
+        (800 / (audioContext.sampleRate / 2)) * bufferLength
+      );
+      const aiVoiceEnd = Math.floor(
+        (2000 / (audioContext.sampleRate / 2)) * bufferLength
+      );
+      let aiVoiceSum = 0;
+      let aiVoiceCount = 0;
+
+      for (let i = aiVoiceStart; i < Math.min(aiVoiceEnd, bufferLength); i++) {
+        aiVoiceSum += dataArray[i];
+        aiVoiceCount++;
+      }
+      const aiVoiceAverage = aiVoiceCount > 0 ? aiVoiceSum / aiVoiceCount : 0;
+
+      // Use weighted combination favoring peak levels
+      const audioLevel = peak * 0.7 + aiVoiceAverage * 0.3;
+
+      console.log(
+        `🤖 AI Audio Level: ${audioLevel.toFixed(2)} (threshold: ${SPEECH_THRESHOLD}, peak: ${peak})`
+      );
+
+      if (audioLevel > SPEECH_THRESHOLD && !latencyMetrics.isAgentSpeaking) {
         // Agent started responding
         latencyMetrics.isAgentSpeaking = true;
 
@@ -449,21 +528,28 @@
 
           // Stop connecting sound when AI first responds
           stopConnectingSound();
-          
+
           // Update status to show AI is now ready
           updateStatus("✅ Connected - Speak now!", "connected");
-          
-          // Unmute microphone after 3 seconds to let AI complete its greeting
-          setTimeout(async () => {
-            if (isConnected && room) {
+
+          // Unmute microphone immediately - no delay needed
+          if (isConnected && room) {
+            (async () => {
               try {
                 await room.localParticipant.setMicrophoneEnabled(true, {
-                  noiseSuppression: true,
+                  // Optimized for close voice pickup and feedback prevention
                   echoCancellation: true,
-                  autoGainControl: true,
+                  noiseSuppression: true,
+                  autoGainControl: false, // Prevent volume pumping
+                  suppressLocalAudioPlayback: true, // Critical for feedback prevention
+
+                  // High sensitivity settings
                   channelCount: 1,
                   sampleRate: 48000,
                   sampleSize: 16,
+                  volume: 0.7, // Reduced for close voice only
+                  latency: 0.05,
+                  facingMode: "user",
                 });
                 isMuted = false;
 
@@ -474,17 +560,19 @@
                 if (audioTracks.length > 0) {
                   localAudioTrack = audioTracks[0].track;
                   monitorLocalAudioLevel(localAudioTrack);
-                  console.log("🎤 Microphone monitoring started after unmute");
+                  console.log("🎤 Microphone monitoring started immediately");
                 }
 
-                console.log("🎤 Microphone auto-unmuted after AI greeting (3 seconds)");
+                console.log(
+                  "🎤 Microphone enabled immediately - ready for conversation"
+                );
                 updateStatus("🎤 You can speak now!", "connected");
               } catch (error) {
-                console.error("❌ Error unmuting microphone:", error);
+                console.error("❌ Error enabling microphone:", error);
               }
-            }
-          }, 3000);
-          
+            })();
+          }
+
           console.log(
             "🎉 First AI response - timer started, connecting sound stopped, mic will unmute in 3s"
           );
@@ -513,7 +601,18 @@
         latencyMetrics.isAgentSpeaking
       ) {
         latencyMetrics.isAgentSpeaking = false;
+        aiJustFinished = true; // Set flag to prevent immediate feedback detection
+
+        // Clear the flag after a delay to allow user input
+        setTimeout(() => {
+          aiJustFinished = false;
+          console.log(
+            "✅ User input detection re-enabled after AI buffer period"
+          );
+        }, 500); // 500ms buffer to prevent feedback
+
         updateStatus("🟢 Connected - Speak naturally!", "connected");
+        console.log("🤖 AI stopped speaking - buffer period started");
       }
 
       requestAnimationFrame(checkAudioLevel);
@@ -915,15 +1014,69 @@
       </div>
       </div>
       
-      <!-- Message Input Interface -->
-      <div class="message-input-container" style="display: flex !important; gap: 6px !important; padding: 12px 2px !important; border-radius: 7px !important; background: #ffffff !important;">
-        <input type="text" id="shivai-message-input" class="message-input" placeholder="Type a message..." style="width: 100% !important; height: 38px !important; border: 1px solid #d1d1d1 !important; padding: 6px 12px !important; border-radius: 6px !important; background: #f8f9fa !important; font-size: 14px !important; outline: none !important; box-sizing: border-box !important;" />
-        <button id="shivai-send-btn" class="send-btn" title="Send Message" style="padding: 12px !important; border: 1px solid #d1d1d1 !important; border-radius: 50% !important; color: #000 !important; cursor: pointer !important; display: flex !important; align-items: center !important; justify-content: center !important; min-width: 40px !important; height: 40px !important; flex-shrink: 0 !important;">
+      <!-- Simplified WhatsApp-style Message Input Interface -->
+      <div class="message-input-container" style="display: flex !important; align-items: center !important; gap: 12px !important; padding: 2px 4px !important; border-radius: 0px !important;">
+        
+        <!-- Attachment Button -->
+       
+
+        <!-- Message Input Field Container -->
+        <div class="input-field-container" style="flex: 1 !important; position: relative !important; display: flex !important; align-items: center !important; background: white !important; border-radius: 8px !important; border: 1px solid #e1e5ea !important; padding: 8px 16px !important; min-height: 30px  !important; max-height: 120px !important; height:36px !important;  ">
+           <div>
+
+        <button id="shivai-attach-btn" class="attach-btn" title="Coming soon..." style="  color: #ccc !important; cursor: not-allowed !important; margin-right: 12px !important; background: transparent !important; border: none !important; display: flex !important; align-items: center !important; justify-content: center !important; padding: 0 !important; opacity: 0.5 !important;" disabled>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M22 2L11 13"></path>
-            <path d="M22 2L15 22L11 13L2 9L22 2Z"></path>
+            <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"></path>
           </svg>
         </button>
+        
+        <!-- Hidden file inputs -->
+        <input type="file" id="shivai-file-input" accept="image/*,video/*,.pdf,.doc,.docx,.txt" style="display: none !important;" multiple>
+        <input type="file" id="shivai-image-input" accept="image/*" style="display: none !important;" multiple>
+        
+        </div>
+
+          <!-- Input Field -->
+          <input type="text" id="shivai-message-input" class="message-input" placeholder="Type a message..." style="flex: 1 !important; border: none !important; outline: none !important; background: transparent !important; font-size: 12px !important; line-height: 20px !important; color: #111b21 !important; font-family: inherit !important; padding: 4px 0 !important;" />
+          
+          <!-- Send Button (Hidden initially, shows when typing) -->
+          <button id="shivai-send-btn" class="send-btn" title="Send Message" style="display: none;">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M22 2L11 13"></path>
+              <path d="M22 2L15 22L11 13L2 9L22 2Z"></path>
+            </svg>
+          </button>
+        </div>
+        
+      </div>
+      
+      <!-- Simplified Attachment Menu Popup -->
+      <div id="shivai-attachment-menu" class="attachment-menu" style="position: absolute !important; bottom: 70px !important; left: 16px !important; background: white !important; border-radius: 12px !important; box-shadow: 0 4px 12px rgba(0,0,0,0.15) !important; padding: 8px !important; display: none !important; z-index: 1000 !important; min-width: 180px !important;">
+        
+        <div class="attachment-option" id="shivai-attach-image" style="display: flex !important; align-items: center !important; padding: 12px !important; cursor: pointer !important; border-radius: 8px !important; transition: background 0.2s ease !important;">
+          <div style="width: 36px !important; height: 36px !important; border-radius: 50% !important; background: #7c3aed !important; display: flex !important; align-items: center !important; justify-content: center !important; margin-right: 12px !important;">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="white" stroke="white" stroke-width="2">
+              <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+              <circle cx="9" cy="9" r="2"></circle>
+              <path d="M21 15l-3.086-3.086a2 2 0 0 0-2.828 0L6 21"></path>
+            </svg>
+          </div>
+          <span style="font-size: 14px !important; color: #111b21 !important; font-weight: 500 !important;">Photos & Videos</span>
+        </div>
+        
+        <div class="attachment-option" id="shivai-attach-document" style="display: flex !important; align-items: center !important; padding: 12px !important; cursor: pointer !important; border-radius: 8px !important; transition: background 0.2s ease !important;">
+          <div style="width: 36px !important; height: 36px !important; border-radius: 50% !important; background: #0ea5e9 !important; display: flex !important; align-items: center !important; justify-content: center !important; margin-right: 12px !important;">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="white" stroke="white" stroke-width="2">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+              <polyline points="14,2 14,8 20,8"></polyline>
+              <line x1="16" y1="13" x2="8" y2="13"></line>
+              <line x1="16" y1="17" x2="8" y2="17"></line>
+              <polyline points="10,9 9,9 8,9"></polyline>
+            </svg>
+          </div>
+          <span style="font-size: 14px !important; color: #111b21 !important; font-weight: 500 !important;">Documents</span>
+        </div>
+        
       </div>
       
       <div class="controls">
@@ -974,11 +1127,21 @@
     statusDiv = document.getElementById("shivai-status");
     connectBtn = document.getElementById("shivai-connect");
     messagesDiv = document.getElementById("shivai-messages");
+    messageInputContainer = document.querySelector(".message-input-container");
     clearBtn = document.getElementById("shivai-clear");
     muteBtn = document.getElementById("shivai-mute");
     visualizerBars = document.querySelectorAll(".visualizer-bar");
     languageSelect = document.getElementById("shivai-language");
     callTimerElement = document.getElementById("call-timer");
+
+    // Use setTimeout to ensure DOM is fully loaded
+    setTimeout(() => {
+      messageInputContainer = document.querySelector(
+        ".message-input-container"
+      );
+      // Hide message interface initially (when not connected)
+      hideMessageInterface();
+    }, 100);
 
     setDefaultLanguage();
   }
@@ -1024,6 +1187,78 @@
       );
     }
   }
+
+  // Functions to show/hide message interface based on connection state
+  function showMessageInterface() {
+    console.log("🔍 Attempting to show message interface...");
+
+    // Try multiple ways to find the message interface
+    const container =
+      messageInputContainer ||
+      document.querySelector(".message-input-container");
+
+    if (container) {
+      console.log("📝 Container found, removing hidden class");
+      container.classList.remove("hidden");
+
+      // Clear any inline styles that might be hiding it
+      container.style.display = "";
+      container.style.visibility = "";
+      container.style.opacity = "";
+
+      // Reset input field and hide send button initially
+      const messageInput = document.getElementById("shivai-message-input");
+      const sendBtn = document.getElementById("shivai-send-btn");
+
+      if (messageInput) {
+        messageInput.value = ""; // Clear any existing text
+      }
+      if (sendBtn) {
+        sendBtn.style.setProperty('display', 'none', 'important'); // Hide send button initially
+        sendBtn.style.setProperty('visibility', 'hidden', 'important');
+      }
+
+      console.log("📝 Message interface shown - classes:", container.className);
+    } else {
+      console.warn("⚠️ Message input container not found when showing");
+    }
+  }
+
+  function hideMessageInterface() {
+    console.log("🔍 Attempting to hide message interface...");
+
+    // Try multiple ways to find the message interface
+    const container =
+      messageInputContainer ||
+      document.querySelector(".message-input-container");
+
+    if (container) {
+      console.log("📝 Container found, adding hidden class");
+      container.classList.add("hidden");
+
+      // Also force with inline style as backup
+      container.style.display = "none";
+      container.style.visibility = "hidden";
+      container.style.opacity = "0";
+
+      console.log(
+        "📝 Message interface hidden - classes:",
+        container.className
+      );
+    } else {
+      console.warn("⚠️ Message input container not found when hiding");
+    }
+
+    // Also hide by ID as additional backup
+    const containerById = document.querySelector(
+      '[class*="message-input-container"]'
+    );
+    if (containerById) {
+      containerById.style.display = "none";
+      console.log("📝 Backup hiding by attribute selector applied");
+    }
+  }
+
   function createLiveMessageBubble() {
     messageBubble = document.createElement("div");
     messageBubble.className = "shivai-message-bubble";
@@ -2260,7 +2495,7 @@
         width: calc(100vw - 24px);
         right: 12px;
         bottom: 3%;
-        max-height: 450px;
+        // max-height: 450px;
       }
       .widget-header {
         padding: 16px 12px 20px;
@@ -2295,36 +2530,67 @@
         cursor: pointer;
       }
       
-      /* Message Input Interface Styles */
+      /* Simplified WhatsApp-style Message Input Interface Styles */
       .shivai-widget .message-input-container {
         display: flex !important;
-        gap: 25px !important;
-        padding: 12px 16px !important;
-        border-radius: 7px !important;
-        background: #ffffff !important;
-        box-shadow: 0 -2px 4px rgba(0, 0, 0, 0.05) !important;
+        align-items: center !important;
+        gap: 12px !important;
+        padding: 8px 16px !important;
+      }
+      
+      /* Override to hide message interface when not connected */
+      .shivai-widget .message-input-container.hidden,
+      .shivai-widget.message-input-container.hidden {
+        display: none !important;
+        opacity: 0 !important;
+        pointer-events: none !important;
+      }
+      
+      .shivai-widget .attach-btn:hover {
+        background: #008069 !important;
+        transform: scale(1.05) !important;
+      }
+
+      .shivai-widget .send-btn:hover {
+        background: #008069 !important;
+        transform: scale(1.05) !important;
+      }
+
+      .shivai-widget .input-field-container:focus-within {
+        border-color: #00a884 !important;
+        box-shadow: 0 0 0 2px rgba(0, 168, 132, 0.1) !important;
       }
       
       .shivai-widget .message-input {
-        width: 100% !important;
-        height: 36px !important;
-        border: 1px solid #d1d1d1 !important;
-        padding: 6px !important;
-        border-radius: 8px !important;
-        background: #f8f9fa !important;
-        font-size: 14px !important;
-        outline: none !important;
-        transition: all 0.3s ease !important;
-        font-family: inherit !important;
-        resize: none !important;
-        line-height: 1.4 !important;
-        box-sizing: border-box !important;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif !important;
+      }
+      
+      .shivai-widget .message-input::placeholder {
+        color: #8696a0 !important;
+        font-size: 12px !important;
+      }
+
+      .shivai-widget .attachment-menu {
+        animation: slideUpFade 0.2s ease-out !important;
+      }
+
+      @keyframes slideUpFade {
+        from {
+          opacity: 0;
+          transform: translateY(10px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+      .shivai-widget .attachment-option:hover {
+        background: #f5f6f6 !important;
       }
       
       .shivai-widget .message-input:focus {
-        border-color: #3b82f6;
         background: #ffffff;
-        box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
         transform: translateY(-1px);
       }
       
@@ -2334,37 +2600,31 @@
       }
       
       .shivai-widget .send-btn {
-        padding: 12px;
-        border: none;
-        border-radius: 50%;
-        color: white;
-        cursor: pointer;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        transition: all 0.3s ease;
-        min-width: 40px;
-        height: 38px;
-        box-shadow: 0 3px 10px rgba(59, 130, 246, 0.3);
-        flex-shrink: 0;
+        padding: 8px !important;
+        border: none !important;
+        background: transparent !important;
+        color: #666 !important;
+        cursor: pointer !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        min-width: 32px !important;
+        height: 32px !important;
+        flex-shrink: 0 !important;
+        transition: color 0.2s ease !important;
       }
       
       .shivai-widget .send-btn:hover {
-        background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
-        transform: translateY(-2px);
-        box-shadow: 0 6px 16px rgba(59, 130, 246, 0.4);
+        color: #333 !important;
       }
       
       .shivai-widget .send-btn:active {
-        transform: translateY(-1px);
-        box-shadow: 0 3px 8px rgba(59, 130, 246, 0.3);
+        color: #000 !important;
       }
       
       .shivai-widget .send-btn:disabled {
-        background: #d1d5db;
-        cursor: not-allowed;
-        transform: none;
-        box-shadow: none;
+        color: #ccc !important;
+        cursor: not-allowed !important;
       }
       
       .shivai-widget .send-btn svg {
@@ -2421,23 +2681,177 @@
       }
     });
 
-    // Message input event listeners
+    // Simplified message input event listeners
     const messageInput = document.getElementById("shivai-message-input");
     const sendBtn = document.getElementById("shivai-send-btn");
+    const attachBtn = document.getElementById("shivai-attach-btn");
+    const attachmentMenu = document.getElementById("shivai-attachment-menu");
+    const fileInput = document.getElementById("shivai-file-input");
+    const imageInput = document.getElementById("shivai-image-input");
 
     if (messageInput && sendBtn) {
+      // Show send button only when user types text
+      messageInput.addEventListener("input", () => {
+        const hasText = messageInput.value.trim().length > 0;
+        if (sendBtn) {
+          // Use important styles to override any CSS conflicts on mobile
+          if (hasText) {
+            sendBtn.style.setProperty('display', 'flex', 'important');
+            sendBtn.style.setProperty('visibility', 'visible', 'important');
+          } else {
+            sendBtn.style.setProperty('display', 'none', 'important');
+            sendBtn.style.setProperty('visibility', 'hidden', 'important');
+          }
+        }
+      });
+
       // Send message on Enter key
       messageInput.addEventListener("keypress", (e) => {
         if (e.key === "Enter" && !e.shiftKey) {
           e.preventDefault();
-          sendMessage();
+          if (messageInput.value.trim().length > 0) {
+            sendMessage();
+            // Clear input and hide send button after sending
+            messageInput.value = "";
+            if (sendBtn) {
+              sendBtn.style.setProperty('display', 'none', 'important');
+              sendBtn.style.setProperty('visibility', 'hidden', 'important');
+            }
+          }
         }
       });
 
-      // Send message on button click
-      sendBtn.addEventListener("click", sendMessage);
+      // Send button click
+      sendBtn.addEventListener("click", () => {
+        if (messageInput.value.trim().length > 0) {
+          sendMessage();
+          // Clear input and hide send button after sending
+          messageInput.value = "";
+          sendBtn.style.setProperty('display', 'none', 'important');
+          sendBtn.style.setProperty('visibility', 'hidden', 'important');
+        }
+      });
+
+      // Attachment button functionality
+      if (attachBtn && attachmentMenu) {
+        attachBtn.addEventListener("click", (e) => {
+          e.stopPropagation();
+          const isVisible = attachmentMenu.style.display === "block";
+          attachmentMenu.style.display = isVisible ? "none" : "block";
+        });
+
+        // Close attachment menu when clicking outside
+        document.addEventListener("click", (e) => {
+          if (
+            !attachBtn.contains(e.target) &&
+            !attachmentMenu.contains(e.target)
+          ) {
+            attachmentMenu.style.display = "none";
+          }
+        });
+
+        // Attachment options
+        const attachImage = document.getElementById("shivai-attach-image");
+        const attachDocument = document.getElementById(
+          "shivai-attach-document"
+        );
+
+        if (attachImage && imageInput) {
+          attachImage.addEventListener("click", () => {
+            imageInput.click();
+            attachmentMenu.style.display = "none";
+          });
+        }
+
+        if (attachDocument && fileInput) {
+          attachDocument.addEventListener("click", () => {
+            fileInput.click();
+            attachmentMenu.style.display = "none";
+          });
+        }
+
+        // File input handlers
+        if (fileInput) {
+          fileInput.addEventListener("change", (e) => {
+            const files = Array.from(e.target.files);
+            handleFileUpload(files, "document");
+          });
+        }
+
+        if (imageInput) {
+          imageInput.addEventListener("change", (e) => {
+            const files = Array.from(e.target.files);
+            handleFileUpload(files, "image");
+          });
+        }
+      }
     }
   }
+
+  // Handle file uploads (images and documents)
+  function handleFileUpload(files, type) {
+    if (!files || files.length === 0) return;
+
+    files.forEach((file) => {
+      const maxSize = 10 * 1024 * 1024; // 10MB limit
+
+      if (file.size > maxSize) {
+        alert(`File "${file.name}" is too large. Maximum size is 10MB.`);
+        return;
+      }
+
+      // Create preview for images
+      if (type === "image" && file.type.startsWith("image/")) {
+        const reader = new FileReader();
+        reader.onload = function (e) {
+          const imagePreview = `
+            <div style="margin: 8px 0; max-width: 200px;">
+              <img src="${e.target.result}" alt="${file.name}" style="max-width: 100%; height: auto; border-radius: 8px; cursor: pointer;" onclick="window.open('${e.target.result}', '_blank')">
+              <p style="font-size: 12px; color: #8696a0; margin: 4px 0;">${file.name} (${(file.size / 1024).toFixed(1)} KB)</p>
+            </div>
+          `;
+          addMessage("user", imagePreview, "image");
+        };
+        reader.readAsDataURL(file);
+      } else {
+        // Handle documents and other files
+        const fileIcon = getFileIcon(file.type);
+        const fileMessage = `
+          <div style="display: flex; align-items: center; padding: 12px; border: 1px solid #e1e5ea; border-radius: 8px; background: #f8f9fa; margin: 8px 0; max-width: 300px;">
+            <div style="margin-right: 12px; font-size: 24px;">${fileIcon}</div>
+            <div style="flex: 1;">
+              <div style="font-weight: 500; color: #111b21; font-size: 14px;">${file.name}</div>
+              <div style="font-size: 12px; color: #8696a0;">${(file.size / 1024).toFixed(1)} KB • ${file.type || "Unknown type"}</div>
+            </div>
+          </div>
+        `;
+        addMessage("user", fileMessage, "document");
+      }
+    });
+
+    // Clear the file input
+    if (type === "image") {
+      document.getElementById("shivai-image-input").value = "";
+    } else {
+      document.getElementById("shivai-file-input").value = "";
+    }
+  }
+
+  // Get appropriate icon for file type
+  function getFileIcon(fileType) {
+    if (fileType.includes("pdf")) return "📄";
+    if (fileType.includes("word") || fileType.includes("document")) return "📝";
+    if (fileType.includes("text")) return "📃";
+    if (fileType.includes("spreadsheet") || fileType.includes("excel"))
+      return "📊";
+    if (fileType.includes("presentation") || fileType.includes("powerpoint"))
+      return "📽️";
+    if (fileType.includes("video")) return "🎥";
+    if (fileType.includes("audio")) return "🎵";
+    if (fileType.includes("zip") || fileType.includes("rar")) return "🗜️";
+    return "📎";
+  }
+
   function switchToCallView() {
     currentView = "call";
     landingView.style.display = "none";
@@ -2581,7 +2995,15 @@
   async function handleConnectClick(e) {
     if (e) {
       e.stopPropagation();
+      e.preventDefault(); // Prevent any default behavior
     }
+
+    // Prevent multiple rapid clicks
+    if (isDisconnecting) {
+      console.log("🚫 Disconnect already in progress - ignoring click");
+      return;
+    }
+
     if (isIOS()) {
       try {
         if (soundContext && soundContext.state === "suspended") {
@@ -2591,7 +3013,6 @@
           const buffer = soundContext.createBuffer(1, 1, 22050);
           const source = soundContext.createBufferSource();
           source.buffer = buffer;
-          // source.connect(soundContext.destination);
           source.start();
         }
       } catch (e) {
@@ -2599,58 +3020,168 @@
       }
     }
 
-    if (isConnecting) {
-      return;
-    }
-    if (isConnected) {
-      console.log("🔴 Immediate hang up requested");
-      isConnected = false;
+    // Handle disconnect for any connected or connecting state
+    if (isConnecting || isConnected) {
+      console.log("🔴 Disconnect requested - current state:", {
+        isConnecting,
+        isConnected,
+      });
+
+      // Set disconnect flag to prevent multiple clicks
+      isDisconnecting = true;
+      connectBtn.disabled = true;
+
+      // Immediately set all flags to stop all processes
       isConnecting = false;
-      stopRingSound(); // Stop ring sound when hanging up
-      stopConnectingSound(); // Stop connecting sound when hanging up
+      isConnected = false;
+      hasReceivedFirstAIResponse = false;
+      shouldAutoUnmute = false;
+      aiJustFinished = false;
+
+      // Hide message interface immediately
+      hideMessageInterface();
+
+      // Clear all timeouts and intervals immediately
+      if (connectionTimeout) {
+        clearTimeout(connectionTimeout);
+        connectionTimeout = null;
+      }
+      if (aiResponseTimeout) {
+        clearTimeout(aiResponseTimeout);
+        aiResponseTimeout = null;
+      }
+
+      // Stop all audio processes
+      stopRingSound();
+      stopConnectingSound();
+      stopAllScheduledAudio();
+
+      // Clear UI state
       clearLoadingStatus();
       stopCallTimer();
+
+      // Close WebSocket if exists
       if (ws) {
         console.log("🔌 Closing WebSocket immediately");
-        ws.close();
+        try {
+          ws.close();
+        } catch (err) {
+          console.warn("Error closing WebSocket:", err);
+        }
         ws = null;
       }
-      stopAllScheduledAudio();
-      updateStatus("Disconnecting...", "connecting");
-      connectBtn.disabled = true;
-      stopConversation().finally(() => {
-        connectBtn.disabled = false;
-        console.log("✅ Hang up completed");
+
+      // Update UI to disconnected state IMMEDIATELY
+      updateStatus("Disconnected", "disconnected");
+      connectBtn.innerHTML =
+        '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path></svg>';
+      connectBtn.classList.remove("connected");
+      connectBtn.title = "Start Call";
+
+      // Reset microphone state
+      if (muteBtn) {
+        muteBtn.style.display = "none";
+        muteBtn.classList.remove("muted");
+        isMuted = false;
+      }
+
+      // Re-enable language selector
+      if (languageSelect) {
+        languageSelect.disabled = false;
+      }
+
+      // Close LiveKit room AFTER UI is updated (async in background)
+      if (room) {
+        room
+          .disconnect()
+          .then(() => {
+            console.log("🚪 LiveKit room disconnected");
+            room = null;
+          })
+          .catch((err) => {
+            console.warn("Error disconnecting LiveKit room:", err);
+            room = null;
+          });
+      }
+
+      // Call stopConversation for cleanup (async in background)
+      stopConversation().catch((err) => {
+        console.warn("Error in stopConversation:", err);
       });
+
+      // Clear disconnect flag and re-enable button IMMEDIATELY
+      setTimeout(() => {
+        isDisconnecting = false;
+        connectBtn.disabled = false;
+        console.log("✅ Immediate disconnect completed");
+      }, 100); // Reduced from 500ms to 100ms for faster reconnection
+
       return;
-    } else {
+    }
+    // Start new connection only if not currently connected or connecting
+    if (!isConnecting && !isConnected && !isDisconnecting) {
+      console.log("🔵 Starting new connection");
       isConnecting = true;
       connectBtn.disabled = true;
-      playSound("ring"); // Start playing ring sound during loading
+      playSound("ring");
+
       try {
         connectBtn.innerHTML =
           '<svg width="26" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z" transform="rotate(135 12 12)"></path></svg>';
         connectBtn.classList.add("connected");
         connectBtn.title = "Hang Up";
+
         await startConversation();
+
+        // Check if connection was cancelled during startConversation
+        if (!isConnecting) {
+          console.log("⚠️ Connection was cancelled during startup");
+          return;
+        }
+
         connectBtn.disabled = false;
         isConnecting = false;
       } catch (error) {
         console.error("Failed to start conversation:", error);
-        stopRingSound(); // Stop ring sound on error
-        stopConnectingSound(); // Stop connecting sound on error
+
+        // Complete cleanup on connection failure
+        stopRingSound();
+        stopConnectingSound();
         isConnected = false;
         isConnecting = false;
+        isDisconnecting = false; // Reset disconnect flag
         hasReceivedFirstAIResponse = false;
         shouldAutoUnmute = false;
+        aiJustFinished = false;
+
+        // Hide message interface on connection failure
+        hideMessageInterface();
+        
+        // Clear all timeouts
+        if (connectionTimeout) {
+          clearTimeout(connectionTimeout);
+          connectionTimeout = null;
+        }
+        if (aiResponseTimeout) {
+          clearTimeout(aiResponseTimeout);
+          aiResponseTimeout = null;
+        }
+        
         clearLoadingStatus();
         stopCallTimer();
-        updateStatus("❌ Failed to connect", "disconnected");
+
+        // Reset button state for reconnection
         connectBtn.innerHTML =
           '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path></svg>';
         connectBtn.classList.remove("connected");
         connectBtn.title = "Start Call";
-        connectBtn.disabled = false;
+        connectBtn.disabled = false; // Ensure button is enabled for reconnection
+        
+        updateStatus(
+          "❌ Failed to connect - Click to retry",
+          "disconnected"
+        );
+        
         if (muteBtn) {
           muteBtn.style.display = "none";
           muteBtn.classList.remove("muted");
@@ -2689,12 +3220,18 @@
       room.localParticipant.setMicrophoneEnabled(false);
     } else {
       room.localParticipant.setMicrophoneEnabled(true, {
-        noiseSuppression: true,
+        // Consistent settings for unmuting
         echoCancellation: true,
-        autoGainControl: true,
+        noiseSuppression: true,
+        autoGainControl: false, // Keep disabled for consistency
+        suppressLocalAudioPlayback: true, // Prevent feedback
+
         channelCount: 1,
         sampleRate: 48000,
         sampleSize: 16,
+        volume: 0.7, // Reduced for close voice only
+        latency: 0.05,
+        facingMode: "user",
       });
     }
 
@@ -2747,8 +3284,8 @@
     updateCallTimer();
     console.log("⏱️ Call timer started");
 
-    // DO NOT auto-unmute here - wait for AI first response + 3 seconds
-    console.log("🎤 Microphone will be unmuted after AI's first response + 3 seconds");
+    // Microphone is always enabled
+    console.log("🎤 Microphone is enabled and ready for conversation");
   }
   function stopCallTimer() {
     if (callTimerInterval) {
@@ -2954,39 +3491,165 @@
 
   async function startConversation() {
     try {
+      // Check if connection was cancelled before starting
+      if (!isConnecting) {
+        console.log("❌ Connection cancelled before start");
+        return;
+      }
+
       // 🎤 Request microphone permission FIRST before anything else
       console.log("🎤 Requesting microphone permission...");
+      console.log("📍 Browser:", navigator.userAgent);
+      console.log("📍 Secure context:", window.isSecureContext);
+      console.log("📍 MediaDevices available:", !!navigator.mediaDevices);
+      console.log(
+        "📍 getUserMedia available:",
+        !!navigator.mediaDevices?.getUserMedia
+      );
+
+      // Check if we're in a secure context (HTTPS)
+      if (!window.isSecureContext) {
+        console.error(
+          "❌ Not in secure context - HTTPS required for microphone access"
+        );
+        alert(
+          "Microphone access requires HTTPS. Please access this page using HTTPS."
+        );
+        return;
+      }
+
+      // Check if mediaDevices API is available
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        console.error("❌ MediaDevices API not available");
+        alert(
+          "Microphone API is not available in your browser. Please use a modern browser with HTTPS."
+        );
+        return;
+      }
+
+      // Check current permission state first
       try {
-        const stream = await navigator.mediaDevices.getUserMedia({ 
+        const permissionStatus = await navigator.permissions.query({
+          name: "microphone",
+        });
+        console.log(
+          "📍 Current microphone permission state:",
+          permissionStatus.state
+        );
+
+        // Check if connection was cancelled during permission check
+        if (!isConnecting) {
+          console.log("❌ Connection cancelled during permission check");
+          return;
+        }
+
+        if (permissionStatus.state === "denied") {
+          alert(
+            "Microphone access was previously denied. Please click the microphone icon in your browser's address bar to reset permissions, then try again."
+          );
+          return;
+        }
+      } catch (permError) {
+        console.warn("⚠️ Could not check permission state:", permError);
+      }
+
+      // Show status to user that permission is being requested
+      updateStatus("🎤 Please allow microphone access...", "connecting");
+
+      // Check if connection was cancelled before requesting mic access
+      if (!isConnecting) {
+        console.log("❌ Connection cancelled before requesting microphone");
+        return;
+      }
+
+      try {
+        console.log("📍 About to request getUserMedia...");
+        const stream = await navigator.mediaDevices.getUserMedia({
           audio: {
-            noiseSuppression: true,
+            // Optimized for close voice and feedback prevention
             echoCancellation: true,
-            autoGainControl: false,
+            noiseSuppression: true,
+            autoGainControl: false, // Disable AGC to prevent pumping
+
+            // High quality capture
             channelCount: 1,
             sampleRate: 48000,
-            sampleSize: 16
-          } 
+            sampleSize: 16,
+
+            // Additional constraints for close proximity detection
+            volume: 0.6, // Reduced input level for close voices only
+            latency: 0.05, // Low latency
+            facingMode: "user", // Use front-facing mic
+
+            // Advanced constraints for sensitivity
+            googEchoCancellation: true, // Google-specific echo cancellation
+            googAutoGainControl: false, // Disable Google AGC
+            googNoiseSuppression: true, // Google noise suppression
+            googHighpassFilter: true, // Remove low-frequency noise
+            googAudioMirroring: false, // Disable audio mirroring
+          },
         });
         console.log("✅ Microphone permission granted");
-        
+        console.log("📍 Stream tracks:", stream.getTracks().length);
+        updateStatus("✅ Microphone access granted", "connecting");
+
         // Stop the stream immediately - LiveKit will create its own
-        stream.getTracks().forEach(track => track.stop());
+        stream.getTracks().forEach((track) => track.stop());
       } catch (micError) {
         console.error("❌ Microphone permission denied:", micError);
-        alert("Microphone access is required for voice calls. Please allow microphone access and try again.");
+        console.error("📍 Error details:", {
+          name: micError.name,
+          message: micError.message,
+          stack: micError.stack,
+        });
+        updateStatus("❌ Microphone access denied", "disconnected");
+
+        // More detailed error handling
+        if (micError.name === "NotAllowedError") {
+          alert(
+            "Microphone access was denied. Please click the microphone icon in your browser's address bar to allow access, then try again."
+          );
+        } else if (micError.name === "NotFoundError") {
+          alert(
+            "No microphone found. Please connect a microphone and try again."
+          );
+        } else if (micError.name === "NotSupportedError") {
+          alert(
+            "Microphone access is not supported by your browser. Please use a modern browser."
+          );
+        } else {
+          alert(
+            `Microphone access error: ${micError.message}. Please check your browser settings and try again.`
+          );
+        }
         return; // Exit early if microphone permission denied
       }
 
+      // Check if connection was cancelled after microphone permission
+      if (!isConnecting) {
+        console.log("❌ Connection cancelled after microphone permission");
+        return;
+      }
+
       hasReceivedFirstAIResponse = false;
-      audioStreamComplete = false;      // Clear any existing timeouts
+      audioStreamComplete = false; // Clear any existing timeouts
       if (connectionTimeout) clearTimeout(connectionTimeout);
       if (aiResponseTimeout) clearTimeout(aiResponseTimeout);
+
+      // Check if connection was cancelled before setting timeout
+      if (!isConnecting) {
+        console.log("❌ Connection cancelled before setting timeout");
+        return;
+      }
 
       // Set connection timeout
       connectionTimeout = setTimeout(() => {
         if (!isConnected) {
           console.error("❌ Connection timeout - AI server not responding");
-          updateStatus("⚠️ Connection timeout - Please try again", "disconnected");
+          updateStatus(
+            "⚠️ Connection timeout - Please try again",
+            "disconnected"
+          );
           alert("Connection timeout. Please start a new call.");
           stopConversation();
         }
@@ -2997,27 +3660,74 @@
         ? "mobile"
         : "desktop";
 
-      // Optimized audio configuration for better voice quality
+      // Optimized audio configuration for feedback prevention and user input
       const audioConfig = {
-        noiseSuppression: true,
-        echoCancellation: true,
-        autoGainControl: true,  // Enable for better volume control
+        // Enhanced feedback prevention
+        echoCancellation: true, // Critical for feedback prevention
+        noiseSuppression: true, // Remove background noise
+        autoGainControl: true, // Enable AGC for stable levels
+
+        // Advanced feedback prevention options
+        suppressLocalAudioPlayback: true, // Prevent local audio feedback
+
+        // Constraints for user input detection
         channelCount: 1,
         sampleRate: 48000,
         sampleSize: 16,
-        volume: 1.0,  // Ensure full volume
-        latency: 0.1,  // Low latency for real-time
+
+        // Optimized volume for feedback prevention
+        volume: 0.5, // Lower volume to prevent feedback
+        latency: 0.1, // Slightly higher latency for stability
+
+        // Device constraints
+        facingMode: "user",
+        deviceId: "default",
+
+        // Browser-specific feedback prevention
+        googEchoCancellation: true,
+        googAutoGainControl: true, // Enable for feedback prevention
+        googNoiseSuppression: true,
+        googHighpassFilter: true, // Remove low frequencies that cause feedback
+        googAudioMirroring: false,
+
+        // Additional experimental options for feedback prevention
+        googBeamforming: false, // Disable to prevent feedback amplification
+        googArrayGeometry: false, // Disable array processing
+        mozAutoGainControl: true, // Firefox feedback prevention
+        mozNoiseSuppression: true,
       };
 
-      // Check LiveKit support
+      // Check LiveKit support - load if not available
       if (typeof LivekitClient === "undefined") {
-        console.error("❌ LiveKit client library not loaded");
-        updateStatus("❌ LiveKit not available", "disconnected");
-        alert("LiveKit library is not loaded. Please refresh the page.");
-        throw new Error("LiveKit not available");
+        console.log("📦 LiveKit not loaded, loading now...");
+        updateStatus("Loading LiveKit...", "connecting");
+        
+        try {
+          await loadLiveKitSDK();
+          console.log("✅ LiveKit loaded successfully");
+        } catch (error) {
+          console.error("❌ Failed to load LiveKit SDK:", error);
+          updateStatus("❌ Failed to load audio library", "disconnected");
+          alert("Failed to load audio library. Please refresh the page and try again.");
+          throw new Error("LiveKit failed to load");
+        }
+        
+        // Check again after loading
+        if (typeof LivekitClient === "undefined") {
+          console.error("❌ LiveKit still not available after loading");
+          updateStatus("❌ Audio library not available", "disconnected");
+          alert("Audio library could not be loaded. Please refresh the page.");
+          throw new Error("LiveKit not available");
+        }
       }
 
       updateStatus("Connecting...", "connecting");
+
+      // Check if connection was cancelled before token request
+      if (!isConnecting) {
+        console.log("❌ Connection cancelled before token request");
+        return;
+      }
 
       // Get LiveKit token from backend
       const callId = `call_${Date.now()}`;
@@ -3043,31 +3753,47 @@
       }
 
       const data = await response.json();
-        console.log("✅ [LiveKit] Token received");
+      console.log("✅ [LiveKit] Token received");
 
-        // Handle any pending audio elements (for autoplay policy)
-        if (window.pendingAudioElement) {
-          window.pendingAudioElement.play().catch(err => 
-            console.warn("⚠️ Still cannot play audio:", err)
-          );
-          window.pendingAudioElement = null;
-        }
+      // Check if connection was cancelled after getting token
+      if (!isConnecting) {
+        console.log("❌ Connection cancelled after token received");
+        return;
+      }
 
-     
+      // Handle any pending audio elements (for autoplay policy)
+      if (window.pendingAudioElement) {
+        window.pendingAudioElement
+          .play()
+          .catch((err) => console.warn("⚠️ Still cannot play audio:", err));
+        window.pendingAudioElement = null;
+      }
 
-      // Create LiveKit room with optimized configuration
+      // Create LiveKit room with enhanced feedback prevention
       room = new LivekitClient.Room({
         adaptiveStream: true,
         dynacast: true,
-        audioCaptureDefaults: audioConfig,
-        // Add performance optimizations
+        audioCaptureDefaults: {
+          ...audioConfig,
+          // Enhanced LiveKit feedback prevention
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true, // Enable for feedback prevention
+          suppressLocalAudioPlayback: true, // Critical for feedback prevention
+        },
+        // Performance optimizations for feedback prevention
         reconnectPolicy: {
-          nextRetryDelayInMs: () => 1000,  // Quick reconnect
+          nextRetryDelayInMs: () => 2000, // Slower reconnect to prevent issues
         },
         publishDefaults: {
-          audioPreset: LivekitClient.AudioPresets.music,  // Better audio quality
-          dtx: false,  // Disable discontinuous transmission for smoother audio
-        }
+          audioPreset: LivekitClient.AudioPresets.speech, // Better for voice with feedback prevention
+          dtx: true, // Enable discontinuous transmission
+          red: false, // Disable redundancy for clarity
+          simulcast: false, // Disable simulcast for voice calls
+        },
+        // Room options for feedback prevention
+        e2eeEnabled: false,
+        expWebAudioMix: false, // Disable experimental mixing that can cause feedback
       });
 
       // ✅ Track remote audio (agent speaking) with optimized settings
@@ -3075,33 +3801,45 @@
         LivekitClient.RoomEvent.TrackSubscribed,
         (track, publication, participant) => {
           if (track.kind === LivekitClient.Track.Kind.Audio) {
-            // Use audio element with enhanced settings
+            // Use audio element with feedback prevention settings
             const audioElement = track.attach();
-            audioElement.volume = 1.0;
-            audioElement.preload = 'auto';
+            audioElement.volume = 0.4; // Significantly reduced to prevent feedback
+            audioElement.preload = "auto";
             audioElement.autoplay = true;
-            
-            // Add audio enhancements
-            if (audioElement.webkitAudioDecodedByteCount !== undefined) {
-              audioElement.webkitPreservesPitch = false;  // Better quality
+
+            // Add audio constraints to prevent feedback
+            if (audioElement.setSinkId) {
+              try {
+                audioElement.setSinkId("default");
+              } catch (err) {
+                console.warn("⚠️ Could not set audio sink:", err);
+              }
             }
-            
+
+            if (audioElement.webkitAudioDecodedByteCount !== undefined) {
+              audioElement.webkitPreservesPitch = false;
+            }
+
             document.body.appendChild(audioElement);
-            
-            // Ensure audio plays with error handling
-            audioElement.play().catch(error => {
-              console.warn("⚠️ Audio autoplay blocked, will try on user interaction:", error);
-              // Store for later playback on user interaction
+
+            audioElement.play().catch((error) => {
+              console.warn(
+                "⚠️ Audio autoplay blocked, will try on user interaction:",
+                error
+              );
               window.pendingAudioElement = audioElement;
             });
 
             remoteAudioTrack = track;
-            console.log("🔊 Agent audio track received with enhanced settings");
+            // Start monitoring remote audio with proper feedback prevention
+            monitorRemoteAudioLevel(track);
+            console.log(
+              "🔊 Agent audio track received with feedback prevention"
+            );
           }
         }
       );
 
-      // Handle participant metadata changes (may contain transcripts)
       room.on(
         LivekitClient.RoomEvent.ParticipantMetadataChanged,
         (metadata, participant) => {
@@ -3126,7 +3864,6 @@
         }
       );
 
-      // Handle room metadata changes (may contain transcripts)
       room.on(LivekitClient.RoomEvent.RoomMetadataChanged, (metadata) => {
         console.log("🏠 Room metadata changed:", metadata);
         if (metadata) {
@@ -3145,11 +3882,13 @@
         }
       });
 
-      // Room connected
       room.on(LivekitClient.RoomEvent.Connected, async () => {
         console.log("✅ Connected to LiveKit room");
         isConnected = true;
         retryCount = 0; // Reset retry count on successful connection
+
+        // Show message interface when connected
+        showMessageInterface();
 
         // Clear connection timeout
         if (connectionTimeout) {
@@ -3161,79 +3900,89 @@
 
         languageSelect.disabled = true;
 
-        // 🎤 Enable microphone with optimized settings
+        // 🎤 Enable microphone with enhanced feedback prevention
         try {
           await room.localParticipant.setMicrophoneEnabled(true, {
-            noiseSuppression: true,
+            // Enhanced feedback prevention
             echoCancellation: true,
-            autoGainControl: true,  // Enable for consistent volume
+            noiseSuppression: true,
+            autoGainControl: true, // Enable for consistent levels and feedback prevention
+            suppressLocalAudioPlayback: true, // Critical for feedback prevention
+
+            // Stable audio settings
             channelCount: 1,
             sampleRate: 48000,
             sampleSize: 16,
+
+            // Conservative volume to prevent feedback
+            volume: 0.5, // Reduced to prevent feedback loops
+            latency: 0.1, // Slightly higher for stability
+            facingMode: "user",
           });
           isMuted = false;
           console.log("🎤 Microphone enabled with optimized settings");
         } catch (micError) {
-          console.warn("⚠️ Failed to enable microphone with full config, trying basic:", micError);
+          console.warn(
+            "⚠️ Failed to enable microphone with full config, trying basic:",
+            micError
+          );
           try {
             // Fallback to basic microphone enabling
             await room.localParticipant.setMicrophoneEnabled(true);
             isMuted = false;
             console.log("🎤 Microphone enabled (basic mode)");
           } catch (basicError) {
-            console.error("❌ Failed to enable microphone completely:", basicError);
-            alert("Failed to enable microphone. Please check your microphone permissions and try again.");
+            console.error(
+              "❌ Failed to enable microphone completely:",
+              basicError
+            );
+            alert(
+              "Failed to enable microphone. Please check your microphone permissions and try again."
+            );
           }
         }
-        
+
         // Start call timer and update status
         startCallTimer();
-        
+
         // Resume audio context if suspended (browser autoplay policy)
         if (window.AudioContext || window.webkitAudioContext) {
-          const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-          if (audioCtx.state === 'suspended') {
-            audioCtx.resume().then(() => {
-              console.log("🔊 Audio context resumed for better audio quality");
-            }).catch(err => console.warn("⚠️ Could not resume audio context:", err));
+          const audioCtx = new (window.AudioContext ||
+            window.webkitAudioContext)();
+          if (audioCtx.state === "suspended") {
+            audioCtx
+              .resume()
+              .then(() => {
+                console.log(
+                  "🔊 Audio context resumed for better audio quality"
+                );
+              })
+              .catch((err) =>
+                console.warn("⚠️ Could not resume audio context:", err)
+              );
           }
         }
-        
+
         updateStatus("✅ Connected - Speak now!", "connected");
-        
+
         // Stop connecting sound
         stopConnectingSound();
 
-        // Simplified flow - no waiting for AI response
-        console.log("✅ Connection established - ready for conversation");
+        // Simplified flow - microphone stays enabled
+        console.log(
+          "✅ Connection established - microphone ready for conversation"
+        );
 
-        // 🔇 Keep microphone DISABLED until AI first response + 3 seconds
-        await room.localParticipant.setMicrophoneEnabled(false);
-        isMuted = true;
+        // 🎤 Keep microphone ENABLED at all times
+        console.log(
+          "🎤 Microphone will remain enabled throughout the conversation"
+        );
 
-        // Mobile backup fallback - in case other methods fail
+        // Mobile compatibility - microphone is already enabled
         if (isMobile) {
-          setTimeout(() => {
-            if (!hasReceivedFirstAIResponse && isConnected) {
-              console.log("📱 Mobile backup: Force triggering AI ready state");
-              hasReceivedFirstAIResponse = true;
-              startCallTimer();
-              stopConnectingSound();
-              updateStatus("✅ Connected - Speak now!", "connected");
-              
-              setTimeout(async () => {
-                if (isConnected && room) {
-                  try {
-                    await room.localParticipant.setMicrophoneEnabled(true);
-                    isMuted = false;
-                    console.log("🎤 Mobile backup: Microphone enabled");
-                  } catch (error) {
-                    console.error("❌ Mobile backup: Microphone failed:", error);
-                  }
-                }
-              }, 3000);
-            }
-          }, 5000); // 5 second mobile backup
+          console.log(
+            "📱 Mobile device detected - microphone already enabled and ready"
+          );
         }
 
         const audioTracks = Array.from(
@@ -3241,12 +3990,13 @@
         );
         if (audioTracks.length > 0) {
           localAudioTrack = audioTracks[0].track;
-          console.log("🎤 Audio track found, will start monitoring after AI response");
+          monitorLocalAudioLevel(localAudioTrack);
+          console.log(
+            "🎤 Audio track found and monitoring started immediately"
+          );
         }
 
-        console.log("🔇 Microphone kept disabled - waiting for AI first response");
-
-        // Don't start timer here - wait for first AI response
+        console.log("🎤 Microphone enabled and ready for conversation");
       });
 
       // Room disconnected
@@ -3257,7 +4007,10 @@
         stopConnectingSound();
 
         if (isConnected) {
-          updateStatus("❌ Connection lost - Please start new call", "disconnected");
+          updateStatus(
+            "❌ Connection lost - Please start new call",
+            "disconnected"
+          );
           alert("Connection lost. Please start a new call.");
         }
         stopConversation();
@@ -3267,7 +4020,10 @@
       room.on(LivekitClient.RoomEvent.ConnectionStateChanged, (state) => {
         console.log("🔗 Connection state:", state);
         if (state === LivekitClient.ConnectionState.Disconnected) {
-          updateStatus("❌ Disconnected - Please start new call", "disconnected");
+          updateStatus(
+            "❌ Disconnected - Please start new call",
+            "disconnected"
+          );
           stopConversation();
         }
       });
@@ -3564,8 +4320,24 @@
       }
 
       // Connect to room
+      // Final check before connecting to room
+      if (!isConnecting) {
+        console.log("❌ Connection cancelled before room connection");
+        return;
+      }
+
       await room.connect(data.url, data.token);
       console.log("🔗 Room connected successfully");
+
+      // Check if connection was cancelled during room connection
+      if (!isConnecting) {
+        console.log("❌ Connection cancelled during room connection");
+        if (room) {
+          room.disconnect();
+          room = null;
+        }
+        return;
+      }
 
       // Get local audio track and start monitoring (will be null until enabled)
       const audioTracks = Array.from(
@@ -3599,9 +4371,22 @@
         errorMsg = "Network error";
       }
 
-      updateStatus(`❌ ${errorMsg} - Please start new call`, "disconnected");
+      updateStatus(`❌ ${errorMsg} - Click to retry`, "disconnected");
       console.error("❌ Connection terminated due to error:", error);
-      alert(`Connection failed: ${errorMsg}. Please start a new call.`);
+      
+      // Reset all connection flags
+      isConnected = false;
+      isConnecting = false;
+      isDisconnecting = false;
+      
+      // Ensure button is clickable for retry
+      connectBtn.disabled = false;
+      connectBtn.innerHTML =
+        '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path></svg>';
+      connectBtn.classList.remove("connected");
+      connectBtn.title = "Retry Connection";
+      
+      alert(`Connection failed: ${errorMsg}. Click the call button to try again.`);
       stopConversation();
     }
   }
@@ -3616,6 +4401,11 @@
     hasReceivedFirstAIResponse = false;
     shouldAutoUnmute = false;
     isMuted = false;
+    aiJustFinished = false;
+
+    // Hide message interface when disconnected
+    hideMessageInterface();
+
     stopCallTimer();
     clearLoadingStatus();
 
@@ -3627,6 +4417,17 @@
     if (aiResponseTimeout) {
       clearTimeout(aiResponseTimeout);
       aiResponseTimeout = null;
+    }
+
+    // Close WebSocket if exists
+    if (ws) {
+      console.log("🔌 Closing WebSocket in stopConversation");
+      try {
+        ws.close();
+      } catch (err) {
+        console.warn("Error closing WebSocket in stopConversation:", err);
+      }
+      ws = null;
     }
     try {
       playSound("call-end");
