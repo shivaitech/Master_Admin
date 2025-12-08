@@ -71,6 +71,21 @@
   let isDisconnecting = false; // Track disconnect process to prevent multiple clicks
   let aiJustFinished = false; // Track when AI just finished to prevent feedback
 
+  // 🎤 Voice Activity Detection (VAD) variables
+  let vadEnabled = true; // Enable VAD by default
+  let isVadMuted = true; // Start with VAD muted (mic closed)
+  let vadSilenceTimeout = null;
+  let vadSpeechStartTime = null;
+  let vadAudioContext = null;
+  let vadAnalyser = null;
+  let vadDataArray = null;
+  let vadMonitoringActive = false;
+  let vadSpeechThreshold = 25; // Lower threshold for faster detection
+  let vadSilenceDuration = 600; // Shorter silence duration
+  let vadMinSpeechDuration = 50; // Much shorter - almost instant trigger
+  let vadBuffer = []; // Rolling buffer for smoothing
+  let vadBufferSize = 3; // Smaller buffer for faster response
+
   // Mobile browser detection for fallbacks
   const isMobile =
     /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(
@@ -121,6 +136,198 @@
   let callTimerElement = null;
   let callStartTime = null;
   let callTimerInterval = null;
+  // 🎤 Voice Activity Detection (VAD) System
+  async function initializeVAD() {
+    console.log("🎤 Initializing Voice Activity Detection...");
+    
+    try {
+      // Create a separate audio stream for VAD monitoring
+      const vadStream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          echoCancellation: false, // Disable for faster processing
+          noiseSuppression: false, // Disable for instant response
+          autoGainControl: false,
+          volume: 1.0, // Maximum volume for best detection
+          sampleRate: 48000,
+          latency: 0.01, // Ultra-low latency
+        }
+      });
+      
+      // Setup VAD audio analysis
+      vadAudioContext = new (window.AudioContext || window.webkitAudioContext)();
+      vadAnalyser = vadAudioContext.createAnalyser();
+      const vadSource = vadAudioContext.createMediaStreamSource(vadStream);
+      
+      vadSource.connect(vadAnalyser);
+      vadAnalyser.fftSize = 256; // Smaller FFT for faster processing
+      vadAnalyser.smoothingTimeConstant = 0.1; // Less smoothing for faster response
+      
+      vadDataArray = new Uint8Array(vadAnalyser.frequencyBinCount);
+      vadBuffer = new Array(vadBufferSize).fill(0);
+      
+      console.log("✅ VAD initialized successfully");
+      return vadStream;
+      
+    } catch (error) {
+      console.error("❌ Failed to initialize VAD:", error);
+      vadEnabled = false;
+      return null;
+    }
+  }
+  
+  // 🎤 VAD Audio Level Monitoring
+  function startVADMonitoring() {
+    if (!vadEnabled || !vadAnalyser || vadMonitoringActive) return;
+    
+    vadMonitoringActive = true;
+    console.log("🎤 Starting VAD monitoring...");
+    
+    function monitorVAD() {
+      if (!vadMonitoringActive) return;
+      
+      vadAnalyser.getByteFrequencyData(vadDataArray);
+      
+      // Calculate audio level across all frequencies for faster detection
+      let totalSum = 0;
+      for (let i = 0; i < vadDataArray.length; i++) {
+        totalSum += vadDataArray[i];
+      }
+      
+      const audioLevel = totalSum / vadDataArray.length;
+      
+      // Minimal smoothing for instant response
+      vadBuffer.shift();
+      vadBuffer.push(audioLevel);
+      
+      const smoothedLevel = vadBuffer.reduce((a, b) => a + b, 0) / vadBufferSize;
+      
+      // Voice activity detection logic - optimized for speed
+      const isSpeechDetected = smoothedLevel > vadSpeechThreshold;
+      
+      if (isSpeechDetected && isVadMuted) {
+        // Immediate trigger - no minimum duration check
+        openMicrophoneVAD();
+      } else if (!isSpeechDetected && !isVadMuted) {
+        // Silence detected - start timeout
+        if (!vadSilenceTimeout) {
+          vadSilenceTimeout = setTimeout(() => {
+            closeMicrophoneVAD();
+          }, vadSilenceDuration);
+        }
+      } else if (isSpeechDetected && !isVadMuted) {
+        // Speech continues - clear silence timeout
+        if (vadSilenceTimeout) {
+          clearTimeout(vadSilenceTimeout);
+          vadSilenceTimeout = null;
+        }
+      }
+      
+      // Continue monitoring with high frequency
+      requestAnimationFrame(monitorVAD);
+    }
+    
+    monitorVAD();
+  }
+  
+  // 🎤 Open microphone when speech detected
+  function openMicrophoneVAD() {
+    if (!isVadMuted || !localAudioTrack) return;
+    
+    console.log("🎤 VAD: Opening microphone - speech detected");
+    isVadMuted = false;
+    vadSpeechStartTime = null;
+    
+    // Enable the local audio track
+    localAudioTrack.unmute();
+    
+    // Update UI to show microphone is active
+    updateVADStatus(true);
+    
+    // Clear any silence timeout
+    if (vadSilenceTimeout) {
+      clearTimeout(vadSilenceTimeout);
+      vadSilenceTimeout = null;
+    }
+  }
+  
+  // 🎤 Close microphone during silence
+  function closeMicrophoneVAD() {
+    if (isVadMuted || !localAudioTrack) return;
+    
+    console.log("🎤 VAD: Closing microphone - silence detected");
+    isVadMuted = true;
+    
+    // Mute the local audio track
+    localAudioTrack.mute();
+    
+    // Update UI to show microphone is muted
+    updateVADStatus(false);
+    
+    // Clear silence timeout
+    if (vadSilenceTimeout) {
+      clearTimeout(vadSilenceTimeout);
+      vadSilenceTimeout = null;
+    }
+  }
+  
+  // 🎤 Update VAD status in UI
+  function updateVADStatus(isActive) {
+    if (statusDiv) {
+      const vadIndicator = document.querySelector('.vad-indicator') || createVADIndicator();
+      
+      if (isActive) {
+        vadIndicator.style.color = '#10b981'; // Green when active
+        vadIndicator.title = 'Voice detected - Microphone active';
+        vadIndicator.textContent = '🎤';
+      } else {
+        vadIndicator.style.color = '#6b7280'; // Gray when muted
+        vadIndicator.title = 'Silence detected - Microphone muted';
+        vadIndicator.textContent = '🔇';
+      }
+    }
+  }
+  
+  // 🎤 Create VAD indicator in UI
+  function createVADIndicator() {
+    const vadIndicator = document.createElement('span');
+    vadIndicator.className = 'vad-indicator';
+    vadIndicator.style.cssText = `
+      margin-left: 8px;
+      font-size: 14px;
+      transition: color 0.2s ease;
+    `;
+    
+    if (statusDiv) {
+      statusDiv.appendChild(vadIndicator);
+    }
+    
+    return vadIndicator;
+  }
+  
+  // 🎤 Stop VAD monitoring
+  function stopVADMonitoring() {
+    console.log("🎤 Stopping VAD monitoring...");
+    vadMonitoringActive = false;
+    
+    if (vadSilenceTimeout) {
+      clearTimeout(vadSilenceTimeout);
+      vadSilenceTimeout = null;
+    }
+    
+    if (vadAudioContext && vadAudioContext.state !== 'closed') {
+      vadAudioContext.close();
+    }
+    
+    vadSpeechStartTime = null;
+    vadBuffer = new Array(vadBufferSize).fill(0);
+    
+    // Remove VAD indicator
+    const vadIndicator = document.querySelector('.vad-indicator');
+    if (vadIndicator) {
+      vadIndicator.remove();
+    }
+  }
+
   // Enhanced microphone permission handler with retry logic
   async function requestMicrophonePermission(retryCount = 0) {
     const MAX_RETRIES = 3;
@@ -152,7 +359,7 @@
           channelCount: 1,
           sampleRate: 48000,
           sampleSize: 16,
-          volume: 0.6,
+          volume: 0.3,  // Balanced input volume for clear voice capture
           latency: 0.05,
           facingMode: "user",
           googEchoCancellation: true,
@@ -475,9 +682,9 @@
     const bufferLength = analyser.frequencyBinCount;
     const dataArray = new Uint8Array(bufferLength);
 
-    // Higher threshold to prevent feedback detection and ensure user input only
-    const SPEECH_THRESHOLD = 60; // Increased from 45 to 60 for better feedback prevention
-    const SILENCE_DURATION = 500; // Increased from 400ms for more stable detection
+    // Balanced threshold for good voice detection with noise filtering
+    const SPEECH_THRESHOLD = 50; // Moderate threshold for clear voice detection
+    const SILENCE_DURATION = 400; // Responsive silence detection
     let silenceStart = null;
 
     function checkAudioLevel() {
@@ -569,8 +776,8 @@
     const bufferLength = analyser.frequencyBinCount;
     const dataArray = new Uint8Array(bufferLength);
 
-    // Higher threshold for close proximity detection only
-    const SPEECH_THRESHOLD = 35; // Increased from 12 to 35 for close voices only
+    // Balanced threshold for AI voice detection
+    const SPEECH_THRESHOLD = 25; // Moderate threshold for AI voice detection
 
     function checkAudioLevel() {
       // Clear AI response timeout when agent starts speaking
@@ -3290,50 +3497,52 @@
   }
   function updateMuteButton() {
     if (!muteBtn) return;
+    
+    // Always show manual mute state, ignore VAD state for UI
     if (mediaStream) {
       mediaStream.getAudioTracks().forEach((track) => {
         track.enabled = !isMuted;
       });
     }
+    
     if (isMuted) {
       muteBtn.classList.add("muted");
-      muteBtn.title = "Unmute Microphone";
+      muteBtn.title = "Microphone Muted";
       muteBtn.innerHTML =
         '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="1" y1="1" x2="23" y2="23"></line><path d="M9 9v3a3 3 0 0 0 5.12 2.12M15 9.34V4a3 3 0 0 0-5.94-.6"></path><path d="M17 16.95A7 7 0 0 1 5 12v-2m14 0v2a7 7 0 0 1-.11 1.23"></path><line x1="12" y1="19" x2="12" y2="23"></line><line x1="8" y1="23" x2="16" y2="23"></line></svg>';
     } else {
       muteBtn.classList.remove("muted");
-      muteBtn.title = "Mute Microphone";
+      muteBtn.title = "Microphone Active";
       muteBtn.innerHTML =
         '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path><line x1="12" y1="19" x2="12" y2="23"></line><line x1="8" y1="23" x2="16" y2="23"></line></svg>';
     }
   }
   function handleMuteClick(e) {
+    e.preventDefault();
     e.stopPropagation();
-    if (!isConnected || !room) return;
-
-    isMuted = !isMuted;
-
-    if (isMuted) {
-      room.localParticipant.setMicrophoneEnabled(false);
-    } else {
-      room.localParticipant.setMicrophoneEnabled(true, {
-        // Consistent settings for unmuting
-        echoCancellation: true,
-        noiseSuppression: true,
-        autoGainControl: false, // Keep disabled for consistency
-        suppressLocalAudioPlayback: true, // Prevent feedback
-
-        channelCount: 1,
-        sampleRate: 48000,
-        sampleSize: 16,
-        volume: 0.7, // Reduced for close voice only
-        latency: 0.05,
-        facingMode: "user",
-      });
+    
+    if (!localAudioTrack) {
+      console.log("❌ No local audio track available");
+      return;
     }
-
+    
+    // Simple manual mute/unmute - VAD works in background
+    if (isMuted) {
+      localAudioTrack.unmute();
+      isMuted = false;
+      console.log("🎤 Microphone unmuted manually");
+    } else {
+      localAudioTrack.mute();
+      isMuted = true;
+      // Stop VAD when manually muted
+      if (vadEnabled && vadMonitoringActive) {
+        stopVADMonitoring();
+        console.log("🎤 VAD stopped due to manual mute");
+      }
+      console.log("🎤 Microphone muted manually");
+    }
+    
     updateMuteButton();
-    console.log(`🎤 Microphone ${isMuted ? "muted" : "unmuted"} by user`);
   }
   function updateStatus(status, className) {
     const statusText = statusDiv.querySelector(".status-text");
@@ -3655,6 +3864,22 @@
       console.log("✅ Microphone permission verified - continuing with call setup...");
       updateStatus("✅ Microphone ready - connecting...", "connecting");
 
+      // ✅ Initialize Voice Activity Detection (VAD)
+      console.log("🎤 Setting up Voice Activity Detection...");
+      updateStatus("🎤 Initializing voice detection...", "connecting");
+      
+      if (vadEnabled) {
+        await initializeVAD();
+        
+        if (vadEnabled) {
+          console.log("✅ VAD initialized - microphone will auto-manage based on voice");
+          updateStatus("🎤 Voice detection ready - connecting...", "connecting");
+        } else {
+          console.log("⚠️ VAD failed - using manual microphone control");
+          updateStatus("⚠️ Using manual mic control - connecting...", "connecting");
+        }
+      }
+
       // Check if connection was cancelled after microphone permission
       if (!isConnecting) {
         console.log("❌ Connection cancelled after microphone permission");
@@ -3690,40 +3915,40 @@
         ? "mobile"
         : "desktop";
 
-      // Optimized audio configuration for feedback prevention and user input
+      // Optimized audio configuration for extremely low sensitivity - close voices only
       const audioConfig = {
         // Enhanced feedback prevention
         echoCancellation: true, // Critical for feedback prevention
         noiseSuppression: true, // Remove background noise
-        autoGainControl: true, // Enable AGC for stable levels
+        autoGainControl: false, // Disable AGC to prevent amplification
 
         // Advanced feedback prevention options
         suppressLocalAudioPlayback: true, // Prevent local audio feedback
 
-        // Constraints for user input detection
+        // Constraints for very close user input only
         channelCount: 1,
         sampleRate: 48000,
         sampleSize: 16,
 
-        // Optimized volume for feedback prevention
-        volume: 0.5, // Lower volume to prevent feedback
-        latency: 0.1, // Slightly higher latency for stability
+        // Extremely low sensitivity for very close voices only
+        latency: 0.05, // Low latency for real-time
 
         // Device constraints
         facingMode: "user",
         deviceId: "default",
 
-        // Browser-specific feedback prevention
+        // Browser-specific settings for low sensitivity
         googEchoCancellation: true,
-        googAutoGainControl: true, // Enable for feedback prevention
-        googNoiseSuppression: true,
-        googHighpassFilter: true, // Remove low frequencies that cause feedback
+        googAutoGainControl: false, // Disable to prevent amplification
+        googNoiseSuppression: true, // Strong noise suppression
+        googHighpassFilter: true, // Remove low frequencies and ambient noise
         googAudioMirroring: false,
+        googTypingNoiseDetection: true, // Filter typing and keyboard noise
 
-        // Additional experimental options for feedback prevention
-        googBeamforming: false, // Disable to prevent feedback amplification
+        // Additional experimental options for minimal sensitivity
+        googBeamforming: false, // Disable to prevent distant sound pickup
         googArrayGeometry: false, // Disable array processing
-        mozAutoGainControl: true, // Firefox feedback prevention
+        mozAutoGainControl: false, // Firefox - disable gain control
         mozNoiseSuppression: true,
       };
 
@@ -3764,7 +3989,7 @@
       window.currentCallId = callId;
 
       const response = await fetch(
-        "https://token-server-i5u4.onrender.com/token",
+        "https://python.service.callshivai.com/token",
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -3799,17 +4024,18 @@
         window.pendingAudioElement = null;
       }
 
-      // Create LiveKit room with enhanced feedback prevention
+      // Create LiveKit room with balanced audio settings
       room = new LivekitClient.Room({
         adaptiveStream: true,
         dynacast: true,
         audioCaptureDefaults: {
           ...audioConfig,
-          // Enhanced LiveKit feedback prevention
+          // Balanced sensitivity settings
           echoCancellation: true,
           noiseSuppression: true,
-          autoGainControl: true, // Enable for feedback prevention
+          autoGainControl: false, // Keep disabled for consistent levels
           suppressLocalAudioPlayback: true, // Critical for feedback prevention
+          volume: 0.25, // Moderate volume for good voice capture
         },
         // Performance optimizations for feedback prevention
         reconnectPolicy: {
@@ -3831,9 +4057,9 @@
         LivekitClient.RoomEvent.TrackSubscribed,
         (track, publication, participant) => {
           if (track.kind === LivekitClient.Track.Kind.Audio) {
-            // Use audio element with feedback prevention settings
+            // Use audio element with balanced volume for clear AI voice
             const audioElement = track.attach();
-            audioElement.volume = 0.4; // Significantly reduced to prevent feedback
+            audioElement.volume = 0.7; // Increased for clearer AI voice output
             audioElement.preload = "auto";
             audioElement.autoplay = true;
 
@@ -3944,8 +4170,8 @@
             sampleRate: 48000,
             sampleSize: 16,
 
-            // Conservative volume to prevent feedback
-            volume: 0.5, // Reduced to prevent feedback loops
+            // Balanced volume for clear voice capture with noise filtering
+            volume: 0.3, // Moderate level for good voice quality
             latency: 0.1, // Slightly higher for stability
             facingMode: "user",
           });
@@ -4024,6 +4250,35 @@
           console.log(
             "🎤 Audio track found and monitoring started immediately"
           );
+          
+          // ✅ Start Voice Activity Detection monitoring
+          if (vadEnabled && localAudioTrack) {
+            console.log("🎤 Starting VAD monitoring with LiveKit integration...");
+            
+            // Start with mic slightly open for instant response
+            // This prevents first word cutoff by pre-warming the audio path
+            localAudioTrack.unmute();
+            setTimeout(() => {
+              // Quick mute after 100ms to avoid feedback but keep audio path warm
+              if (localAudioTrack && vadMonitoringActive) {
+                localAudioTrack.mute();
+                isVadMuted = true;
+              }
+            }, 100);
+            
+            // Keep isMuted false so UI shows unmuted state
+            isMuted = false;
+            updateMuteButton();
+            
+            // Start VAD monitoring immediately
+            startVADMonitoring();
+            
+            console.log("✅ VAD monitoring active - microphone will open when you speak");
+            updateStatus("✅ Voice detection active - speak to begin", "connected");
+          } else {
+            console.log("ℹ️ VAD not available - using manual microphone control");
+            updateStatus("✅ Connected - manual mic control", "connected");
+          }
         }
 
         console.log("🎤 Microphone enabled and ready for conversation");
@@ -4499,6 +4754,17 @@
 
     localAudioTrack = null;
     remoteAudioTrack = null;
+
+    // 🎤 Stop Voice Activity Detection
+    if (vadEnabled) {
+      stopVADMonitoring();
+    }
+    
+    // Reset VAD state
+    isVadMuted = true;
+    vadSpeechStartTime = null;
+    
+    console.log("✅ Conversation stopped and VAD cleaned up");
 
     if (visualizerInterval) {
       clearInterval(visualizerInterval);
