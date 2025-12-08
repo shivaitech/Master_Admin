@@ -121,6 +121,103 @@
   let callTimerElement = null;
   let callStartTime = null;
   let callTimerInterval = null;
+  // Enhanced microphone permission handler with retry logic
+  async function requestMicrophonePermission(retryCount = 0) {
+    const MAX_RETRIES = 3;
+    
+    console.log(`🎤 Requesting microphone permission (attempt ${retryCount + 1}/${MAX_RETRIES + 1})...`);
+    
+    // Check if we're in secure context
+    if (!window.isSecureContext) {
+      console.error("❌ Not in secure context - HTTPS required");
+      alert("Microphone access requires HTTPS. Please access this page using HTTPS.");
+      return false;
+    }
+    
+    // Check API availability
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      console.error("❌ MediaDevices API not available");
+      alert("Microphone API is not available in your browser. Please use Chrome, Firefox, Safari, or Edge.");
+      return false;
+    }
+    
+    try {
+      // Always try to get user media to trigger permission dialog
+      // This forces the browser to show permission dialog regardless of previous state
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: false,
+          channelCount: 1,
+          sampleRate: 48000,
+          sampleSize: 16,
+          volume: 0.6,
+          latency: 0.05,
+          facingMode: "user",
+          googEchoCancellation: true,
+          googAutoGainControl: false,
+          googNoiseSuppression: true,
+          googHighpassFilter: true,
+          googAudioMirroring: false
+        }
+      });
+      
+      console.log("✅ Microphone permission granted!");
+      console.log("📍 Stream tracks:", stream.getTracks().length);
+      
+      // Stop the test stream immediately
+      stream.getTracks().forEach(track => track.stop());
+      
+      return true;
+      
+    } catch (error) {
+      console.error(`❌ Microphone permission attempt ${retryCount + 1} failed:`, error);
+      
+      // Handle different error types
+      if (error.name === "NotAllowedError") {
+        // Permission denied
+        if (retryCount < MAX_RETRIES) {
+          // Ask user to try again
+          const retry = confirm(
+            `Microphone access is required for voice calls.\n\n` +
+            `Permission was denied. Would you like to try again?\n\n` +
+            `Please click "Allow" when the browser asks for microphone permission.\n\n` +
+            `Attempt ${retryCount + 1} of ${MAX_RETRIES + 1}`
+          );
+          
+          if (retry) {
+            // Wait a bit and retry
+            await new Promise(resolve => setTimeout(resolve, 500));
+            return await requestMicrophonePermission(retryCount + 1);
+          } else {
+            console.log("❌ User cancelled microphone permission retry");
+            return false;
+          }
+        } else {
+          // Max retries reached
+          alert(
+            "Microphone access was denied multiple times.\n\n" +
+            "To use voice calls, please:\n" +
+            "1. Click the microphone icon in your browser's address bar\n" +
+            "2. Select 'Allow' for microphone access\n" +
+            "3. Refresh the page and try again"
+          );
+          return false;
+        }
+      } else if (error.name === "NotFoundError") {
+        alert("No microphone found. Please connect a microphone and try again.");
+        return false;
+      } else if (error.name === "NotSupportedError") {
+        alert("Microphone access is not supported by your browser. Please use Chrome, Firefox, Safari, or Edge.");
+        return false;
+      } else {
+        alert(`Microphone error: ${error.message}. Please check your system settings and try again.`);
+        return false;
+      }
+    }
+  }
+
   function initWidget() {
     createWidgetUI();
     setupEventListeners();
@@ -3527,103 +3624,36 @@
         return;
       }
 
-      // Check current permission state first
-      try {
-        const permissionStatus = await navigator.permissions.query({
-          name: "microphone",
-        });
-        console.log(
-          "📍 Current microphone permission state:",
-          permissionStatus.state
-        );
-
-        // Check if connection was cancelled during permission check
-        if (!isConnecting) {
-          console.log("❌ Connection cancelled during permission check");
-          return;
-        }
-
-        if (permissionStatus.state === "denied") {
-          alert(
-            "Microphone access was previously denied. Please click the microphone icon in your browser's address bar to reset permissions, then try again."
-          );
-          return;
-        }
-      } catch (permError) {
-        console.warn("⚠️ Could not check permission state:", permError);
-      }
-
-      // Show status to user that permission is being requested
-      updateStatus("🎤 Please allow microphone access...", "connecting");
-
-      // Check if connection was cancelled before requesting mic access
-      if (!isConnecting) {
-        console.log("❌ Connection cancelled before requesting microphone");
+      // 🎤 Request microphone permission with retry logic
+      console.log("🎤 Starting microphone permission process...");
+      updateStatus("🎤 Requesting microphone access...", "connecting");
+      
+      const micPermissionGranted = await requestMicrophonePermission();
+      
+      if (!micPermissionGranted) {
+        console.error("❌ Microphone permission not granted - disconnecting call");
+        updateStatus("❌ Microphone access required", "disconnected");
+        
+        // Disconnect the call immediately
+        isConnecting = false;
+        isConnected = false;
+        
+        // Reset UI
+        connectBtn.innerHTML =
+          '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path></svg>';
+        connectBtn.classList.remove("connected");
+        connectBtn.title = "Start Call";
+        connectBtn.disabled = false;
+        
+        stopRingSound();
+        stopConnectingSound();
+        hideMessageInterface();
+        
         return;
       }
-
-      try {
-        console.log("📍 About to request getUserMedia...");
-        const stream = await navigator.mediaDevices.getUserMedia({
-          audio: {
-            // Optimized for close voice and feedback prevention
-            echoCancellation: true,
-            noiseSuppression: true,
-            autoGainControl: false, // Disable AGC to prevent pumping
-
-            // High quality capture
-            channelCount: 1,
-            sampleRate: 48000,
-            sampleSize: 16,
-
-            // Additional constraints for close proximity detection
-            volume: 0.6, // Reduced input level for close voices only
-            latency: 0.05, // Low latency
-            facingMode: "user", // Use front-facing mic
-
-            // Advanced constraints for sensitivity
-            googEchoCancellation: true, // Google-specific echo cancellation
-            googAutoGainControl: false, // Disable Google AGC
-            googNoiseSuppression: true, // Google noise suppression
-            googHighpassFilter: true, // Remove low-frequency noise
-            googAudioMirroring: false, // Disable audio mirroring
-          },
-        });
-        console.log("✅ Microphone permission granted");
-        console.log("📍 Stream tracks:", stream.getTracks().length);
-        updateStatus("✅ Microphone access granted", "connecting");
-
-        // Stop the stream immediately - LiveKit will create its own
-        stream.getTracks().forEach((track) => track.stop());
-      } catch (micError) {
-        console.error("❌ Microphone permission denied:", micError);
-        console.error("📍 Error details:", {
-          name: micError.name,
-          message: micError.message,
-          stack: micError.stack,
-        });
-        updateStatus("❌ Microphone access denied", "disconnected");
-
-        // More detailed error handling
-        if (micError.name === "NotAllowedError") {
-          alert(
-            "Microphone access was denied. Please click the microphone icon in your browser's address bar to allow access, then try again."
-          );
-        } else if (micError.name === "NotFoundError") {
-          alert(
-            "No microphone found. Please connect a microphone and try again."
-          );
-        } else if (micError.name === "NotSupportedError") {
-          alert(
-            "Microphone access is not supported by your browser. Please use a modern browser."
-          );
-        } else {
-          alert(
-            `Microphone access error: ${micError.message}. Please check your browser settings and try again.`
-          );
-        }
-        return; // Exit early if microphone permission denied
-      }
+      
+      console.log("✅ Microphone permission verified - continuing with call setup...");
+      updateStatus("✅ Microphone ready - connecting...", "connecting");
 
       // Check if connection was cancelled after microphone permission
       if (!isConnecting) {
