@@ -34,6 +34,13 @@ import {
   RiListCheck2,
   RiArrowDownLine,
   RiSettings4Line,
+  RiMoneyDollarCircleLine,
+  RiCpuLine,
+  RiPulseLine,
+  RiTokenSwapLine,
+  RiVipCrownLine,
+  RiShoppingBag3Line,
+  RiExchangeDollarLine,
 } from "react-icons/ri";
 import { useTheme } from "../contexts/ThemeContext";
 import { shivaiApiService } from "../../../Redux-config/apisModel/apiService";
@@ -151,13 +158,408 @@ const planOptions = [
   }
 ];
 
+// ClientDetailsView Component
+const ClientDetailsView = ({ client, onBack }) => {
+  const { theme, currentTheme } = useTheme();
+  const [activeTab, setActiveTab] = useState("onboarding");
+  const [loading, setLoading] = useState(false);
+  
+  // Mock data - replace with actual API calls
+  const clientStats = {
+    totalAIEmployees: client?.ai_employees?.length || 0,
+    liveAIEmployees: client?.ai_employees?.filter(emp => emp.status === 'active')?.length || 0,
+    totalCalls: 1247, // Mock data
+    usedTokens: 125000, // Mock data
+    totalRevenue: 2450.00, // Mock data
+    planUsage: 75, // Mock percentage
+    isActive: client?.isApproved || false
+  };
+
+  const tabs = [
+    { id: "onboarding", label: "Onboarding Data", icon: RiFileTextLine },
+    { id: "details", label: "Client Details", icon: RiUserLine },
+    { id: "employees", label: "AI Employees", icon: RiRobotLine },
+    { id: "transactions", label: "Transactions", icon: RiExchangeDollarLine },
+  ];
+
+  return (
+    <div className="space-y-6">
+      {/* Header with Back Button */}
+      <div className="flex items-center gap-4">
+        <button
+          onClick={onBack}
+          className={`p-2 rounded-lg ${currentTheme.hover} ${currentTheme.text} transition-all duration-200`}
+        >
+          <RiArrowLeftLine className="w-5 h-5" />
+        </button>
+        <div>
+          <h1 className={`text-2xl font-bold ${currentTheme.text}`}>
+            {client?.userData?.fullName || client?.company_basics?.name || "Client Details"}
+          </h1>
+          <p className={`text-sm ${currentTheme.textSecondary}`}>
+            {client?.userData?.email || client?.company_basics?.company_email || ""}
+          </p>
+        </div>
+      </div>
+
+      {/* Stats Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+        {/* Total AI Employees */}
+        <div className={`${currentTheme.cardBg} border ${currentTheme.border} rounded-lg p-6 shadow-lg`}>
+          <div className="flex items-center justify-between mb-3">
+            <div className={`w-12 h-12 rounded-lg bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center`}>
+              <RiRobotLine className="w-6 h-6 text-blue-600 dark:text-blue-400" />
+            </div>
+            <span className="text-sm font-medium text-blue-500">Total</span>
+          </div>
+          <h3 className={`text-3xl font-semibold ${currentTheme.text} mb-2`}>
+            {clientStats.totalAIEmployees}
+          </h3>
+          <p className={`text-sm font-medium ${currentTheme.text}`}>AI Employees</p>
+        </div>
+
+        {/* Live AI Employees */}
+        <div className={`${currentTheme.cardBg} border ${currentTheme.border} rounded-lg p-6 shadow-lg`}>
+          <div className="flex items-center justify-between mb-3">
+            <div className={`w-12 h-12 rounded-lg bg-green-100 dark:bg-green-900/30 flex items-center justify-center`}>
+              <RiPulseLine className="w-6 h-6 text-green-600 dark:text-green-400" />
+            </div>
+            <span className="text-sm font-medium text-green-500">Live</span>
+          </div>
+          <h3 className={`text-3xl font-semibold ${currentTheme.text} mb-2`}>
+            {clientStats.liveAIEmployees}
+          </h3>
+          <p className={`text-sm font-medium ${currentTheme.text}`}>Active Now</p>
+        </div>
+
+        {/* Total Calls */}
+        <div className={`${currentTheme.cardBg} border ${currentTheme.border} rounded-lg p-6 shadow-lg`}>
+          <div className="flex items-center justify-between mb-3">
+            <div className={`w-12 h-12 rounded-lg bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center`}>
+              <RiCpuLine className="w-6 h-6 text-purple-600 dark:text-purple-400" />
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-medium text-purple-500">Calls</span>
+              <div className="flex items-center gap-1 px-2 py-1 bg-orange-100 dark:bg-orange-900/30 rounded-full">
+                <RiTokenSwapLine className="w-3 h-3 text-orange-600 dark:text-orange-400" />
+                <span className="text-xs font-medium text-orange-600 dark:text-orange-400">
+                  {(clientStats.usedTokens / 1000).toFixed(0)}K
+                </span>
+              </div>
+            </div>
+          </div>
+          <h3 className={`text-3xl font-semibold ${currentTheme.text} mb-2`}>
+            {clientStats.totalCalls.toLocaleString()}
+          </h3>
+          <p className={`text-sm font-medium ${currentTheme.text}`}>Total Calls</p>
+        </div>
+
+        {/* Revenue & Plan */}
+        <div className={`${currentTheme.cardBg} border ${currentTheme.border} rounded-lg p-6 shadow-lg`}>
+          <div className="flex items-center justify-between mb-3">
+            <div className={`w-12 h-12 rounded-lg bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center`}>
+              <RiMoneyDollarCircleLine className="w-6 h-6 text-emerald-600 dark:text-emerald-400" />
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-medium text-emerald-500">Revenue</span>
+              <div className={`flex items-center gap-1 px-2 py-1 rounded-full ${
+                clientStats.isActive 
+                  ? 'bg-green-100 dark:bg-green-900/30' 
+                  : 'bg-gray-100 dark:bg-gray-900/30'
+              }`}>
+                <RiVipCrownLine className={`w-3 h-3 ${
+                  clientStats.isActive 
+                    ? 'text-green-600 dark:text-green-400' 
+                    : 'text-gray-600 dark:text-gray-400'
+                }`} />
+                <span className={`text-xs font-medium ${
+                  clientStats.isActive 
+                    ? 'text-green-600 dark:text-green-400' 
+                    : 'text-gray-600 dark:text-gray-400'
+                }`}>
+                  {clientStats.isActive ? 'Active' : 'Inactive'}
+                </span>
+              </div>
+            </div>
+          </div>
+          <h3 className={`text-3xl font-semibold ${currentTheme.text} mb-2`}>
+            ${clientStats.totalRevenue.toFixed(2)}
+          </h3>
+          <div className="flex items-center justify-between">
+            <p className={`text-sm font-medium ${currentTheme.text}`}>Plan Usage</p>
+            <span className={`text-sm font-medium ${currentTheme.textSecondary}`}>{clientStats.planUsage}%</span>
+          </div>
+          <div className={`w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2 mt-2`}>
+            <div 
+              className="bg-emerald-500 h-2 rounded-full transition-all duration-300" 
+              style={{ width: `${clientStats.planUsage}%` }}
+            ></div>
+          </div>
+        </div>
+      </div>
+
+      {/* Tabs */}
+      <div className={`${currentTheme.cardBg} border ${currentTheme.border} rounded-lg shadow-lg`}>
+        {/* Tab Headers */}
+        <div className={`flex gap-1 border-b ${currentTheme.border} overflow-x-auto scrollbar-hide`}>
+          {tabs.map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={`flex items-center gap-2 px-4 py-3 text-sm font-medium transition-all duration-200 whitespace-nowrap ${
+                activeTab === tab.id
+                  ? `${currentTheme.text} border-b-2 border-blue-500`
+                  : `${currentTheme.textSecondary} hover:${currentTheme.text}`
+              }`}
+            >
+              <tab.icon className="w-4 h-4" />
+              {tab.label}
+            </button>
+          ))}
+        </div>
+
+        {/* Tab Content */}
+        <div className="p-6">
+          {activeTab === "onboarding" && (
+            <OnboardingDataTab client={client} currentTheme={currentTheme} />
+          )}
+          {activeTab === "details" && (
+            <ClientDetailsTab client={client} currentTheme={currentTheme} />
+          )}
+          {activeTab === "employees" && (
+            <AIEmployeesTab client={client} currentTheme={currentTheme} />
+          )}
+          {activeTab === "transactions" && (
+            <TransactionsTab client={client} currentTheme={currentTheme} />
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// Tab Components
+const OnboardingDataTab = ({ client, currentTheme }) => {
+  const onboardingData = client?.userData?.onboarding || client?.onboarding || {};
+  
+  return (
+    <div className="space-y-6">
+      <h3 className={`text-lg font-semibold ${currentTheme.text} mb-4`}>Onboarding Information</h3>
+      
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div>
+          <label className={`text-sm ${currentTheme.textSecondary} uppercase block mb-2`}>Company Name</label>
+          <p className={`${currentTheme.text} font-medium`}>{onboardingData.company_name || 'N/A'}</p>
+        </div>
+        <div>
+          <label className={`text-sm ${currentTheme.textSecondary} uppercase block mb-2`}>Company Email</label>
+          <p className={`${currentTheme.text} font-medium`}>{onboardingData.company_email || 'N/A'}</p>
+        </div>
+        <div>
+          <label className={`text-sm ${currentTheme.textSecondary} uppercase block mb-2`}>Industry</label>
+          <p className={`${currentTheme.text} font-medium`}>{onboardingData.industry || 'N/A'}</p>
+        </div>
+        <div>
+          <label className={`text-sm ${currentTheme.textSecondary} uppercase block mb-2`}>AI Employee Count</label>
+          <p className={`${currentTheme.text} font-medium`}>{onboardingData.ai_employee_count || 'N/A'}</p>
+        </div>
+        <div>
+          <label className={`text-sm ${currentTheme.textSecondary} uppercase block mb-2`}>Selected Plan</label>
+          <p className={`${currentTheme.text} font-medium`}>{onboardingData.selected_plan || 'N/A'}</p>
+        </div>
+        <div>
+          <label className={`text-sm ${currentTheme.textSecondary} uppercase block mb-2`}>Business Goals</label>
+          <p className={`${currentTheme.text} font-medium`}>{onboardingData.business_goals || 'N/A'}</p>
+        </div>
+      </div>
+      
+      {onboardingData.company_description && (
+        <div>
+          <label className={`text-sm ${currentTheme.textSecondary} uppercase block mb-2`}>Company Description</label>
+          <p className={`${currentTheme.text} leading-relaxed`}>{onboardingData.company_description}</p>
+        </div>
+      )}
+    </div>
+  );
+};
+
+const ClientDetailsTab = ({ client, currentTheme }) => {
+  const userData = client?.userData || {};
+  const companyBasics = client?.company_basics || {};
+  
+  return (
+    <div className="space-y-6">
+      <h3 className={`text-lg font-semibold ${currentTheme.text} mb-4`}>Client Details</h3>
+      
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div>
+          <label className={`text-sm ${currentTheme.textSecondary} uppercase block mb-2`}>Full Name</label>
+          <p className={`${currentTheme.text} font-medium`}>{userData.fullName || 'N/A'}</p>
+        </div>
+        <div>
+          <label className={`text-sm ${currentTheme.textSecondary} uppercase block mb-2`}>Email</label>
+          <p className={`${currentTheme.text} font-medium`}>{userData.email || companyBasics.company_email || 'N/A'}</p>
+        </div>
+        <div>
+          <label className={`text-sm ${currentTheme.textSecondary} uppercase block mb-2`}>Phone</label>
+          <p className={`${currentTheme.text} font-medium`}>{companyBasics.company_phone || 'N/A'}</p>
+        </div>
+        <div>
+          <label className={`text-sm ${currentTheme.textSecondary} uppercase block mb-2`}>Website</label>
+          <p className={`${currentTheme.text} font-medium`}>{companyBasics.company_website || 'N/A'}</p>
+        </div>
+        <div>
+          <label className={`text-sm ${currentTheme.textSecondary} uppercase block mb-2`}>Company Size</label>
+          <p className={`${currentTheme.text} font-medium`}>{companyBasics.company_size || 'N/A'}</p>
+        </div>
+        <div>
+          <label className={`text-sm ${currentTheme.textSecondary} uppercase block mb-2`}>Status</label>
+          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+            client?.isApproved 
+              ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'
+              : client?.isRejected
+              ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400'
+              : 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400'
+          }`}>
+            {client?.isApproved ? 'Approved' : client?.isRejected ? 'Rejected' : 'Pending'}
+          </span>
+        </div>
+      </div>
+      
+      {companyBasics.company_address && (
+        <div>
+          <label className={`text-sm ${currentTheme.textSecondary} uppercase block mb-2`}>Company Address</label>
+          <p className={`${currentTheme.text} leading-relaxed`}>{companyBasics.company_address}</p>
+        </div>
+      )}
+    </div>
+  );
+};
+
+const AIEmployeesTab = ({ client, currentTheme }) => {
+  const aiEmployees = client?.ai_employees || [];
+  
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <h3 className={`text-lg font-semibold ${currentTheme.text}`}>AI Employees ({aiEmployees.length})</h3>
+      </div>
+      
+      {aiEmployees.length === 0 ? (
+        <div className={`text-center py-12 rounded-lg ${currentTheme.searchBg}`}>
+          <RiRobotLine className={`w-12 h-12 mx-auto mb-3 ${currentTheme.textSecondary}`} />
+          <h4 className={`text-lg font-semibold ${currentTheme.text} mb-2`}>No AI Employees</h4>
+          <p className={`${currentTheme.textSecondary}`}>This client hasn't created any AI employees yet.</p>
+        </div>
+      ) : (
+        <div className="space-y-4">
+          {aiEmployees.map((employee, index) => (
+            <div key={employee._id || index} className={`${currentTheme.searchBg} rounded-lg p-4 border ${currentTheme.border}`}>
+              <div className="flex items-start justify-between mb-3">
+                <div className="flex items-center gap-3">
+                  <div className={`w-10 h-10 rounded-lg bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center`}>
+                    <RiRobotLine className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                  </div>
+                  <div>
+                    <h4 className={`font-semibold ${currentTheme.text}`}>{employee.name || 'Unnamed Employee'}</h4>
+                    <p className={`text-sm ${currentTheme.textSecondary}`}>{employee.type || 'Assistant'}</p>
+                  </div>
+                </div>
+                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                  employee.status === 'active' 
+                    ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'
+                    : 'bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-400'
+                }`}>
+                  {employee.status || 'Active'}
+                </span>
+              </div>
+              
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div>
+                  <label className={`text-xs ${currentTheme.textSecondary} uppercase block mb-1`}>Template</label>
+                  <p className={`${currentTheme.text} text-sm`}>{employee.template || 'N/A'}</p>
+                </div>
+                <div>
+                  <label className={`text-xs ${currentTheme.textSecondary} uppercase block mb-1`}>Language</label>
+                  <p className={`${currentTheme.text} text-sm`}>{employee.preferred_language || 'N/A'}</p>
+                </div>
+                <div>
+                  <label className={`text-xs ${currentTheme.textSecondary} uppercase block mb-1`}>Voice Gender</label>
+                  <p className={`${currentTheme.text} text-sm`}>{employee.voice_gender || 'N/A'}</p>
+                </div>
+                <div>
+                  <label className={`text-xs ${currentTheme.textSecondary} uppercase block mb-1`}>Voice Style</label>
+                  <p className={`${currentTheme.text} text-sm`}>{employee.voice_style || 'N/A'}</p>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
+const TransactionsTab = ({ client, currentTheme }) => {
+  // Mock transaction data - replace with actual API call
+  const transactions = [
+    { id: 1, date: '2024-12-01', amount: 149.00, type: 'subscription', status: 'completed', description: 'Monthly subscription' },
+    { id: 2, date: '2024-11-01', amount: 149.00, type: 'subscription', status: 'completed', description: 'Monthly subscription' },
+    { id: 3, date: '2024-10-15', amount: 50.00, type: 'usage', status: 'completed', description: 'Additional tokens' },
+  ];
+  
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <h3 className={`text-lg font-semibold ${currentTheme.text}`}>Transaction History</h3>
+      </div>
+      
+      {transactions.length === 0 ? (
+        <div className={`text-center py-12 rounded-lg ${currentTheme.searchBg}`}>
+          <RiExchangeDollarLine className={`w-12 h-12 mx-auto mb-3 ${currentTheme.textSecondary}`} />
+          <h4 className={`text-lg font-semibold ${currentTheme.text} mb-2`}>No Transactions</h4>
+          <p className={`${currentTheme.textSecondary}`}>No transaction history available for this client.</p>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {transactions.map((transaction) => (
+            <div key={transaction.id} className={`${currentTheme.searchBg} rounded-lg p-4 border ${currentTheme.border}`}>
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-3">
+                  <div className={`w-10 h-10 rounded-lg bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center`}>
+                    <RiMoneyDollarCircleLine className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
+                  </div>
+                  <div>
+                    <h4 className={`font-semibold ${currentTheme.text}`}>${transaction.amount.toFixed(2)}</h4>
+                    <p className={`text-sm ${currentTheme.textSecondary}`}>{transaction.description}</p>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                    transaction.status === 'completed' 
+                      ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'
+                      : 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400'
+                  }`}>
+                    {transaction.status}
+                  </span>
+                  <p className={`text-sm ${currentTheme.textSecondary} mt-1`}>{transaction.date}</p>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
 const ClientManagement = () => {
   const { theme, currentTheme } = useTheme();
   const [searchTerm, setSearchTerm] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [activeTab, setActiveTab] = useState("all");
   const [selectedClient, setSelectedClient] = useState(null);
-  const [viewMode, setViewMode] = useState("list"); // list or edit
+  const [viewMode, setViewMode] = useState("list"); // list, edit, or details
   const [editData, setEditData] = useState(null);
   const [clients, setClients] = useState([]);
   const [counts, setCounts] = useState({
@@ -555,6 +957,11 @@ const ClientManagement = () => {
     setViewMode("list");
     setEditData(null);
     setIsEditing(false);
+  };
+
+  const handleViewClient = (client) => {
+    setSelectedClient(client);
+    setViewMode("details");
   };
 
   const handleSaveEdit = async () => {
@@ -1087,6 +1494,11 @@ const ClientManagement = () => {
   };
 
   // Remove whole component loading - we'll show loading in the table instead
+
+  // Client Details View
+  if (viewMode === "details" && selectedClient) {
+    return <ClientDetailsView client={selectedClient} onBack={handleBackToList} />;
+  }
 
   // Edit View
   if (viewMode === "edit" && editData) {
@@ -2729,13 +3141,22 @@ const ClientManagement = () => {
                     </div>
                   </div>
 
-                  <button
-                    onClick={() => handleEditClient(client)}
-                    className={`p-2 flex items-center justify-center ${currentTheme.textSecondary} rounded-lg ${currentTheme.activeBg} hover:scale-105 transition-all duration-200`}
-                    title="Edit Client"
-                  >
-                    <RiEditLine className="w-4 h-4" />
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => handleViewClient(client)}
+                      className={`p-2 flex items-center justify-center ${currentTheme.textSecondary} rounded-lg ${currentTheme.activeBg} hover:scale-105 transition-all duration-200`}
+                      title="View Client Details"
+                    >
+                      <RiEyeLine className="w-4 h-4" />
+                    </button>
+                    <button
+                      onClick={() => handleEditClient(client)}
+                      className={`p-2 flex items-center justify-center ${currentTheme.textSecondary} rounded-lg ${currentTheme.activeBg} hover:scale-105 transition-all duration-200`}
+                      title="Edit Client"
+                    >
+                      <RiEditLine className="w-4 h-4" />
+                    </button>
+                  </div>
                 </div>
 
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-4">
