@@ -477,11 +477,7 @@
 
     // Try multiple audio sources with fallbacks
     const audioSources = [
-      "./assets/Rings/ring1.mp3",
-      "/assets/Rings/ring1.mp3",
-      "assets/Rings/ring1.mp3",
-      "./assets/Rings/bright-phone-ringing-3-152490.mp3",
-      "/assets/Rings/bright-phone-ringing-3-152490.mp3"
+      "https://shivai-s3-bucket.s3.ap-south-1.amazonaws.com/assets/ring1.mp3",
     ];
 
     async function tryLoadAudio() {
@@ -558,6 +554,7 @@
   function playRingSound() {
     // Try multiple audio sources with fallbacks
     const audioSources = [
+      "https://shivai-s3-bucket.s3.ap-south-1.amazonaws.com/assets/ring1.mp3",
       "./assets/Rings/ring1.mp3",
       "/assets/Rings/ring1.mp3",
       "assets/Rings/ring1.mp3",
