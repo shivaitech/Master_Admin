@@ -91,6 +91,19 @@ const shivaiApiService = {
     }
   },
 
+  // Delete user method
+  deleteUser: async (userId) => {
+    try {
+      console.log(`🗑️ Deleting user with ID: ${userId}`);
+      const response = await apiClient.delete(`/v1/users/${userId}`);
+      console.log("✅ User deleted successfully:", response.data);
+      return response.data;
+    } catch (error) {
+      console.error("❌ Error deleting user:", error);
+      throw error;
+    }
+  },
+
   // Onboarding data methods
   getOnboardingByUserId: async (userId) => {
     try {
@@ -318,6 +331,19 @@ const shivaiApiService = {
       return response.data;
     } catch (error) {
       console.error("❌ Error uploading files:", error);
+      throw error;
+    }
+  },
+
+  // AI Agents management methods
+  getAllAgents: async () => {
+    try {
+      console.log("🤖 Fetching all AI agents...");
+      const response = await apiClient.get("/v1/agents/all");
+      console.log("✅ AI agents fetched successfully:", response.data);
+      return response.data;
+    } catch (error) {
+      console.error("❌ Error fetching AI agents:", error);
       throw error;
     }
   },

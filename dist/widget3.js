@@ -1,19 +1,14 @@
 (function () {
   "use strict";
 
-  // ✅ Load LiveKit SDK dynamically
   function loadLiveKitSDK() {
     return new Promise((resolve, reject) => {
-      // Check if already loaded
       if (typeof LivekitClient !== "undefined") {
         console.log("✅ LiveKit already loaded");
         resolve();
         return;
       }
-
       console.log("📦 Loading LiveKit SDK...");
-
-      // Load livekit-client directly (components-core not needed)
       const clientScript = document.createElement("script");
       clientScript.src =
         "https://unpkg.com/livekit-client@latest/dist/livekit-client.umd.js";

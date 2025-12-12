@@ -74,6 +74,7 @@ const AdminDashboardContent = () => {
       icon: RiHome4Line,
       label: "Dashboard",
       section: "dashboard",
+      route: "/dashboard",
     },
     {
       id: "clients",
@@ -81,6 +82,7 @@ const AdminDashboardContent = () => {
       label: "Client Management",
       section: "clients",
       badge: 24,
+      route: "/client-management",
     },
     {
       id: "ai-employees",
@@ -88,6 +90,7 @@ const AdminDashboardContent = () => {
       label: "AI Employee Stats",
       section: "ai-employees",
       badge: "NEW",
+      route: "/ai-employee-stats",
     },
     {
       id: "widgets",
@@ -95,6 +98,7 @@ const AdminDashboardContent = () => {
       label: "Widget Management",
       section: "widgets",
       badge: "NEW",
+      route: "/widget-management",
     },
     {
       id: "transactions",
@@ -102,6 +106,7 @@ const AdminDashboardContent = () => {
       label: "Transactions",
       section: "transactions",
       badge: 12,
+      route: "/transactions",
     },
     {
       id: "support",
@@ -109,18 +114,21 @@ const AdminDashboardContent = () => {
       label: "Support Tickets",
       section: "support",
       badge: 5,
+      route: "/support-tickets",
     },
     {
       id: "analytics",
       icon: RiBarChartBoxLine,
       label: "Analytics",
       section: "analytics",
+      route: "/analytics",
     },
     {
       id: "settings",
       icon: RiSettingsLine,
       label: "Settings",
       section: "settings",
+      route: "/settings",
     },
   ];
 
@@ -169,6 +177,7 @@ const AdminDashboardContent = () => {
   const handleNavClick = (section) => {
     setActiveSection(section);
     setIsMobileMenuOpen(false);
+    navigate(section);
   };
 
   const handleLogout = () => {
@@ -1249,14 +1258,14 @@ const AdminDashboardContent = () => {
 
           {/* Navigation */}
           <nav className="flex-1 p-4 space-y-1 overflow-y-auto no-scrollbar">
-            {navItems.map((item) => {
+            {navItems?.map((item) => {
               const Icon = item.icon;
               const isActive = activeSection === item.section;
 
               return (
                 <button
                   key={item.id}
-                  onClick={() => handleNavClick(item.section)}
+                  onClick={() => handleNavClick(item.route)}
                   className={`w-full flex items-center transition-all duration-200 group relative ${
                     isSidebarCollapsed
                       ? "justify-center px-2 py-3"
@@ -1282,23 +1291,12 @@ const AdminDashboardContent = () => {
                   >
                     {item.label}
                   </span>
-                  {/* {item.badge && (
-              <span className={`px-2 py-1 text-xs rounded-full ${
-                isActive 
-              ? "bg-white/20 dark:bg-black/20 text-gray-600 dark:text-gray-900" 
-              : "bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-400"
-              }`}>
-                {item.badge}
-              </span>
-            )} */}
                 </button>
               );
             })}
           </nav>
 
-          {/* User Info */}
           <div className={`p-4 ${currentTheme.border} border-t`}>
-            {/* User Profile */}
             <div
               className={`${
                 isSidebarCollapsed
@@ -1334,7 +1332,6 @@ const AdminDashboardContent = () => {
               )}
             </div>
 
-            {/* Logout Button */}
             <button
               onClick={handleLogout}
               className={`${

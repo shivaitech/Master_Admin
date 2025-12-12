@@ -23,6 +23,7 @@
     "@tailwindcss/vite": "^4.1.6",
     "@tanstack/react-virtual": "^3.13.12",
     "@vercel/speed-insights": "^1.2.0",
+    "@vonage/noise-suppression": "^1.0.3",
     "animate.css": "^4.1.1",
     "antd": "^5.26.2",
     "axios": "^1.10.0",

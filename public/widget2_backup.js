@@ -1,14 +1,19 @@
 (function () {
   "use strict";
 
+  // ✅ Load LiveKit SDK dynamically
   function loadLiveKitSDK() {
     return new Promise((resolve, reject) => {
+      // Check if already loaded
       if (typeof LivekitClient !== "undefined") {
         console.log("✅ LiveKit already loaded");
         resolve();
         return;
       }
+
       console.log("📦 Loading LiveKit SDK...");
+
+      // Load livekit-client directly (components-core not needed)
       const clientScript = document.createElement("script");
       clientScript.src =
         "https://unpkg.com/livekit-client@latest/dist/livekit-client.umd.js";
@@ -66,6 +71,21 @@
   let isDisconnecting = false; // Track disconnect process to prevent multiple clicks
   let aiJustFinished = false; // Track when AI just finished to prevent feedback
 
+  // 🎤 Voice Activity Detection (VAD) variables
+  let vadEnabled = true; // Enable VAD by default
+  let isVadMuted = true; // Start with VAD muted (mic closed)
+  let vadSilenceTimeout = null;
+  let vadSpeechStartTime = null;
+  let vadAudioContext = null;
+  let vadAnalyser = null;
+  let vadDataArray = null;
+  let vadMonitoringActive = false;
+  let vadSpeechThreshold = 25; // Lower threshold for faster detection
+  let vadSilenceDuration = 600; // Shorter silence duration
+  let vadMinSpeechDuration = 50; // Much shorter - almost instant trigger
+  let vadBuffer = []; // Rolling buffer for smoothing
+  let vadBufferSize = 3; // Smaller buffer for faster response
+
   // Mobile browser detection for fallbacks
   const isMobile =
     /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(
@@ -116,6 +136,295 @@
   let callTimerElement = null;
   let callStartTime = null;
   let callTimerInterval = null;
+  // 🎤 Voice Activity Detection (VAD) System
+  async function initializeVAD() {
+    console.log("🎤 Initializing Voice Activity Detection...");
+    
+    try {
+      // Create a separate audio stream for VAD monitoring
+      const vadStream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          echoCancellation: false, // Disable for faster processing
+          noiseSuppression: false, // Disable for instant response
+          autoGainControl: false,
+          volume: 1.0, // Maximum volume for best detection
+          sampleRate: 48000,
+          latency: 0.01, // Ultra-low latency
+        }
+      });
+      
+      // Setup VAD audio analysis
+      vadAudioContext = new (window.AudioContext || window.webkitAudioContext)();
+      vadAnalyser = vadAudioContext.createAnalyser();
+      const vadSource = vadAudioContext.createMediaStreamSource(vadStream);
+      
+      vadSource.connect(vadAnalyser);
+      vadAnalyser.fftSize = 256; // Smaller FFT for faster processing
+      vadAnalyser.smoothingTimeConstant = 0.1; // Less smoothing for faster response
+      
+      vadDataArray = new Uint8Array(vadAnalyser.frequencyBinCount);
+      vadBuffer = new Array(vadBufferSize).fill(0);
+      
+      console.log("✅ VAD initialized successfully");
+      return vadStream;
+      
+    } catch (error) {
+      console.error("❌ Failed to initialize VAD:", error);
+      vadEnabled = false;
+      return null;
+    }
+  }
+  
+  // 🎤 VAD Audio Level Monitoring
+  function startVADMonitoring() {
+    if (!vadEnabled || !vadAnalyser || vadMonitoringActive) return;
+    
+    vadMonitoringActive = true;
+    console.log("🎤 Starting VAD monitoring...");
+    
+    function monitorVAD() {
+      if (!vadMonitoringActive) return;
+      
+      vadAnalyser.getByteFrequencyData(vadDataArray);
+      
+      // Calculate audio level across all frequencies for faster detection
+      let totalSum = 0;
+      for (let i = 0; i < vadDataArray.length; i++) {
+        totalSum += vadDataArray[i];
+      }
+      
+      const audioLevel = totalSum / vadDataArray.length;
+      
+      // Minimal smoothing for instant response
+      vadBuffer.shift();
+      vadBuffer.push(audioLevel);
+      
+      const smoothedLevel = vadBuffer.reduce((a, b) => a + b, 0) / vadBufferSize;
+      
+      // Voice activity detection logic - optimized for speed
+      const isSpeechDetected = smoothedLevel > vadSpeechThreshold;
+      
+      if (isSpeechDetected && isVadMuted) {
+        // Immediate trigger - no minimum duration check
+        openMicrophoneVAD();
+      } else if (!isSpeechDetected && !isVadMuted) {
+        // Silence detected - start timeout
+        if (!vadSilenceTimeout) {
+          vadSilenceTimeout = setTimeout(() => {
+            closeMicrophoneVAD();
+          }, vadSilenceDuration);
+        }
+      } else if (isSpeechDetected && !isVadMuted) {
+        // Speech continues - clear silence timeout
+        if (vadSilenceTimeout) {
+          clearTimeout(vadSilenceTimeout);
+          vadSilenceTimeout = null;
+        }
+      }
+      
+      // Continue monitoring with high frequency
+      requestAnimationFrame(monitorVAD);
+    }
+    
+    monitorVAD();
+  }
+  
+  // 🎤 Open microphone when speech detected
+  function openMicrophoneVAD() {
+    if (!isVadMuted || !localAudioTrack) return;
+    
+    console.log("🎤 VAD: Opening microphone - speech detected");
+    isVadMuted = false;
+    vadSpeechStartTime = null;
+    
+    // Enable the local audio track
+    localAudioTrack.unmute();
+    
+    // Update UI to show microphone is active
+    updateVADStatus(true);
+    
+    // Clear any silence timeout
+    if (vadSilenceTimeout) {
+      clearTimeout(vadSilenceTimeout);
+      vadSilenceTimeout = null;
+    }
+  }
+  
+  // 🎤 Close microphone during silence
+  function closeMicrophoneVAD() {
+    if (isVadMuted || !localAudioTrack) return;
+    
+    console.log("🎤 VAD: Closing microphone - silence detected");
+    isVadMuted = true;
+    
+    // Mute the local audio track
+    localAudioTrack.mute();
+    
+    // Update UI to show microphone is muted
+    updateVADStatus(false);
+    
+    // Clear silence timeout
+    if (vadSilenceTimeout) {
+      clearTimeout(vadSilenceTimeout);
+      vadSilenceTimeout = null;
+    }
+  }
+  
+  // 🎤 Update VAD status in UI
+  function updateVADStatus(isActive) {
+    if (statusDiv) {
+      const vadIndicator = document.querySelector('.vad-indicator') || createVADIndicator();
+      
+      if (isActive) {
+        vadIndicator.style.color = '#10b981'; // Green when active
+        vadIndicator.title = 'Voice detected - Microphone active';
+        vadIndicator.textContent = '🎤';
+      } else {
+        vadIndicator.style.color = '#6b7280'; // Gray when muted
+        vadIndicator.title = 'Silence detected - Microphone muted';
+        vadIndicator.textContent = '🔇';
+      }
+    }
+  }
+  
+  // 🎤 Create VAD indicator in UI
+  function createVADIndicator() {
+    const vadIndicator = document.createElement('span');
+    vadIndicator.className = 'vad-indicator';
+    vadIndicator.style.cssText = `
+      margin-left: 8px;
+      font-size: 14px;
+      transition: color 0.2s ease;
+    `;
+    
+    if (statusDiv) {
+      statusDiv.appendChild(vadIndicator);
+    }
+    
+    return vadIndicator;
+  }
+  
+  // 🎤 Stop VAD monitoring
+  function stopVADMonitoring() {
+    console.log("🎤 Stopping VAD monitoring...");
+    vadMonitoringActive = false;
+    
+    if (vadSilenceTimeout) {
+      clearTimeout(vadSilenceTimeout);
+      vadSilenceTimeout = null;
+    }
+    
+    if (vadAudioContext && vadAudioContext.state !== 'closed') {
+      vadAudioContext.close();
+    }
+    
+    vadSpeechStartTime = null;
+    vadBuffer = new Array(vadBufferSize).fill(0);
+    
+    // Remove VAD indicator
+    const vadIndicator = document.querySelector('.vad-indicator');
+    if (vadIndicator) {
+      vadIndicator.remove();
+    }
+  }
+
+  // Enhanced microphone permission handler with retry logic
+  async function requestMicrophonePermission(retryCount = 0) {
+    const MAX_RETRIES = 3;
+    
+    console.log(`🎤 Requesting microphone permission (attempt ${retryCount + 1}/${MAX_RETRIES + 1})...`);
+    
+    // Check if we're in secure context
+    if (!window.isSecureContext) {
+      console.error("❌ Not in secure context - HTTPS required");
+      alert("Microphone access requires HTTPS. Please access this page using HTTPS.");
+      return false;
+    }
+    
+    // Check API availability
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      console.error("❌ MediaDevices API not available");
+      alert("Microphone API is not available in your browser. Please use Chrome, Firefox, Safari, or Edge.");
+      return false;
+    }
+    
+    try {
+      // Always try to get user media to trigger permission dialog
+      // This forces the browser to show permission dialog regardless of previous state
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: false,
+          channelCount: 1,
+          sampleRate: 48000,
+          sampleSize: 16,
+          volume: 0.3,  // Balanced input volume for clear voice capture
+          latency: 0.05,
+          facingMode: "user",
+          googEchoCancellation: true,
+          googAutoGainControl: false,
+          googNoiseSuppression: true,
+          googHighpassFilter: true,
+          googAudioMirroring: false
+        }
+      });
+      
+      console.log("✅ Microphone permission granted!");
+      console.log("📍 Stream tracks:", stream.getTracks().length);
+      
+      // Stop the test stream immediately
+      stream.getTracks().forEach(track => track.stop());
+      
+      return true;
+      
+    } catch (error) {
+      console.error(`❌ Microphone permission attempt ${retryCount + 1} failed:`, error);
+      
+      // Handle different error types
+      if (error.name === "NotAllowedError") {
+        // Permission denied
+        if (retryCount < MAX_RETRIES) {
+          // Ask user to try again
+          const retry = confirm(
+            `Microphone access is required for voice calls.\n\n` +
+            `Permission was denied. Would you like to try again?\n\n` +
+            `Please click "Allow" when the browser asks for microphone permission.\n\n` +
+            `Attempt ${retryCount + 1} of ${MAX_RETRIES + 1}`
+          );
+          
+          if (retry) {
+            // Wait a bit and retry
+            await new Promise(resolve => setTimeout(resolve, 500));
+            return await requestMicrophonePermission(retryCount + 1);
+          } else {
+            console.log("❌ User cancelled microphone permission retry");
+            return false;
+          }
+        } else {
+          // Max retries reached
+          alert(
+            "Microphone access was denied multiple times.\n\n" +
+            "To use voice calls, please:\n" +
+            "1. Click the microphone icon in your browser's address bar\n" +
+            "2. Select 'Allow' for microphone access\n" +
+            "3. Refresh the page and try again"
+          );
+          return false;
+        }
+      } else if (error.name === "NotFoundError") {
+        alert("No microphone found. Please connect a microphone and try again.");
+        return false;
+      } else if (error.name === "NotSupportedError") {
+        alert("Microphone access is not supported by your browser. Please use Chrome, Firefox, Safari, or Edge.");
+        return false;
+      } else {
+        alert(`Microphone error: ${error.message}. Please check your system settings and try again.`);
+        return false;
+      }
+    }
+  }
+
   function initWidget() {
     createWidgetUI();
     setupEventListeners();
@@ -196,21 +505,63 @@
       connectingSoundInterval = null;
     }
 
-    // Use ring1.mp3 for connecting sound
-    try {
-      if (!ringAudio) {
-        ringAudio = new Audio("./assets/Rings/ring1.mp3");
-        ringAudio.volume = 0.7;
+    // Try multiple audio sources with fallbacks
+    const audioSources = [
+      "./assets/Rings/ring1.mp3",
+      "/assets/Rings/ring1.mp3",
+      "assets/Rings/ring1.mp3",
+      "./assets/Rings/bright-phone-ringing-3-152490.mp3",
+      "/assets/Rings/bright-phone-ringing-3-152490.mp3"
+    ];
+
+    async function tryLoadAudio() {
+      if (ringAudio) {
+        try {
+          ringAudio.loop = true;
+          ringAudio.currentTime = 0;
+          await ringAudio.play();
+          console.log("🔊 Playing connecting sound");
+          return;
+        } catch (error) {
+          console.warn("Could not play existing ring audio:", error);
+        }
       }
-      ringAudio.loop = true; // Loop until stopped
-      ringAudio.currentTime = 0;
-      ringAudio.play().catch((error) => {
-        console.warn("Could not play connecting sound:", error);
-      });
-      console.log("🔊 Playing connecting sound (ring1.mp3)");
-    } catch (error) {
-      console.warn("Error playing connecting sound:", error);
+
+      // Try loading audio from different sources
+      for (let i = 0; i < audioSources.length; i++) {
+        try {
+          const testAudio = new Audio(audioSources[i]);
+          testAudio.volume = 0.7;
+          testAudio.loop = true;
+          
+          // Test if the audio can load
+          await new Promise((resolve, reject) => {
+            testAudio.addEventListener('canplaythrough', resolve, { once: true });
+            testAudio.addEventListener('error', reject, { once: true });
+            testAudio.load();
+          });
+          
+          // If we get here, the audio loaded successfully
+          ringAudio = testAudio;
+          ringAudio.currentTime = 0;
+          await ringAudio.play();
+          console.log(`🔊 Playing connecting sound from: ${audioSources[i]}`);
+          return;
+        } catch (error) {
+          console.warn(`Failed to load audio from ${audioSources[i]}:`, error);
+        }
+      }
+      
+      // If all audio sources fail, use a synthetic tone
+      console.warn("All audio sources failed, using synthetic tone");
+      playDiallingSound();
     }
+
+    tryLoadAudio().catch(error => {
+      console.error("Audio loading completely failed:", error);
+      // Fallback to synthetic sound
+      playDiallingSound();
+    });
   }
 
   function stopConnectingSound() {
@@ -232,29 +583,96 @@
       connectingSoundInterval = null;
       console.log("✅ Connecting sound interval cleared");
     }
+    
+    // Also stop any synthetic tones
+    if (soundContext) {
+      try {
+        soundContext.suspend();
+      } catch (error) {
+        console.warn("Error suspending sound context:", error);
+      }
+    }
   }
 
   function playRingSound() {
-    try {
-      if (!ringAudio) {
-        ringAudio = new Audio("https://shivai-s3-bucket.s3.ap-south-1.amazonaws.com/assets/ring1.mp3");
-        ringAudio.loop = true;
-        ringAudio.volume = 0.7;
+    // Try multiple audio sources with fallbacks
+    const audioSources = [
+      "./assets/Rings/ring1.mp3",
+      "/assets/Rings/ring1.mp3",
+      "assets/Rings/ring1.mp3",
+      "./assets/Rings/bright-phone-ringing-3-152490.mp3",
+      "/assets/Rings/bright-phone-ringing-3-152490.mp3"
+    ];
+
+    async function tryLoadRingAudio() {
+      if (ringAudio) {
+        try {
+          ringAudio.loop = true;
+          ringAudio.currentTime = 0;
+          await ringAudio.play();
+          console.log("🔊 Playing ring sound");
+          return;
+        } catch (error) {
+          console.warn("Could not play existing ring audio:", error);
+        }
       }
-      ringAudio.currentTime = 0;
-      ringAudio.play().catch((error) => {
-        console.warn("Could not play ring sound:", error);
-      });
-    } catch (error) {
-      console.warn("Error initializing ring sound:", error);
+
+      // Try loading audio from different sources
+      for (let i = 0; i < audioSources.length; i++) {
+        try {
+          const testAudio = new Audio(audioSources[i]);
+          testAudio.volume = 0.7;
+          testAudio.loop = true;
+          
+          // Test if the audio can load
+          await new Promise((resolve, reject) => {
+            testAudio.addEventListener('canplaythrough', resolve, { once: true });
+            testAudio.addEventListener('error', reject, { once: true });
+            testAudio.load();
+          });
+          
+          // If we get here, the audio loaded successfully
+          ringAudio = testAudio;
+          ringAudio.currentTime = 0;
+          await ringAudio.play();
+          console.log(`🔊 Playing ring sound from: ${audioSources[i]}`);
+          return;
+        } catch (error) {
+          console.warn(`Failed to load ring audio from ${audioSources[i]}:`, error);
+        }
+      }
+      
+      // If all audio sources fail, use a synthetic tone
+      console.warn("All ring audio sources failed, using synthetic tone");
+      playDiallingSound();
     }
+
+    tryLoadRingAudio().catch(error => {
+      console.error("Ring audio loading completely failed:", error);
+      // Fallback to synthetic sound
+      playDiallingSound();
+    });
   }
 
   function stopRingSound() {
     if (ringAudio) {
-      ringAudio.pause();
-      ringAudio.currentTime = 0;
-      ringAudio.loop = false;
+      try {
+        ringAudio.pause();
+        ringAudio.currentTime = 0;
+        ringAudio.loop = false;
+        console.log("✅ Ring sound stopped");
+      } catch (error) {
+        console.warn("⚠️ Error stopping ring sound:", error);
+      }
+    }
+    
+    // Also stop any synthetic tones
+    if (soundContext) {
+      try {
+        soundContext.suspend();
+      } catch (error) {
+        console.warn("Error suspending sound context:", error);
+      }
     }
   }
   function playDiallingSound() {
@@ -373,9 +791,9 @@
     const bufferLength = analyser.frequencyBinCount;
     const dataArray = new Uint8Array(bufferLength);
 
-    // Higher threshold to prevent feedback detection and ensure user input only
-    const SPEECH_THRESHOLD = 60; // Increased from 45 to 60 for better feedback prevention
-    const SILENCE_DURATION = 500; // Increased from 400ms for more stable detection
+    // Balanced threshold for good voice detection with noise filtering
+    const SPEECH_THRESHOLD = 50; // Moderate threshold for clear voice detection
+    const SILENCE_DURATION = 400; // Responsive silence detection
     let silenceStart = null;
 
     function checkAudioLevel() {
@@ -467,8 +885,8 @@
     const bufferLength = analyser.frequencyBinCount;
     const dataArray = new Uint8Array(bufferLength);
 
-    // Higher threshold for close proximity detection only
-    const SPEECH_THRESHOLD = 35; // Increased from 12 to 35 for close voices only
+    // Balanced threshold for AI voice detection
+    const SPEECH_THRESHOLD = 25; // Moderate threshold for AI voice detection
 
     function checkAudioLevel() {
       // Clear AI response timeout when agent starts speaking
@@ -525,11 +943,18 @@
           stopConnectingSound();
 
           // Update status to show AI is now ready
-          updateStatus("✅ Connected - Speak now!", "connected");
+          updateStatus("🤖 AI Speaking... (Mic disabled)", "speaking");
 
-          // Unmute microphone immediately - no delay needed
-          if (isConnected && room) {
-            (async () => {
+          // Enable microphone after 1 second delay when AI first responds
+          setTimeout(async () => {
+            console.log("🎤 1-second delay completed, checking conditions...", {
+              isConnected,
+              hasRoom: !!room,
+              hasReceivedFirstAIResponse
+            });
+            
+            if (isConnected && room && hasReceivedFirstAIResponse) {
+              console.log("🎤 All conditions met, enabling microphone...");
               try {
                 await room.localParticipant.setMicrophoneEnabled(true, {
                   // Optimized for close voice pickup and feedback prevention
@@ -555,22 +980,47 @@
                 if (audioTracks.length > 0) {
                   localAudioTrack = audioTracks[0].track;
                   monitorLocalAudioLevel(localAudioTrack);
-                  console.log("🎤 Microphone monitoring started immediately");
+                  console.log("🎤 Microphone monitoring started after 1s delay");
+                }
+
+                // Enable VAD if available
+                if (vadEnabled && localAudioTrack) {
+                  startVADMonitoring();
+                  localAudioTrack.unmute();
+                  isVadMuted = false;
+                }
+
+                // Update mute button state to reflect enabled microphone
+                updateMuteButton();
+                
+                // Show mute button when microphone is enabled
+                if (muteBtn) {
+                  muteBtn.style.display = "flex";
                 }
 
                 console.log(
-                  "🎤 Microphone enabled immediately - ready for conversation"
+                  "🎤 Microphone enabled after 1 second delay - ready for conversation"
                 );
                 updateStatus("🎤 You can speak now!", "connected");
               } catch (error) {
-                console.error("❌ Error enabling microphone:", error);
+                console.error("❌ Error enabling microphone after delay:", error);
+                // Even if mic enable fails, update UI to show attempt was made
+                updateMuteButton();
+                if (muteBtn) {
+                  muteBtn.style.display = "flex";
+                }
+                updateStatus("⚠️ Microphone error - try manual toggle", "connected");
               }
-            })();
-          }
+            } else {
+              console.log("❌ Cannot enable microphone - conditions not met:", {
+                isConnected,
+                hasRoom: !!room,
+                hasReceivedFirstAIResponse
+              });
+            }
+          }, 1000); // 1 second delay
 
-          console.log(
-            "🎉 First AI response - timer started, connecting sound stopped, mic will unmute in 3s"
-          );
+        
         }
 
         // Always update status when AI starts speaking
@@ -587,12 +1037,11 @@
             latencyMetrics.measurements.shift();
           }
 
-          console.log(`⚡ Response latency: ${Math.round(latency)}ms`);
 
           latencyMetrics.userSpeechEndTime = null;
         }
       } else if (
-        average <= SPEECH_THRESHOLD &&
+        audioLevel <= SPEECH_THRESHOLD &&
         latencyMetrics.isAgentSpeaking
       ) {
         latencyMetrics.isAgentSpeaking = false;
@@ -601,9 +1050,7 @@
         // Clear the flag after a delay to allow user input
         setTimeout(() => {
           aiJustFinished = false;
-          console.log(
-            "✅ User input detection re-enabled after AI buffer period"
-          );
+         
         }, 500); // 500ms buffer to prevent feedback
 
         updateStatus("🟢 Connected - Speak naturally!", "connected");
@@ -873,14 +1320,25 @@
       </svg>
     `;
     triggerBtn.setAttribute("aria-label", "Open ShivAI Assistant");
+    
+    // Create modal overlay
+    const modalOverlay = document.createElement("div");
+    modalOverlay.className = "shivai-modal-overlay";
+    modalOverlay.style.display = "none";
+    
     widgetContainer = document.createElement("div");
-    widgetContainer.className = "shivai-widget";
+    widgetContainer.className = "shivai-modal";
+    
+    // Create modal content wrapper
+    const modalContent = document.createElement("div");
+    modalContent.className = "shivai-modal-content";
+    
     landingView = document.createElement("div");
     landingView.className = "landing-view";
     landingView.innerHTML = `
-      <div class="widget-header">
+      <div class="modal-header">
         <div class="header-content">
-          <button class="widget-close" aria-label="Close widget">×</button>
+          <button class="modal-close" aria-label="Close modal">×</button>
           <div class="header-info">
             <div class="widget-avatar">
              <svg id="Layer_1" data-name="Layer 1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1500 1500">
@@ -901,6 +1359,58 @@
       <path class="cls-1" d="m1215.73,825.86c-6.37.43-13.66,1.49-21.51,3.68-22.94,6.41-38.73,19.17-47.51,27.69,7.45,22.45,14.9,44.91,22.35,67.36h137.14v-101.86l-72.84,3.12.57,47.8-18.21-47.8Z"/>
       <polygon class="cls-1" points="1233.94 716.32 1306.21 716.32 1306.21 825.14 1233.94 822.21 1233.94 716.32"/>
       <path class="cls-1" d="m872.77,821c22.25.49,44.49.98,66.74,1.47,18.21-35.7,36.41-71.4,54.62-107.1l-80.12-3.31-48.65,116.61h-5.72l-51.51-116.61h-72.25v27.9l98.72,186h52.22c17.12-33.61,34.25-67.21,51.37-100.82-21.81-1.38-43.62-2.76-65.43-4.14Z"/>
+    </svg>
+            </div>
+            <div class="header-text">
+              <div class="widget-title">AI Employee</div>
+              <div class="widget-subtitle">ShivAI offers 24/7 voice support to handle your business calls efficiently and professionally.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="modal-body">
+        <div class="language-section-landing">
+          <label class="language-label-landing">Select your preferred language:</label>
+          <select id="shivai-language-landing" class="language-select-styled-landing">
+            <option value="ar">🇸🇦 Arabic</option>
+            <option value="zh">🇨🇳 Chinese</option>
+            <option value="nl">🇳🇱 Dutch</option>
+            <option value="en-GB">🇬🇧 English (UK)</option>
+            <option value="en-US" selected>🇺🇸 English (US)</option>
+            <option value="en-IN">🇮🇳 English (India)</option>
+            <option value="fr">🇫🇷 French</option>
+            <option value="de">🇩🇪 German</option>
+            <option value="hi">🇮🇳 Hindi</option>
+            <option value="it">🇮🇹 Italian</option>
+            <option value="ja">🇯🇵 Japanese</option>
+            <option value="ko">🇰🇷 Korean</option>
+            <option value="pt">🇵🇹 Portuguese</option>
+            <option value="pl">🇵🇱 Polish</option>
+            <option value="ru">🇷🇺 Russian</option>
+            <option value="es">🇪🇸 Spanish</option>
+            <option value="tr">🇹🇷 Turkish</option>
+          </select>
+        </div>
+        <button class="start-call-btn" id="start-call-btn">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path>
+          </svg>
+          Start Call
+        </button>
+        <div class="privacy-text">By using this service you agree to our <span class="privacy-link">T&C</span></div>
+      </div>
+      <div class="modal-footer">
+         <div class="powered-by">
+          <span>Powered by</span>
+          <a href="https://callshivai.com" target="_blank" rel="noopener noreferrer">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1500 1500" style="height: 20px; width: 20px; fill: currentColor;">
+              <path class="cls-1" d="m404.66,608.33c-9.95-7.3-50.21-35.08-105.88-29.33-26.64,2.75-47.74,12.25-62.31,21.06-14.39,8.7-26.96,20.35-35.39,34.9-12.13,20.93-15.94,45.25-9.6,67.8,4.02,14.28,11.39,25.29,18.63,33.3,6.91,7.65,15.23,13.89,24.25,18.89,25.77,14.32,51.54,28.63,77.31,42.95,11.98,7.56,18.69,20.94,17.17,34.34-.11,1.01-.27,1.98-.47,2.93-2.85,13.83-15.4,23.46-29.5,24.28-8.62.5-18.56.28-29.41-1.45-34.59-5.51-58.34-23.08-69.39-32.54-13.35,21.1-26.71,42.2-40.06,63.3,13.96,9.75,32.81,20.78,56.52,29.33,42.03,15.17,79.38,15.38,102.3,13.59,7.85-.92,45.14-6.13,72.25-39.35,1.28-1.57,2.49-3.15,3.65-4.73,27.87-38.33,23.14-92-9.89-125.97-.3-.31-.6-.62-.91-.93-17.09-17.27-35.69-27.61-51.02-33.85-19.44-7.9-38.05-17.71-55.07-29.99-.78-.56-1.56-1.12-2.33-1.68-9.66-6.97-12.29-20.21-6.03-30.34h0c7.3-11.68,22.31-17.66,37.92-15.02,8.22-.53,21.33-.36,36.48,4.29,15.34,4.71,26.38,12.07,32.91,17.17,9.3-20.98,18.6-41.97,27.9-62.95Z"/>
+            </svg>
+            ShivAI
+          </a>
+        </div>
+      </div>
+    `;
     </svg>
             </div>
             <div class="header-text">
@@ -941,7 +1451,7 @@
         </button>
         <div class="privacy-text">By using this service you agree to our <span class="privacy-link">T&C</span></div>
       </div>
-      <div class="widget-footer" style="padding: 0; margin: 0; background-color: #f9fafb;">
+      <div class="modal-footer" style="padding: 0; margin: 0; background-color: #f9fafb;">
          <div class="footer-text" style="display: flex; align-items: center; justify-content: center; gap: 6px; font-size: 13px; color: #6b7280; flex-wrap: nowrap; line-height: 1;">
           <span>Powered by</span>
           <a href="https://callshivai.com" target="_blank" rel="noopener noreferrer" class="footer-logo-link" style="display: inline-flex; align-items: center; text-decoration: none; cursor: pointer; transition: all 0.2s ease; vertical-align: middle;">
@@ -956,8 +1466,56 @@
               <path class="cls-1" d="m1215.73,825.86c-6.37.43-13.66,1.49-21.51,3.68-22.94,6.41-38.73,19.17-47.51,27.69,7.45,22.45,14.9,44.91,22.35,67.36h137.14v-101.86l-72.84,3.12.57,47.8-18.21-47.8Z"/>
               <polygon class="cls-1" points="1233.94 716.32 1306.21 716.32 1306.21 825.14 1233.94 822.21 1233.94 716.32"/>
               <path class="cls-1" d="m872.77,821c22.25.49,44.49.98,66.74,1.47,18.21-35.7,36.41-71.4,54.62-107.1l-80.12-3.31-48.65,116.61h-5.72l-51.51-116.61h-72.25v27.9l98.72,186h52.22c17.12-33.61,34.25-67.21,51.37-100.82-21.81-1.38-43.62-2.76-65.43-4.14Z"/>
+    </svg>
+            </div>
+            <div class="header-text">
+              <div class="widget-title">AI Employee</div>
+              <div class="widget-subtitle">ShivAI offers 24/7 voice support to handle your business calls efficiently and professionally.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="modal-body">
+        <div class="language-section-landing">
+          <label class="language-label-landing">Select your preferred language:</label>
+          <select id="shivai-language-landing" class="language-select-styled-landing">
+            <option value="ar">🇸🇦 Arabic</option>
+            <option value="zh">🇨🇳 Chinese</option>
+            <option value="nl">🇳🇱 Dutch</option>
+            <option value="en-GB">🇬🇧 English (UK)</option>
+            <option value="en-US" selected>🇺🇸 English (US)</option>
+            <option value="en-IN">🇮🇳 English (India)</option>
+            <option value="fr">🇫🇷 French</option>
+            <option value="de">🇩🇪 German</option>
+            <option value="hi">🇮🇳 Hindi</option>
+            <option value="it">🇮🇹 Italian</option>
+            <option value="ja">🇯🇵 Japanese</option>
+            <option value="ko">🇰🇷 Korean</option>
+            <option value="pt">🇵🇹 Portuguese</option>
+            <option value="pl">🇵🇱 Polish</option>
+            <option value="ru">🇷🇺 Russian</option>
+            <option value="es">🇪🇸 Spanish</option>
+            <option value="tr">🇹🇷 Turkish</option>
+          </select>
+        </div>
+        <button class="start-call-btn" id="start-call-btn">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path>
+          </svg>
+          Start Call
+        </button>
+        <div class="privacy-text">By using this service you agree to our <span class="privacy-link">T&C</span></div>
+      </div>
+      <div class="modal-footer">
+         <div class="powered-by">
+          <span>Powered by</span>
+          <a href="https://callshivai.com" target="_blank" rel="noopener noreferrer">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1500 1500" style="height: 20px; width: 20px; fill: currentColor;">
+              <path class="cls-1" d="m404.66,608.33c-9.95-7.3-50.21-35.08-105.88-29.33-26.64,2.75-47.74,12.25-62.31,21.06-14.39,8.7-26.96,20.35-35.39,34.9-12.13,20.93-15.94,45.25-9.6,67.8,4.02,14.28,11.39,25.29,18.63,33.3,6.91,7.65,15.23,13.89,24.25,18.89,25.77,14.32,51.54,28.63,77.31,42.95,11.98,7.56,18.69,20.94,17.17,34.34-.11,1.01-.27,1.98-.47,2.93-2.85,13.83-15.4,23.46-29.5,24.28-8.62.5-18.56.28-29.41-1.45-34.59-5.51-58.34-23.08-69.39-32.54-13.35,21.1-26.71,42.2-40.06,63.3,13.96,9.75,32.81,20.78,56.52,29.33,42.03,15.17,79.38,15.38,102.3,13.59,7.85-.92,45.14-6.13,72.25-39.35,1.28-1.57,2.49-3.15,3.65-4.73,27.87-38.33,23.14-92-9.89-125.97-.3-.31-.6-.62-.91-.93-17.09-17.27-35.69-27.61-51.02-33.85-19.44-7.9-38.05-17.71-55.07-29.99-.78-.56-1.56-1.12-2.33-1.68-9.66-6.97-12.29-20.21-6.03-30.34h0c7.3-11.68,22.31-17.66,37.92-15.02,8.22-.53,21.33-.36,36.48,4.29,15.34,4.71,26.38,12.07,32.91,17.17,9.3-20.98,18.6-41.97,27.9-62.95Z"/>
             </svg>
-            </a></div>
+            ShivAI
+          </a>
+        </div>
       </div>
     `;
     callView = document.createElement("div");
@@ -1004,118 +1562,82 @@
       </div>
       <div class="messages-container" id="shivai-messages">
       <div class="empty-state">
-      <div class="empty-state-icon">👋</div>
-      <div class="empty-state-text">Start a conversation to see transcripts here</div>
-      </div>
-      </div>
-      
-      <!-- Simplified WhatsApp-style Message Input Interface -->
-      <div class="message-input-container" style="display: flex !important; align-items: center !important; gap: 12px !important; padding: 2px 4px !important; border-radius: 0px !important;">
-        
-        <!-- Attachment Button -->
-       
-
-        <!-- Message Input Field Container -->
-        <div class="input-field-container" style="flex: 1 !important; position: relative !important; display: flex !important; align-items: center !important; background: white !important; border-radius: 8px !important; border: 1px solid #e1e5ea !important; padding: 8px 16px !important; min-height: 30px  !important; max-height: 120px !important; height:36px !important;  ">
-           <div>
-
-        <button id="shivai-attach-btn" class="attach-btn" title="Coming soon..." style="  color: #ccc !important; cursor: not-allowed !important; margin-right: 12px !important; background: transparent !important; border: none !important; display: flex !important; align-items: center !important; justify-content: center !important; padding: 0 !important; opacity: 0.5 !important;" disabled>
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"></path>
+    
+    callView = document.createElement("div");
+    callView.className = "call-view";
+    callView.style.display = "none";
+    callView.innerHTML = `
+      <div class="call-header">
+        <button class="back-btn" id="back-btn" aria-label="Back to landing">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M19 12H5M12 19l-7-7 7-7"/>
           </svg>
         </button>
-        
-        <!-- Hidden file inputs -->
-        <input type="file" id="shivai-file-input" accept="image/*,video/*,.pdf,.doc,.docx,.txt" style="display: none !important;" multiple>
-        <input type="file" id="shivai-image-input" accept="image/*" style="display: none !important;" multiple>
-        
+        <div class="call-info">
+          <div class="call-info-name text-2xl">ShivAI Employee</div>
+          <div class="call-info-status" id="shivai-status">
+            <span class="status-text">Online</span>
+          </div>
         </div>
-
-          <!-- Input Field -->
-          <input type="text" id="shivai-message-input" class="message-input" placeholder="Type a message..." style="flex: 1 !important; border: none !important; outline: none !important; background: transparent !important; font-size: 12px !important; line-height: 20px !important; color: #111b21 !important; font-family: inherit !important; padding: 4px 0 !important;" />
-          
-          <!-- Send Button (Hidden initially, shows when typing) -->
-          <button id="shivai-send-btn" class="send-btn" title="Send Message" style="display: none;">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M22 2L11 13"></path>
-              <path d="M22 2L15 22L11 13L2 9L22 2Z"></path>
+        <button class="modal-close" aria-label="Close modal">×</button>
+      </div>
+      <div class="call-body">
+        <div class="language-section">
+          <label class="language-label">Language:</label>
+          <select id="shivai-language" class="language-select-styled">
+            <option value="ar">🇸🇦 Arabic</option>
+            <option value="zh">🇨🇳 Chinese</option>
+            <option value="nl">🇳🇱 Dutch</option>
+            <option value="en-GB">🇬🇧 English (UK)</option>
+            <option value="en-US">🇺🇸 English (US)</option>
+            <option value="en-IN">🇮🇳 English (India)</option>
+            <option value="fr">🇫🇷 French</option>
+            <option value="de">🇩🇪 German</option>
+            <option value="hi">🇮🇳 Hindi</option>
+            <option value="it">🇮🇹 Italian</option>
+            <option value="ja">🇯🇵 Japanese</option>
+            <option value="ko">🇰🇷 Korean</option>
+            <option value="pt">🇵🇹 Portuguese</option>
+            <option value="pl">🇵🇱 Polish</option>
+            <option value="ru">🇷🇺 Russian</option>
+            <option value="es">🇪🇸 Spanish</option>
+            <option value="tr">🇹🇷 Turkish</option>
+          </select>
+        </div>
+        <div class="messages-container" id="shivai-messages">
+          <div class="empty-state">
+            <div class="empty-state-icon">👋</div>
+            <div class="empty-state-text">Start a conversation to see transcripts here</div>
+          </div>
+        </div>
+        <div class="controls">
+          <div class="call-timer" id="call-timer" style="display: none;">00:00</div>
+          <button class="control-btn-icon mute" id="shivai-mute" style="display: none;" title="Mute Microphone">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path>
+              <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
+              <line x1="12" y1="19" x2="12" y2="23"></line>
+              <line x1="8" y1="23" x2="16" y2="23"></line>
+            </svg>
+          </button>
+          <button class="control-btn-icon connect" id="shivai-connect" title="Start Call">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path>
             </svg>
           </button>
         </div>
-        
-      </div>
-      
-      <!-- Simplified Attachment Menu Popup -->
-      <div id="shivai-attachment-menu" class="attachment-menu" style="position: absolute !important; bottom: 70px !important; left: 16px !important; background: white !important; border-radius: 12px !important; box-shadow: 0 4px 12px rgba(0,0,0,0.15) !important; padding: 8px !important; display: none !important; z-index: 1000 !important; min-width: 180px !important;">
-        
-        <div class="attachment-option" id="shivai-attach-image" style="display: flex !important; align-items: center !important; padding: 12px !important; cursor: pointer !important; border-radius: 8px !important; transition: background 0.2s ease !important;">
-          <div style="width: 36px !important; height: 36px !important; border-radius: 50% !important; background: #7c3aed !important; display: flex !important; align-items: center !important; justify-content: center !important; margin-right: 12px !important;">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="white" stroke="white" stroke-width="2">
-              <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
-              <circle cx="9" cy="9" r="2"></circle>
-              <path d="M21 15l-3.086-3.086a2 2 0 0 0-2.828 0L6 21"></path>
-            </svg>
-          </div>
-          <span style="font-size: 14px !important; color: #111b21 !important; font-weight: 500 !important;">Photos & Videos</span>
-        </div>
-        
-        <div class="attachment-option" id="shivai-attach-document" style="display: flex !important; align-items: center !important; padding: 12px !important; cursor: pointer !important; border-radius: 8px !important; transition: background 0.2s ease !important;">
-          <div style="width: 36px !important; height: 36px !important; border-radius: 50% !important; background: #0ea5e9 !important; display: flex !important; align-items: center !important; justify-content: center !important; margin-right: 12px !important;">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="white" stroke="white" stroke-width="2">
-              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
-              <polyline points="14,2 14,8 20,8"></polyline>
-              <line x1="16" y1="13" x2="8" y2="13"></line>
-              <line x1="16" y1="17" x2="8" y2="17"></line>
-              <polyline points="10,9 9,9 8,9"></polyline>
-            </svg>
-          </div>
-          <span style="font-size: 14px !important; color: #111b21 !important; font-weight: 500 !important;">Documents</span>
-        </div>
-        
-      </div>
-      
-      <div class="controls">
-      <div class="call-timer" id="call-timer" style="display: none;">00:00</div>
-      <button class="control-btn-icon mute" id="shivai-mute" style="display: none;" title="Mute Microphone">
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-        <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path>
-        <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
-        <line x1="12" y1="19" x2="12" y2="23"></line>
-        <line x1="8" y1="23" x2="16" y2="23"></line>
-      </svg>
-      </button>
-      <button class="control-btn-icon connect" id="shivai-connect" title="Start Call">
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-        <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path>
-      </svg>
-      </button>
-      </div>
-      </div>
-       <div class="widget-footer" style="padding: 0; margin: 0; background-color: #f9fafb;">
-      <div class="footer-text" style="display: flex; align-items: center; justify-content: center; gap: 6px; font-size: 13px; color: #6b7280; flex-wrap: nowrap; line-height: 1;">
-          <span>Powered by</span>
-          <a href="https://callshivai.com" target="_blank" rel="noopener noreferrer" class="footer-logo-link" style="display: inline-flex; align-items: center; text-decoration: none; cursor: pointer; transition: all 0.2s ease;">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1500 1500" class="footer-logo" style="height: 42px; width: 42px; fill: #3b82f6; vertical-align: middle; line-height: 1; margin-left: -5px;">
-              <path class="cls-1" d="m404.66,608.33c-9.95-7.3-50.21-35.08-105.88-29.33-26.64,2.75-47.74,12.25-62.31,21.06-14.39,8.7-26.96,20.35-35.39,34.9-12.13,20.93-15.94,45.25-9.6,67.8,4.02,14.28,11.39,25.29,18.63,33.3,6.91,7.65,15.23,13.89,24.25,18.89,25.77,14.32,51.54,28.63,77.31,42.95,11.98,7.56,18.69,20.94,17.17,34.34-.11,1.01-.27,1.98-.47,2.93-2.85,13.83-15.4,23.46-29.5,24.28-8.62.5-18.56.28-29.41-1.45-34.59-5.51-58.34-23.08-69.39-32.54-13.35,21.1-26.71,42.2-40.06,63.3,13.96,9.75,32.81,20.78,56.52,29.33,42.03,15.17,79.38,15.38,102.3,13.59,7.85-.92,45.14-6.13,72.25-39.35,1.28-1.57,2.49-3.15,3.65-4.73,27.87-38.33,23.14-92-9.89-125.97-.3-.31-.6-.62-.91-.93-17.09-17.27-35.69-27.61-51.02-33.85-19.44-7.9-38.05-17.71-55.07-29.99-.78-.56-1.56-1.12-2.33-1.68-9.66-6.97-12.29-20.21-6.03-30.34h0c7.3-11.68,22.31-17.66,37.92-15.02,8.22-.53,21.33-.36,36.48,4.29,15.34,4.71,26.38,12.07,32.91,17.17,9.3-20.98,18.6-41.97,27.9-62.95Z"/>
-              <path class="cls-1" d="m630.61,740.85c-3.86-4.46-8.41-8.89-13.76-13.05-17.19-13.34-35.56-18.29-49.77-19.92-15.45-1.76-31.19.76-45.13,7.63-.08.04-.16.08-.25.12-13.14,6.52-22.41,14.79-28.33,21.1v-169.18h-72.25v358.41h72.25v-130.44c9.49-21.4,30.88-33.36,50.51-29.8,3.55.64,6.78,1.75,9.71,3.15,14.12,6.76,22.48,21.69,22.48,37.35v119.75h73.68v-132.05c0-19.38-6.46-38.41-19.14-53.06Z"/>
-              <rect class="cls-1" x="662.56" y="712.06" width="74.4" height="213.9"/>
-              <path class="cls-1" d="m953.03,825.14c-13.76,33.61-27.52,67.21-41.28,100.82h84.42l25.75-67.96c-8.94-6.55-20.41-13.83-34.43-20.38-12.7-5.93-24.48-9.84-34.47-12.48Z"/>
-              <circle class="cls-1" cx="1270.13" cy="623.35" r="45.07"/>
-              <circle class="cls-1" cx="699.76" cy="623.35" r="45.07"/>
-              <path class="cls-1" d="m954.09,822.73l95.6-235.02h71.13l94.46,235.02c-13.9-.54-54.29-3.99-86.12-34.9-26-25.25-33.27-56.18-36.12-68.31-.48-2.06-.75-3.53-1.31-6.44-4.83-25.25-5.11-43.74-5.38-76.6-.22-27.23-.29-45.31-.45-45.31-.19,0-.33,26.01-1.25,51.3-.44,12.07-.99,22.81-.99,22.81-.31,5.8-.54,8.99-.78,14.32-.97,21.54-.88,21.8-1.44,25.22-2.48,15.29-13.28,66.99-58.46,96.77-27.62,18.21-55.44,20.82-68.92,21.15Z"/>
-              <path class="cls-1" d="m1215.73,825.86c-6.37.43-13.66,1.49-21.51,3.68-22.94,6.41-38.73,19.17-47.51,27.69,7.45,22.45,14.9,44.91,22.35,67.36h137.14v-101.86l-72.84,3.12.57,47.8-18.21-47.8Z"/>
-              <polygon class="cls-1" points="1233.94 716.32 1306.21 716.32 1306.21 825.14 1233.94 822.21 1233.94 716.32"/>
-              <path class="cls-1" d="m872.77,821c22.25.49,44.49.98,66.74,1.47,18.21-35.7,36.41-71.4,54.62-107.1l-80.12-3.31-48.65,116.61h-5.72l-51.51-116.61h-72.25v27.9l98.72,186h52.22c17.12-33.61,34.25-67.21,51.37-100.82-21.81-1.38-43.62-2.76-65.43-4.14Z"/>
-            </svg>
-            </a></div>
-      </div>
       </div>
     `;
-    widgetContainer.appendChild(landingView);
-    widgetContainer.appendChild(callView);
+
+    modalContent.appendChild(landingView);
+    modalContent.appendChild(callView);
+    widgetContainer.appendChild(modalContent);
+    modalOverlay.appendChild(widgetContainer);
+
     addWidgetStyles();
     document.body.appendChild(triggerBtn);
-    document.body.appendChild(widgetContainer);
+    document.body.appendChild(modalOverlay);
+    
     makeWidgetDraggable(widgetContainer);
     makeTriggerBtnDraggable(triggerBtn);
     createLiveMessageBubble();
@@ -1209,8 +1731,8 @@
         messageInput.value = ""; // Clear any existing text
       }
       if (sendBtn) {
-        sendBtn.style.setProperty("display", "none", "important"); // Hide send button initially
-        sendBtn.style.setProperty("visibility", "hidden", "important");
+        sendBtn.style.setProperty('display', 'none', 'important'); // Hide send button initially
+        sendBtn.style.setProperty('visibility', 'hidden', 'important');
       }
 
       console.log("📝 Message interface shown - classes:", container.className);
@@ -1448,108 +1970,724 @@
       .shivai-neon-pulse::after {
       animation-delay: 1s;
       }
-      @keyframes neonPulseOut {
-      0% {
-        transform: scale(1);
+      
+      /* Modal Styles */
+      .shivai-modal-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.5);
+        z-index: 2147483646;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        backdrop-filter: blur(4px);
+        opacity: 0;
+        transition: opacity 0.3s ease;
+      }
+      
+      .shivai-modal-overlay.active {
         opacity: 1;
       }
-      100% {
-        transform: scale(1.5);
-        opacity: 0;
+      
+      .shivai-modal {
+        background: white;
+        border-radius: 16px;
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2), 0 8px 20px rgba(0, 0, 0, 0.15);
+        max-width: 500px;
+        width: 90%;
+        max-height: 90vh;
+        overflow: hidden;
+        transform: scale(0.9) translateY(20px);
+        transition: transform 0.3s ease;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
       }
+      
+      .shivai-modal-overlay.active .shivai-modal {
+        transform: scale(1) translateY(0);
       }
-      @keyframes bubbleSlideIn {
-      0% {
-        opacity: 0;
-        transform: translateY(15px) scale(0.7);
+      
+      .shivai-modal-content {
+        width: 100%;
+        height: 100%;
+        display: flex;
+        flex-direction: column;
       }
-      60% {
-        opacity: 0.8;
-        transform: translateY(-2px) scale(1.05);
+      
+      /* Landing View Styles */
+      .landing-view {
+        display: flex;
+        flex-direction: column;
+        width: 100%;
+        background: white;
+        border-radius: 16px;
       }
-      100% {
-        opacity: 1;
-        transform: translateY(0) scale(1);
+      
+      .modal-header {
+        position: relative;
+        text-align: left;
+        padding: 20px 20px 16px;
+        border-bottom: 1px solid #f3f4f6;
       }
-      }
-      @keyframes bubbleSlideOut {
-      0% {
-        opacity: 1;
-        transform: translateY(0) scale(1);
-      }
-      100% {
-        opacity: 0;
-        transform: translateY(10px) scale(0.8);
-      }
-      }
-      @keyframes typingCursor {
-      0%, 50% { opacity: 1; }
-      51%, 100% { opacity: 0; }
-      }
-      @keyframes shine {
-      0% {
-        left: -100%;
-      }
-      100% {
-        left: 100%;
-      }
-      }
-      .start-call-btn {
-      position: relative;
-      overflow: hidden;
-      }
-      .start-call-btn::before {
-      content: '';
-      position: absolute;
-      top: 0;
-      left: -100%;
-      width: 100%;
-      height: 100%;
-      background: linear-gradient(
-        90deg,
-        transparent,
-        rgba(255, 255, 255, 0.4),
-        transparent
-      );
-      animation: shine 2s infinite;
-      }
-      .start-call-btn:hover::before {
-      animation: shine 1s infinite;
-      }
-      .shivai-message-bubble {
-      cursor: pointer;
-      }
-      @media (max-width: 768px) {
-      .shivai-trigger {
-        width: 56px;
-        height: 56px;
-        font-size: 22px;
-        bottom: 16px;
+      
+      .modal-close {
+        position: absolute;
+        top: 16px;
         right: 16px;
+        background: transparent;
+        border: none;
+        color: #6b7280;
+        cursor: pointer;
+        padding: 8px;
+        border-radius: 50%;
+        transition: all 0.2s ease;
+        font-size: 20px;
+        width: 36px;
+        height: 36px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
       }
-      .shivai-message-bubble {
-        font-size: 13px;
-        padding: 6px 10px;
-        max-width: 200px;
+      
+      .modal-close:hover {
+        background: #f3f4f6;
+        color: #111827;
       }
+      
+      .header-info {
+        display: flex;
+        align-items: flex-start;
+        gap: 12px;
+        margin-bottom: 16px;
       }
-      @media (max-width: 420px) {
-      .shivai-trigger {
-        width: 52px;
-        height: 52px;
-        bottom: 12px;
-        right: 12px;
+      
+      .header-text {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
       }
-      .shivai-message-bubble {
+      
+      .landing-view .widget-avatar {
+        width: 48px;
+        height: 48px;
+        flex-shrink: 0;
+        border-radius: 50%;
+        background: transparent;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #111827;
+        border: 2px solid #e5e7eb;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.08);
+        padding: 6px;
+      }
+      
+      .landing-view .widget-avatar svg {
+        width: 100%;
+        height: 100%;
+      }
+      
+      .landing-view .widget-title {
+        font-weight: 700;
+        font-size: 18px;
+        color: #111827;
+        margin: 0;
+        letter-spacing: -0.01em;
+        line-height: 1.3;
+      }
+      
+      .landing-view .widget-subtitle {
+        font-size: 14px;
+        color: #6b7280;
+        margin: 0;
+        font-weight: 400;
+        line-height: 1.5;
+      }
+      
+      .modal-body {
+        padding: 20px;
+        flex: 1;
+      }
+      
+      .language-section-landing {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        margin-bottom: 24px;
+        padding: 0;
+      }
+      
+      .language-label-landing {
+        font-size: 14px;
+        font-weight: 600;
+        color: #374151;
+        letter-spacing: 0.3px;
+        margin: 0;
+        text-align: left;
+      }
+      
+      .language-select-styled-landing {
+        padding: 14px 18px;
+        border-radius: 12px;
+        border: 2px solid #d1d5db;
+        background: white;
+        font-size: 16px;
+        color: #111827;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        background-image: url("data:image/svg+xml,%3Csvg width='12' height='12' viewBox='0 0 12 12' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M2.5 4.5L6 8L9.5 4.5' stroke='%236b7280' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+        background-repeat: no-repeat;
+        background-position: right 16px center;
+        padding-right: 48px;
+        appearance: none;
+        -webkit-appearance: none;
+        -moz-appearance: none;
+        font-weight: 500;
+      }
+      
+      .language-select-styled-landing:hover {
+        border-color: #3b82f6;
+        background-color: #f8fafc;
+      }
+      
+      .language-select-styled-landing:focus {
+        outline: none;
+        border-color: #3b82f6;
+        box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.1);
+        background-color: white;
+      }
+      
+      .start-call-btn {
+        width: 100%;
+        padding: 16px 20px;
+        border: 1px solid transparent;
+        border-radius: 12px;
+        font-size: 16px;
+        background: linear-gradient(135deg, #4b5563 0%, #6b7280 30%, #374151 70%, #1f2937 100%);
+        color: white;
+        font-weight: 600;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 10px;
+        transition: all 0.2s ease;
+        margin-bottom: 16px;
+        position: relative;
+        overflow: hidden;
+      }
+      
+      .start-call-btn:hover {
+        background: linear-gradient(135deg, #6b7280 0%, #9ca3af 30%, #4b5563 70%, #374151 100%);
+        transform: translateY(-2px);
+        box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
+      }
+      
+      .start-call-btn:active {
+        transform: translateY(0);
+      }
+      
+      .privacy-text {
         font-size: 12px;
-        padding: 6px 8px;
-        max-width: 180px;
+        color: #9ca3af;
+        text-align: center;
+        margin: 0;
+        line-height: 1.3;
       }
+      
+      .privacy-link {
+        color: #2563eb;
+        cursor: pointer;
+        text-decoration: underline;
       }
+      
+      .modal-footer {
+        text-align: center;
+        border-top: 1px solid #f3f4f6;
+        padding: 16px;
+        background: #f9fafb;
+      }
+      
+      .modal-footer-call {
+        text-align: center;
+        border-top: 1px solid #f3f4f6;
+        padding: 12px;
+        background: #f9fafb;
+      }
+      
+      .powered-by {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        font-size: 14px;
+        color: #6b7280;
+        font-weight: 500;
+      }
+      
+      .powered-by a {
+        color: #3b82f6;
+        text-decoration: none;
+        font-weight: 600;
+        display: flex;
+        align-items: center;
+        gap: 4px;
+      }
+      
+      .powered-by a:hover {
+        color: #2563eb;
+      }
+      
+      /* Call View Styles */
+      .call-view {
+        display: none;
+        flex-direction: column;
+        width: 100%;
+        height: 600px;
+        background: white;
+        border-radius: 16px;
+      }
+      
+      .call-view.active {
+        display: flex;
+      }
+      
+      .call-header {
+        display: flex;
+        align-items: center;
+        padding: 16px 20px;
+        background: #ffffff;
+        border-bottom: 1px solid #e5e7eb;
+        gap: 12px;
+        border-radius: 16px 16px 0 0;
+      }
+      
+      .back-btn {
+        background: transparent;
+        border: none;
+        color: #6b7280;
+        cursor: pointer;
+        padding: 8px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 8px;
+        transition: all 0.2s ease;
+        flex-shrink: 0;
+      }
+      
+      .back-btn:hover {
+        background: #f3f4f6;
+        color: #111827;
+      }
+      
+      .call-info {
+        flex: 1;
+        min-width: 0;
+      }
+      
+      .call-info-name {
+        font-size: 16px;
+        font-weight: 600;
+        color: #111827;
+        margin-bottom: 2px;
+        line-height: 1.2;
+      }
+      
+      .call-info-status {
+        font-size: 13px;
+        display: flex;
+        align-items: center;
+        font-weight: 500;
+        color: #10b981;
+      }
+      
+      .call-info-status .status-text {
+        font-size: 13px;
+        line-height: 1;
+      }
+      
+      .call-info-status.connecting {
+        color: #d97706;
+      }
+      
+      .call-info-status.connected {
+        color: #2563eb;
+      }
+      
+      .call-info-status.listening {
+        color: #059669;
+      }
+      
+      .call-info-status.speaking {
+        color: #db2777;
+      }
+      
+      .call-info-status.disconnected {
+        color: #dc2626;
+      }
+      
+      .call-timer {
+        font-size: 14px;
+        font-weight: 600;
+        color: #6b7280;
+        background: #f3f4f6;
+        padding: 6px 12px;
+        border-radius: 8px;
+        font-variant-numeric: tabular-nums;
+      }
+      
+      .call-body {
+        padding: 20px;
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+        overflow-y: auto;
+        background: #ffffff;
+      }
+      
+      .language-section {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+      
+      .language-label {
+        font-size: 14px;
+        font-weight: 500;
+        color: #374151;
+        margin: 0;
+      }
+      
+      .language-select-styled {
+        padding: 10px 14px;
+        border-radius: 8px;
+        border: 1.5px solid #d1d5db;
+        background: white;
+        font-size: 14px;
+        color: #111827;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        background-image: url("data:image/svg+xml,%3Csvg width='12' height='12' viewBox='0 0 12 12' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M2.5 4.5L6 8L9.5 4.5' stroke='%236b7280' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+        background-repeat: no-repeat;
+        background-position: right 12px center;
+        padding-right: 36px;
+        appearance: none;
+        -webkit-appearance: none;
+        -moz-appearance: none;
+        font-weight: 500;
+      }
+      
+      .language-select-styled:hover {
+        border-color: #3b82f6;
+        background-color: #f9fafb;
+      }
+      
+      .language-select-styled:focus {
+        outline: none;
+        border-color: #3b82f6;
+        box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+        background-color: white;
+      }
+      
+      .call-controls {
+        display: flex;
+        gap: 12px;
+        align-items: center;
+      }
+      
+      .connect-btn, .mute-btn, .clear-btn {
+        padding: 12px 18px;
+        border: none;
+        border-radius: 10px;
+        font-size: 14px;
+        font-weight: 600;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        transition: all 0.2s ease;
+        flex-shrink: 0;
+      }
+      
+      .connect-btn {
+        background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+        color: white;
+        flex: 1;
+      }
+      
+      .connect-btn:hover {
+        background: linear-gradient(135deg, #059669 0%, #047857 100%);
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+      }
+      
+      .connect-btn.disconnect {
+        background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+      }
+      
+      .connect-btn.disconnect:hover {
+        background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
+        box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
+      }
+      
+      .mute-btn {
+        background: #f3f4f6;
+        color: #6b7280;
+      }
+      
+      .mute-btn:hover {
+        background: #e5e7eb;
+        color: #374151;
+      }
+      
+      .mute-btn.muted {
+        background: #fee2e2;
+        color: #dc2626;
+      }
+      
+      .clear-btn {
+        background: #f3f4f6;
+        color: #6b7280;
+      }
+      
+      .clear-btn:hover {
+        background: #e5e7eb;
+        color: #374151;
+      }
+      
+      .conversation-display {
+        flex: 1;
+        background: #f8fafc;
+        border-radius: 12px;
+        padding: 16px;
+        overflow-y: auto;
+        min-height: 200px;
+      }
+      
+      .messages {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+      }
+      
+      .message {
+        max-width: 80%;
+        padding: 12px 16px;
+        border-radius: 12px;
+        font-size: 14px;
+        line-height: 1.4;
+        word-wrap: break-word;
+      }
+      
+      .message.user {
+        align-self: flex-end;
+        background: #3b82f6;
+        color: white;
+        border-bottom-right-radius: 4px;
+      }
+      
+      .message.assistant {
+        align-self: flex-start;
+        background: white;
+        color: #1f2937;
+        border: 1px solid #e5e7eb;
+        border-bottom-left-radius: 4px;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+      }
+      
+      .empty-state {
+        text-align: center;
+        color: #9ca3af;
+        font-style: italic;
+        padding: 40px 20px;
+      }
+      
+      .empty-state-icon {
+        font-size: 32px;
+        margin-bottom: 8px;
+      }
+      
+      .audio-visualizer {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 4px;
+        height: 40px;
+        margin-top: 16px;
+      }
+      
+      .visualizer-bar {
+        width: 4px;
+        background: #3b82f6;
+        border-radius: 2px;
+        transition: all 0.3s ease;
+        height: 8px;
+      }
+      
+      .visualizer-bar.active {
+        height: 24px;
+        background: #10b981;
+      }
+      
+      /* Animations */
+      @keyframes neonPulseOut {
+        0% {
+          transform: scale(1);
+          opacity: 1;
+        }
+        100% {
+          transform: scale(1.5);
+          opacity: 0;
+        }
+      }
+      
+      @keyframes modalFadeIn {
+        0% {
+          opacity: 0;
+          transform: scale(0.9) translateY(20px);
+        }
+        100% {
+          opacity: 1;
+          transform: scale(1) translateY(0);
+        }
+      }
+      
+      @keyframes modalFadeOut {
+        0% {
+          opacity: 1;
+          transform: scale(1) translateY(0);
+        }
+        100% {
+          opacity: 0;
+          transform: scale(0.9) translateY(20px);
+        }
+      }
+      
+      @keyframes shine {
+        0% {
+          left: -100%;
+        }
+        100% {
+          left: 100%;
+        }
+      }
+      
+      .start-call-btn::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: -100%;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(
+          90deg,
+          transparent,
+          rgba(255, 255, 255, 0.4),
+          transparent
+        );
+        animation: shine 2s infinite;
+      }
+      
+      .start-call-btn:hover::before {
+        animation: shine 1s infinite;
+      }
+      
+      /* Mobile Responsive */
+      @media (max-width: 768px) {
+        .shivai-modal {
+          max-width: 95%;
+          margin: 20px;
+          max-height: 85vh;
+        }
+        
+        .modal-header {
+          padding: 16px 16px 12px;
+        }
+        
+        .modal-body {
+          padding: 16px;
+        }
+        
+        .call-body {
+          padding: 16px;
+        }
+        
+        .call-header {
+          padding: 12px 16px;
+        }
+        
+        .start-call-btn {
+          padding: 14px 18px;
+          font-size: 15px;
+        }
+        
+        .language-select-styled-landing {
+          padding: 12px 16px;
+          font-size: 15px;
+          padding-right: 44px;
+        }
+        
+        .call-info-name {
+          font-size: 15px;
+        }
+        
+        .call-controls {
+          flex-wrap: wrap;
+          gap: 10px;
+        }
+        
+        .connect-btn {
+          width: 100%;
+        }
+        
+        .mute-btn, .clear-btn {
+          flex: 1;
+          min-width: 0;
+          justify-content: center;
+        }
+      }
+      
+      @media (max-width: 480px) {
+        .shivai-modal {
+          max-width: 98%;
+          margin: 10px;
+          max-height: 90vh;
+        }
+        
+        .modal-header {
+          padding: 12px 12px 8px;
+        }
+        
+        .modal-body {
+          padding: 12px;
+        }
+        
+        .call-body {
+          padding: 12px;
+        }
+        
+        .landing-view .widget-title {
+          font-size: 16px;
+        }
+        
+        .landing-view .widget-subtitle {
+          font-size: 13px;
+        }
+        
+        .conversation-display {
+          min-height: 150px;
+        }
+      }
+      
+      /* Legacy widget styles for compatibility */
       .shivai-widget {
-      position: fixed;
-      bottom: 60px;
-      right: 20px;
+        display: none !important;
+      }
       width: 360px;
       max-height: 550px;
       background: white;
@@ -2633,10 +3771,22 @@
   }
   function setupEventListeners() {
     triggerBtn.addEventListener("click", toggleWidget);
-    const closeButtons = widgetContainer.querySelectorAll(".widget-close");
-    closeButtons.forEach((btn) => {
-      btn.addEventListener("click", closeWidget);
-    });
+    
+    // Setup modal close buttons
+    if (window.shivaiModalOverlay) {
+      const closeButtons = window.shivaiModalOverlay.querySelectorAll(".widget-close, .modal-close");
+      closeButtons.forEach((btn) => {
+        btn.addEventListener("click", closeWidget);
+      });
+      
+      // Close modal when clicking on overlay backdrop
+      window.shivaiModalOverlay.addEventListener("click", (e) => {
+        if (e.target === window.shivaiModalOverlay) {
+          closeWidget();
+        }
+      });
+    }
+    
     const startCallBtn = document.getElementById("start-call-btn");
     if (startCallBtn) {
       startCallBtn.addEventListener("click", async (e) => {
@@ -2661,15 +3811,8 @@
     if (muteBtn) {
       muteBtn.addEventListener("click", handleMuteClick);
     }
-    document.addEventListener("click", (e) => {
-      if (
-        isWidgetOpen &&
-        !widgetContainer.contains(e.target) &&
-        !triggerBtn.contains(e.target)
-      ) {
-        closeWidget();
-      }
-    });
+    
+    // Close modal on Escape key
     document.addEventListener("keydown", (e) => {
       if (e.key === "Escape" && isWidgetOpen) {
         closeWidget();
@@ -2691,11 +3834,11 @@
         if (sendBtn) {
           // Use important styles to override any CSS conflicts on mobile
           if (hasText) {
-            sendBtn.style.setProperty("display", "flex", "important");
-            sendBtn.style.setProperty("visibility", "visible", "important");
+            sendBtn.style.setProperty('display', 'flex', 'important');
+            sendBtn.style.setProperty('visibility', 'visible', 'important');
           } else {
-            sendBtn.style.setProperty("display", "none", "important");
-            sendBtn.style.setProperty("visibility", "hidden", "important");
+            sendBtn.style.setProperty('display', 'none', 'important');
+            sendBtn.style.setProperty('visibility', 'hidden', 'important');
           }
         }
       });
@@ -2709,8 +3852,8 @@
             // Clear input and hide send button after sending
             messageInput.value = "";
             if (sendBtn) {
-              sendBtn.style.setProperty("display", "none", "important");
-              sendBtn.style.setProperty("visibility", "hidden", "important");
+              sendBtn.style.setProperty('display', 'none', 'important');
+              sendBtn.style.setProperty('visibility', 'hidden', 'important');
             }
           }
         }
@@ -2722,8 +3865,8 @@
           sendMessage();
           // Clear input and hide send button after sending
           messageInput.value = "";
-          sendBtn.style.setProperty("display", "none", "important");
-          sendBtn.style.setProperty("visibility", "hidden", "important");
+          sendBtn.style.setProperty('display', 'none', 'important');
+          sendBtn.style.setProperty('visibility', 'hidden', 'important');
         }
       });
 
@@ -2848,14 +3991,23 @@
   }
 
   function switchToCallView() {
+    console.log('📞 Switching to call view');
     currentView = "call";
-    landingView.style.display = "none";
-    callView.style.display = "flex";
+    if (landingView && callView) {
+      landingView.style.display = "none";
+      callView.style.display = "flex";
+      callView.classList.add("active");
+    }
   }
+  
   function switchToLandingView() {
+    console.log('🏠 Switching to landing view');
     currentView = "landing";
-    landingView.style.display = "flex";
-    callView.style.display = "none";
+    if (landingView && callView) {
+      landingView.style.display = "flex";
+      callView.style.display = "none";
+      callView.classList.remove("active");
+    }
     if (isConnected) {
       stopConversation();
     }
@@ -2868,15 +4020,28 @@
     }
   }
   function openWidget() {
-    widgetContainer.classList.add("active");
-    isWidgetOpen = true;
-    if (triggerBtn) {
-      triggerBtn.style.display = "none";
-    }
-    hideBubble();
-    if (messageInterval) {
-      clearInterval(messageInterval);
-      messageInterval = null;
+    if (window.shivaiModalOverlay) {
+      window.shivaiModalOverlay.style.display = 'flex';
+      setTimeout(() => {
+        window.shivaiModalOverlay.classList.add('active');
+      }, 10);
+      
+      isWidgetOpen = true;
+      currentView = "landing";
+      
+      // Show landing view, hide call view
+      landingView.style.display = 'flex';
+      callView.style.display = 'none';
+      callView.classList.remove('active');
+      
+      if (triggerBtn) {
+        triggerBtn.style.display = "none";
+      }
+      hideBubble();
+      if (messageInterval) {
+        clearInterval(messageInterval);
+        messageInterval = null;
+      }
     }
   }
   function closeWidget() {
@@ -2911,21 +4076,45 @@
     }
     stopAllScheduledAudio();
     teardownPlaybackProcessor();
+    
+    // COMPLETE MICROPHONE RELEASE - Return to default state
+    console.log("🎤 Widget closing - Releasing ALL microphone resources");
+    
     if (mediaStream) {
-      console.log(
-        "🎤 Stopping microphone and revoking permissions on widget close"
-      );
+      console.log("🎤 Stopping main media stream and revoking ALL permissions");
       mediaStream.getTracks().forEach((track) => {
         console.log(
-          `Stopping track: ${track.kind}, state: ${track.readyState}`
+          `Stopping track: ${track.kind}, label: ${track.label}, state: ${track.readyState}`
         );
         track.stop();
         track.enabled = false;
       });
       mediaStream = null;
-      console.log("🎤 Microphone permissions revoked successfully");
+      console.log("🎤 ALL microphone permissions revoked successfully");
+    }
+    
+    // Stop LiveKit audio tracks
+    if (localAudioTrack) {
+      console.log("🎤 Stopping LiveKit local audio track");
+      try {
+        localAudioTrack.stop();
+      } catch (e) {
+        console.warn("Error stopping local audio track:", e);
+      }
+      localAudioTrack = null;
+    }
+    
+    if (remoteAudioTrack) {
+      console.log("🎤 Stopping LiveKit remote audio track");
+      try {
+        remoteAudioTrack.stop();
+      } catch (e) {
+        console.warn("Error stopping remote audio track:", e);
+      }
+      remoteAudioTrack = null;
     }
     if (audioContext) {
+      console.log("🎤 Closing main audio context on widget close");
       try {
         audioContext.close().catch((err) => {
           console.warn("Error closing audio context:", err);
@@ -2934,6 +4123,39 @@
         console.error("Error closing audio context:", error);
       }
       audioContext = null;
+    }
+    
+    // Stop VAD and release VAD microphone resources
+    if (vadEnabled) {
+      console.log("🎤 Stopping VAD and releasing VAD microphone on widget close");
+      vadMonitoringActive = false;
+      
+      if (vadSilenceTimeout) {
+        clearTimeout(vadSilenceTimeout);
+        vadSilenceTimeout = null;
+      }
+      
+      if (vadAudioContext) {
+        console.log("🎤 Closing VAD audio context");
+        try {
+          vadAudioContext.close();
+        } catch (e) {
+          console.warn("Error closing VAD context:", e);
+        }
+        vadAudioContext = null;
+      }
+      
+      // Reset VAD state completely
+      vadSpeechStartTime = null;
+      vadBuffer = new Array(vadBufferSize).fill(0);
+      isVadMuted = true;
+      vadAnalyser = null;
+      vadDataArray = null;
+      
+      const vadIndicator = document.querySelector('.vad-indicator');
+      if (vadIndicator) {
+        vadIndicator.remove();
+      }
     }
     if (messagesDiv) {
       console.log("📝 Transcripts cleared completely");
@@ -2975,27 +4197,229 @@
           window.currentCallId = null;
         });
     }
-    console.log("🔴 Complete cleanup finished on widget close");
-    widgetContainer.classList.remove("active");
+    
+    // Final cleanup - remove any remaining audio elements
+    try {
+      document.querySelectorAll("audio").forEach((el) => {
+        console.log("🎤 Removing audio element on widget close:", el.src);
+        el.pause();
+        el.src = "";
+        el.remove();
+      });
+    } catch (e) {
+      console.warn("Error removing audio elements:", e);
+    }
+    
+    console.log("🔴 Complete cleanup finished - ALL microphone resources released");
+    
+    if (window.shivaiModalOverlay) {
+      window.shivaiModalOverlay.classList.remove('active');
+      setTimeout(() => {
+        window.shivaiModalOverlay.style.display = 'none';
+      }, 300);
+    }
+    
     isWidgetOpen = false;
     if (triggerBtn) {
       triggerBtn.style.display = "flex";
     }
-    switchToLandingView();
+    
+    // Reset to landing view
+    currentView = "landing";
+    if (landingView && callView) {
+      landingView.style.display = "flex";
+      callView.style.display = "none";
+      callView.classList.remove("active");
+    }
+    
+    // Clear messages
+    if (messagesDiv) {
+      messagesDiv.innerHTML = `
+        <div class="empty-state">
+          <div class="empty-state-icon">👋</div>
+          <div class="empty-state-text">Start a conversation to see transcripts here</div>
+        </div>
+      `;
+    }
+    
     if (!messageInterval) {
       startLiveMessages();
     }
     console.log("✅ Widget closed successfully");
   }
   async function handleConnectClick(e) {
+    console.log("🔴 BUTTON CLICKED - State:", {
+      isConnecting,
+      isConnected,
+      isDisconnecting,
+      buttonDisabled: connectBtn ? connectBtn.disabled : 'not found',
+      buttonHasConnectedClass: connectBtn ? connectBtn.classList.contains("connected") : false
+    });
+
     if (e) {
       e.stopPropagation();
-      e.preventDefault(); // Prevent any default behavior
+      e.preventDefault();
     }
 
-    // Prevent multiple rapid clicks
-    if (isDisconnecting) {
-      console.log("🚫 Disconnect already in progress - ignoring click");
+    // SIMPLE HANGUP CHECK - if button shows hangup icon, always hangup
+    if (connectBtn && connectBtn.classList.contains("connected")) {
+      console.log("🔴 HANGUP DETECTED - Terminating call immediately");
+      
+      // IMMEDIATE CLEANUP - No state checks, no delays
+      isConnected = false;
+      isConnecting = false;
+      isDisconnecting = false;
+      hasReceivedFirstAIResponse = false;
+      shouldAutoUnmute = false;
+      isMuted = false;
+      aiJustFinished = false;
+
+      // Close everything immediately
+      if (room) {
+        room.disconnect();
+        room = null;
+        localAudioTrack = null;
+        remoteAudioTrack = null;
+      }
+      if (ws) {
+        ws.close();
+        ws = null;
+      }
+      
+      // COMPLETE MICROPHONE RELEASE - Return to default state
+      console.log("🎤 Releasing microphone completely - returning to default state");
+      
+      // Stop all media streams and tracks
+      if (mediaStream) {
+        console.log("🎤 Stopping main media stream tracks");
+        mediaStream.getTracks().forEach(track => {
+          console.log(`Stopping ${track.kind} track:`, track.label);
+          track.stop();
+          track.enabled = false;
+        });
+        mediaStream = null;
+      }
+      
+      // Stop LiveKit audio tracks
+      if (localAudioTrack) {
+        console.log("🎤 Stopping LiveKit local audio track");
+        try {
+          localAudioTrack.stop();
+        } catch (e) {
+          console.warn("Error stopping local audio track:", e);
+        }
+        localAudioTrack = null;
+      }
+      
+      if (remoteAudioTrack) {
+        console.log("🎤 Stopping LiveKit remote audio track");
+        try {
+          remoteAudioTrack.stop();
+        } catch (e) {
+          console.warn("Error stopping remote audio track:", e);
+        }
+        remoteAudioTrack = null;
+      }
+      
+      // Close audio contexts to release resources
+      if (audioContext) {
+        console.log("🎤 Closing main audio context");
+        try {
+          audioContext.close();
+        } catch (error) {
+          console.warn("Error closing audio context:", error);
+        }
+        audioContext = null;
+      }
+      
+      // Clear all timeouts
+      [connectionTimeout, aiResponseTimeout, visualizerInterval, loadingInterval, callTimerInterval].forEach(timer => {
+        if (timer) clearTimeout(timer) || clearInterval(timer);
+      });
+      connectionTimeout = aiResponseTimeout = visualizerInterval = loadingInterval = callTimerInterval = null;
+
+      // Stop VAD and release VAD microphone resources
+      if (vadEnabled) {
+        console.log("🎤 Stopping VAD and releasing VAD microphone");
+        vadMonitoringActive = false;
+        
+        if (vadSilenceTimeout) {
+          clearTimeout(vadSilenceTimeout);
+          vadSilenceTimeout = null;
+        }
+        
+        // Close VAD audio context and release VAD microphone
+        if (vadAudioContext) {
+          console.log("🎤 Closing VAD audio context");
+          try {
+            vadAudioContext.close();
+          } catch (e) {
+            console.warn("Error closing VAD context:", e);
+          }
+          vadAudioContext = null;
+        }
+        
+        // Reset VAD state completely
+        vadSpeechStartTime = null;
+        vadBuffer = new Array(vadBufferSize).fill(0);
+        isVadMuted = true;
+        vadAnalyser = null;
+        vadDataArray = null;
+        
+        // Remove VAD indicator from UI
+        const vadIndicator = document.querySelector('.vad-indicator');
+        if (vadIndicator) {
+          vadIndicator.remove();
+        }
+      }
+
+      // Stop all audio
+      stopRingSound();
+      stopConnectingSound();
+      stopAllScheduledAudio();
+      teardownPlaybackProcessor();
+
+      // Reset UI immediately
+      clearLoadingStatus();
+      hideMessageInterface();
+      updateStatus("Disconnected", "disconnected");
+      connectBtn.innerHTML = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path></svg>';
+      connectBtn.classList.remove("connected");
+      connectBtn.title = "Start Call";
+      connectBtn.disabled = false;
+
+      if (muteBtn) muteBtn.style.display = "none";
+      if (languageSelect) languageSelect.disabled = false;
+      if (callTimerElement) callTimerElement.style.display = "none";
+
+      // End call on backend
+      if (window.currentCallId) {
+        fetch("https://shivai-com-backend.onrender.com/api/v1/calls/end-call", {
+          method: "POST",
+          headers: {"Content-Type": "application/json"},
+          body: JSON.stringify({callId: window.currentCallId})
+        }).finally(() => window.currentCallId = null);
+      }
+
+      // Final cleanup - remove any remaining audio elements
+      try {
+        document.querySelectorAll("audio").forEach((el) => {
+          console.log("🎤 Removing audio element:", el.src);
+          el.pause();
+          el.src = "";
+          el.remove();
+        });
+      } catch (e) {
+        console.warn("Error removing audio elements:", e);
+      }
+
+      console.log("✅ HANGUP COMPLETED - Microphone fully released, returned to default state");
+      return;
+    }
+
+    // Only proceed with connection if not already connecting/connected
+    if (isConnecting || isConnected || isDisconnecting) {
+      console.log("🚫 Already in a call state, ignoring");
       return;
     }
 
@@ -3016,27 +4440,41 @@
     }
 
     // Handle disconnect for any connected or connecting state
+    console.log("🔴 CHECKING HANGUP CONDITIONS:", {
+      isConnecting,
+      isConnected,
+      shouldHangup: isConnecting || isConnected
+    });
+    
     if (isConnecting || isConnected) {
-      console.log("🔴 Disconnect requested - current state:", {
-        isConnecting,
-        isConnected,
-      });
+      console.log("🔴 INSTANT HANGUP - Performing immediate cleanup");
 
       // Set disconnect flag to prevent multiple clicks
       isDisconnecting = true;
       connectBtn.disabled = true;
 
-      // Immediately set all flags to stop all processes
-      isConnecting = false;
+      // INSTANT CLEANUP - Same approach as cross button
+      
+      // 1. Disconnect LiveKit room SYNCHRONOUSLY
+      if (room) {
+        console.log("🚪 INSTANT LiveKit disconnect");
+        room.disconnect(); // Don't await - fire and forget
+        room = null;
+        localAudioTrack = null;
+        remoteAudioTrack = null;
+      }
+
+      // 2. Set all flags immediately
       isConnected = false;
+      isConnecting = false;
       hasReceivedFirstAIResponse = false;
       shouldAutoUnmute = false;
+      isMuted = false;
       aiJustFinished = false;
 
-      // Hide message interface immediately
-      hideMessageInterface();
-
-      // Clear all timeouts and intervals immediately
+      // 3. Clear all intervals and timeouts immediately
+      clearLoadingStatus();
+      stopCallTimer();
       if (connectionTimeout) {
         clearTimeout(connectionTimeout);
         connectionTimeout = null;
@@ -3045,79 +4483,145 @@
         clearTimeout(aiResponseTimeout);
         aiResponseTimeout = null;
       }
+      if (visualizerInterval) {
+        clearInterval(visualizerInterval);
+        visualizerInterval = null;
+        animateVisualizer(false);
+      }
+      if (loadingInterval) {
+        clearInterval(loadingInterval);
+        loadingInterval = null;
+      }
 
-      // Stop all audio processes
-      stopRingSound();
-      stopConnectingSound();
-      stopAllScheduledAudio();
-
-      // Clear UI state
-      clearLoadingStatus();
-      stopCallTimer();
-
-      // Close WebSocket if exists
+      // 4. Close WebSocket immediately
       if (ws) {
-        console.log("🔌 Closing WebSocket immediately");
-        try {
-          ws.close();
-        } catch (err) {
-          console.warn("Error closing WebSocket:", err);
-        }
+        console.log("🔌 INSTANT WebSocket close");
+        ws.close();
         ws = null;
       }
 
-      // Update UI to disconnected state IMMEDIATELY
+      // 5. Stop all audio immediately
+      stopRingSound();
+      stopConnectingSound();
+      stopAllScheduledAudio();
+      teardownPlaybackProcessor();
+
+      // 6. Stop media stream and revoke permissions immediately
+      if (mediaStream) {
+        console.log("🎤 Stopping microphone immediately");
+        mediaStream.getTracks().forEach((track) => {
+          track.stop();
+          track.enabled = false;
+        });
+        mediaStream = null;
+      }
+
+      // 7. Close audio context immediately
+      if (audioContext) {
+        try {
+          audioContext.close();
+        } catch (error) {
+          console.warn("Error closing audio context:", error);
+        }
+        audioContext = null;
+      }
+
+      // 8. Stop VAD immediately
+      if (vadEnabled) {
+        vadMonitoringActive = false;
+        if (vadSilenceTimeout) {
+          clearTimeout(vadSilenceTimeout);
+          vadSilenceTimeout = null;
+        }
+        if (vadAudioContext) {
+          try {
+            vadAudioContext.close();
+          } catch (e) {
+            console.warn("Error closing VAD context:", e);
+          }
+          vadAudioContext = null;
+        }
+        vadSpeechStartTime = null;
+        vadBuffer = new Array(vadBufferSize).fill(0);
+        isVadMuted = true;
+        const vadIndicator = document.querySelector('.vad-indicator');
+        if (vadIndicator) {
+          vadIndicator.remove();
+        }
+      }
+
+      // 9. Clear transcripts immediately
+      currentUserTranscript = "";
+      currentAssistantTranscript = "";
+      lastUserMessageDiv = null;
+      lastSentMessage = null;
+
+      // 10. Update UI immediately
+      hideMessageInterface();
       updateStatus("Disconnected", "disconnected");
       connectBtn.innerHTML =
         '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path></svg>';
       connectBtn.classList.remove("connected");
       connectBtn.title = "Start Call";
+      connectBtn.disabled = false;
 
-      // Reset microphone state
+      // 11. Reset microphone button immediately
       if (muteBtn) {
         muteBtn.style.display = "none";
         muteBtn.classList.remove("muted");
-        isMuted = false;
       }
 
-      // Re-enable language selector
+      // 12. Re-enable language selector immediately
       if (languageSelect) {
         languageSelect.disabled = false;
       }
 
-      // Close LiveKit room AFTER UI is updated (async in background)
-      if (room) {
-        room
-          .disconnect()
-          .then(() => {
-            console.log("🚪 LiveKit room disconnected");
-            room = null;
-          })
+      // 13. Hide call timer immediately
+      if (callTimerElement) {
+        callTimerElement.style.display = "none";
+      }
+
+      // 14. Remove audio elements immediately
+      try {
+        document.querySelectorAll("audio").forEach((el) => el.remove());
+      } catch (e) {
+        console.warn("Error removing audio elements:", e);
+      }
+
+      // 15. End call on backend (fire and forget - don't wait)
+      if (window.currentCallId) {
+        fetch("https://shivai-com-backend.onrender.com/api/v1/calls/end-call", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ callId: window.currentCallId }),
+        })
           .catch((err) => {
-            console.warn("Error disconnecting LiveKit room:", err);
-            room = null;
+            console.warn("Error ending call via API:", err);
+          })
+          .finally(() => {
+            window.currentCallId = null;
           });
       }
 
-      // Call stopConversation for cleanup (async in background)
-      stopConversation().catch((err) => {
-        console.warn("Error in stopConversation:", err);
-      });
+      // 16. Play end sound (non-blocking)
+      try {
+        playSound("call-end");
+      } catch (e) {
+        console.warn("Could not play call-end sound:", e);
+      }
 
-      // Clear disconnect flag and re-enable button IMMEDIATELY
-      setTimeout(() => {
-        isDisconnecting = false;
-        connectBtn.disabled = false;
-        console.log("✅ Immediate disconnect completed");
-      }, 100); // Reduced from 500ms to 100ms for faster reconnection
-
+      // 17. Clear disconnect flag immediately
+      isDisconnecting = false;
+      
+      console.log("✅ INSTANT HANGUP COMPLETED - Call terminated immediately");
       return;
     }
     // Start new connection only if not currently connected or connecting
     if (!isConnecting && !isConnected && !isDisconnecting) {
       console.log("🔵 Starting new connection");
       isConnecting = true;
-      connectBtn.disabled = true;
+      // DON'T disable button - keep it clickable for hangup
+      // connectBtn.disabled = true;
       playSound("ring");
 
       try {
@@ -3134,7 +4638,7 @@
           return;
         }
 
-        connectBtn.disabled = false;
+        // connectBtn.disabled = false; // Already enabled
         isConnecting = false;
       } catch (error) {
         console.error("Failed to start conversation:", error);
@@ -3151,7 +4655,7 @@
 
         // Hide message interface on connection failure
         hideMessageInterface();
-
+        
         // Clear all timeouts
         if (connectionTimeout) {
           clearTimeout(connectionTimeout);
@@ -3161,7 +4665,7 @@
           clearTimeout(aiResponseTimeout);
           aiResponseTimeout = null;
         }
-
+        
         clearLoadingStatus();
         stopCallTimer();
 
@@ -3171,9 +4675,12 @@
         connectBtn.classList.remove("connected");
         connectBtn.title = "Start Call";
         connectBtn.disabled = false; // Ensure button is enabled for reconnection
-
-        updateStatus("❌ Failed to connect - Click to retry", "disconnected");
-
+        
+        updateStatus(
+          "❌ Failed to connect - Click to retry",
+          "disconnected"
+        );
+        
         if (muteBtn) {
           muteBtn.style.display = "none";
           muteBtn.classList.remove("muted");
@@ -3185,50 +4692,52 @@
   }
   function updateMuteButton() {
     if (!muteBtn) return;
+    
+    // Always show manual mute state, ignore VAD state for UI
     if (mediaStream) {
       mediaStream.getAudioTracks().forEach((track) => {
         track.enabled = !isMuted;
       });
     }
+    
     if (isMuted) {
       muteBtn.classList.add("muted");
-      muteBtn.title = "Unmute Microphone";
+      muteBtn.title = "Microphone Muted";
       muteBtn.innerHTML =
         '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="1" y1="1" x2="23" y2="23"></line><path d="M9 9v3a3 3 0 0 0 5.12 2.12M15 9.34V4a3 3 0 0 0-5.94-.6"></path><path d="M17 16.95A7 7 0 0 1 5 12v-2m14 0v2a7 7 0 0 1-.11 1.23"></path><line x1="12" y1="19" x2="12" y2="23"></line><line x1="8" y1="23" x2="16" y2="23"></line></svg>';
     } else {
       muteBtn.classList.remove("muted");
-      muteBtn.title = "Mute Microphone";
+      muteBtn.title = "Microphone Active";
       muteBtn.innerHTML =
         '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path><line x1="12" y1="19" x2="12" y2="23"></line><line x1="8" y1="23" x2="16" y2="23"></line></svg>';
     }
   }
   function handleMuteClick(e) {
+    e.preventDefault();
     e.stopPropagation();
-    if (!isConnected || !room) return;
-
-    isMuted = !isMuted;
-
-    if (isMuted) {
-      room.localParticipant.setMicrophoneEnabled(false);
-    } else {
-      room.localParticipant.setMicrophoneEnabled(true, {
-        // Consistent settings for unmuting
-        echoCancellation: true,
-        noiseSuppression: true,
-        autoGainControl: false, // Keep disabled for consistency
-        suppressLocalAudioPlayback: true, // Prevent feedback
-
-        channelCount: 1,
-        sampleRate: 48000,
-        sampleSize: 16,
-        volume: 0.7, // Reduced for close voice only
-        latency: 0.05,
-        facingMode: "user",
-      });
+    
+    if (!localAudioTrack) {
+      console.log("❌ No local audio track available");
+      return;
     }
-
+    
+    // Simple manual mute/unmute - VAD works in background
+    if (isMuted) {
+      localAudioTrack.unmute();
+      isMuted = false;
+      console.log("🎤 Microphone unmuted manually");
+    } else {
+      localAudioTrack.mute();
+      isMuted = true;
+      // Stop VAD when manually muted
+      if (vadEnabled && vadMonitoringActive) {
+        stopVADMonitoring();
+        console.log("🎤 VAD stopped due to manual mute");
+      }
+      console.log("🎤 Microphone muted manually");
+    }
+    
     updateMuteButton();
-    console.log(`🎤 Microphone ${isMuted ? "muted" : "unmuted"} by user`);
   }
   function updateStatus(status, className) {
     const statusText = statusDiv.querySelector(".status-text");
@@ -3519,102 +5028,51 @@
         return;
       }
 
-      // Check current permission state first
-      try {
-        const permissionStatus = await navigator.permissions.query({
-          name: "microphone",
-        });
-        console.log(
-          "📍 Current microphone permission state:",
-          permissionStatus.state
-        );
-
-        // Check if connection was cancelled during permission check
-        if (!isConnecting) {
-          console.log("❌ Connection cancelled during permission check");
-          return;
-        }
-
-        if (permissionStatus.state === "denied") {
-          alert(
-            "Microphone access was previously denied. Please click the microphone icon in your browser's address bar to reset permissions, then try again."
-          );
-          return;
-        }
-      } catch (permError) {
-        console.warn("⚠️ Could not check permission state:", permError);
-      }
-
-      // Show status to user that permission is being requested
-      updateStatus("🎤 Please allow microphone access...", "connecting");
-
-      // Check if connection was cancelled before requesting mic access
-      if (!isConnecting) {
-        console.log("❌ Connection cancelled before requesting microphone");
+      // 🎤 Request microphone permission with retry logic
+      console.log("🎤 Starting microphone permission process...");
+      updateStatus("🎤 Requesting microphone access...", "connecting");
+      
+      const micPermissionGranted = await requestMicrophonePermission();
+      
+      if (!micPermissionGranted) {
+        console.error("❌ Microphone permission not granted - disconnecting call");
+        updateStatus("❌ Microphone access required", "disconnected");
+        
+        // Disconnect the call immediately
+        isConnecting = false;
+        isConnected = false;
+        
+        // Reset UI
+        connectBtn.innerHTML =
+          '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path></svg>';
+        connectBtn.classList.remove("connected");
+        connectBtn.title = "Start Call";
+        connectBtn.disabled = false;
+        
+        stopRingSound();
+        stopConnectingSound();
+        hideMessageInterface();
+        
         return;
       }
+      
+      console.log("✅ Microphone permission verified - continuing with call setup...");
+      updateStatus("✅ Microphone ready - connecting...", "connecting");
 
-      try {
-        console.log("📍 About to request getUserMedia...");
-        const stream = await navigator.mediaDevices.getUserMedia({
-          audio: {
-            // Optimized for close voice and feedback prevention
-            echoCancellation: true,
-            noiseSuppression: true,
-            autoGainControl: false, // Disable AGC to prevent pumping
-
-            // High quality capture
-            channelCount: 1,
-            sampleRate: 48000,
-            sampleSize: 16,
-
-            // Additional constraints for close proximity detection
-            volume: 0.6, // Reduced input level for close voices only
-            latency: 0.05, // Low latency
-            facingMode: "user", // Use front-facing mic
-
-            // Advanced constraints for sensitivity
-            googEchoCancellation: true, // Google-specific echo cancellation
-            googAutoGainControl: false, // Disable Google AGC
-            googNoiseSuppression: true, // Google noise suppression
-            googHighpassFilter: true, // Remove low-frequency noise
-            googAudioMirroring: false, // Disable audio mirroring
-          },
-        });
-        console.log("✅ Microphone permission granted");
-        console.log("📍 Stream tracks:", stream.getTracks().length);
-        updateStatus("✅ Microphone access granted", "connecting");
-
-        // Stop the stream immediately - LiveKit will create its own
-        stream.getTracks().forEach((track) => track.stop());
-      } catch (micError) {
-        console.error("❌ Microphone permission denied:", micError);
-        console.error("📍 Error details:", {
-          name: micError.name,
-          message: micError.message,
-          stack: micError.stack,
-        });
-        updateStatus("❌ Microphone access denied", "disconnected");
-
-        // More detailed error handling
-        if (micError.name === "NotAllowedError") {
-          alert(
-            "Microphone access was denied. Please click the microphone icon in your browser's address bar to allow access, then try again."
-          );
-        } else if (micError.name === "NotFoundError") {
-          alert(
-            "No microphone found. Please connect a microphone and try again."
-          );
-        } else if (micError.name === "NotSupportedError") {
-          alert(
-            "Microphone access is not supported by your browser. Please use a modern browser."
-          );
+      // ✅ Initialize Voice Activity Detection (VAD)
+      console.log("🎤 Setting up Voice Activity Detection...");
+      updateStatus("🎤 Initializing voice detection...", "connecting");
+      
+      if (vadEnabled) {
+        await initializeVAD();
+        
+        if (vadEnabled) {
+          console.log("✅ VAD initialized - microphone will auto-manage based on voice");
+          updateStatus("🎤 Voice detection ready - connecting...", "connecting");
         } else {
-          alert(
-            `Microphone access error: ${micError.message}. Please check your browser settings and try again.`
-          );
+          console.log("⚠️ VAD failed - using manual microphone control");
+          updateStatus("⚠️ Using manual mic control - connecting...", "connecting");
         }
-        return; // Exit early if microphone permission denied
       }
 
       // Check if connection was cancelled after microphone permission
@@ -3652,40 +5110,40 @@
         ? "mobile"
         : "desktop";
 
-      // Optimized audio configuration for feedback prevention and user input
+      // Optimized audio configuration for extremely low sensitivity - close voices only
       const audioConfig = {
         // Enhanced feedback prevention
         echoCancellation: true, // Critical for feedback prevention
         noiseSuppression: true, // Remove background noise
-        autoGainControl: true, // Enable AGC for stable levels
+        autoGainControl: false, // Disable AGC to prevent amplification
 
         // Advanced feedback prevention options
         suppressLocalAudioPlayback: true, // Prevent local audio feedback
 
-        // Constraints for user input detection
+        // Constraints for very close user input only
         channelCount: 1,
         sampleRate: 48000,
         sampleSize: 16,
 
-        // Optimized volume for feedback prevention
-        volume: 0.5, // Lower volume to prevent feedback
-        latency: 0.1, // Slightly higher latency for stability
+        // Extremely low sensitivity for very close voices only
+        latency: 0.05, // Low latency for real-time
 
         // Device constraints
         facingMode: "user",
         deviceId: "default",
 
-        // Browser-specific feedback prevention
+        // Browser-specific settings for low sensitivity
         googEchoCancellation: true,
-        googAutoGainControl: true, // Enable for feedback prevention
-        googNoiseSuppression: true,
-        googHighpassFilter: true, // Remove low frequencies that cause feedback
+        googAutoGainControl: false, // Disable to prevent amplification
+        googNoiseSuppression: true, // Strong noise suppression
+        googHighpassFilter: true, // Remove low frequencies and ambient noise
         googAudioMirroring: false,
+        googTypingNoiseDetection: true, // Filter typing and keyboard noise
 
-        // Additional experimental options for feedback prevention
-        googBeamforming: false, // Disable to prevent feedback amplification
+        // Additional experimental options for minimal sensitivity
+        googBeamforming: false, // Disable to prevent distant sound pickup
         googArrayGeometry: false, // Disable array processing
-        mozAutoGainControl: true, // Firefox feedback prevention
+        mozAutoGainControl: false, // Firefox - disable gain control
         mozNoiseSuppression: true,
       };
 
@@ -3693,19 +5151,17 @@
       if (typeof LivekitClient === "undefined") {
         console.log("📦 LiveKit not loaded, loading now...");
         updateStatus("Loading LiveKit...", "connecting");
-
+        
         try {
           await loadLiveKitSDK();
           console.log("✅ LiveKit loaded successfully");
         } catch (error) {
           console.error("❌ Failed to load LiveKit SDK:", error);
           updateStatus("❌ Failed to load audio library", "disconnected");
-          alert(
-            "Failed to load audio library. Please refresh the page and try again."
-          );
+          alert("Failed to load audio library. Please refresh the page and try again.");
           throw new Error("LiveKit failed to load");
         }
-
+        
         // Check again after loading
         if (typeof LivekitClient === "undefined") {
           console.error("❌ LiveKit still not available after loading");
@@ -3763,17 +5219,18 @@
         window.pendingAudioElement = null;
       }
 
-      // Create LiveKit room with enhanced feedback prevention
+      // Create LiveKit room with balanced audio settings
       room = new LivekitClient.Room({
         adaptiveStream: true,
         dynacast: true,
         audioCaptureDefaults: {
           ...audioConfig,
-          // Enhanced LiveKit feedback prevention
+          // Balanced sensitivity settings
           echoCancellation: true,
           noiseSuppression: true,
-          autoGainControl: true, // Enable for feedback prevention
+          autoGainControl: false, // Keep disabled for consistent levels
           suppressLocalAudioPlayback: true, // Critical for feedback prevention
+          volume: 0.25, // Moderate volume for good voice capture
         },
         // Performance optimizations for feedback prevention
         reconnectPolicy: {
@@ -3795,9 +5252,9 @@
         LivekitClient.RoomEvent.TrackSubscribed,
         (track, publication, participant) => {
           if (track.kind === LivekitClient.Track.Kind.Audio) {
-            // Use audio element with feedback prevention settings
+            // Use audio element with balanced volume for clear AI voice
             const audioElement = track.attach();
-            audioElement.volume = 0.4; // Significantly reduced to prevent feedback
+            audioElement.volume = 0.7; // Increased for clearer AI voice output
             audioElement.preload = "auto";
             audioElement.autoplay = true;
 
@@ -3850,6 +5307,32 @@
                   "✅ Transcript from participant metadata:",
                   data.transcript || data.text
                 );
+                
+                // Enable microphone on first AI response via metadata
+                if (!hasReceivedFirstAIResponse) {
+                  hasReceivedFirstAIResponse = true;
+                  startCallTimer();
+                  stopConnectingSound();
+                  updateStatus("🤖 AI Speaking... (Mic disabled)", "speaking");
+                  
+                  setTimeout(async () => {
+                    console.log("🎤 1s delay completed (metadata), enabling mic...");
+                    if (isConnected && room && hasReceivedFirstAIResponse) {
+                      try {
+                        await room.localParticipant.setMicrophoneEnabled(true);
+                        isMuted = false;
+                        updateMuteButton();
+                        if (muteBtn) muteBtn.style.display = "flex";
+                        console.log("🎤 Microphone enabled after metadata response");
+                        updateStatus("🎤 You can speak now!", "connected");
+                      } catch (error) {
+                        console.error("❌ Error enabling mic (metadata):", error);
+                      }
+                    }
+                  }, 1000);
+                  
+                  console.log("🎉 First AI response via metadata detected");
+                }
               }
             } catch (e) {
               console.log("Metadata not JSON:", metadata);
@@ -3869,6 +5352,32 @@
                 "✅ Transcript from room metadata:",
                 data.transcript || data.text
               );
+              
+              // Enable microphone on first AI response via room metadata
+              if (!hasReceivedFirstAIResponse) {
+                hasReceivedFirstAIResponse = true;
+                startCallTimer();
+                stopConnectingSound();
+                updateStatus("🤖 AI Speaking... (Mic disabled)", "speaking");
+                
+                setTimeout(async () => {
+                  console.log("🎤 1s delay completed (room metadata), enabling mic...");
+                  if (isConnected && room && hasReceivedFirstAIResponse) {
+                    try {
+                      await room.localParticipant.setMicrophoneEnabled(true);
+                      isMuted = false;
+                      updateMuteButton();
+                      if (muteBtn) muteBtn.style.display = "flex";
+                      console.log("🎤 Microphone enabled after room metadata response");
+                      updateStatus("🎤 You can speak now!", "connected");
+                    } catch (error) {
+                      console.error("❌ Error enabling mic (room metadata):", error);
+                    }
+                  }
+                }, 1000);
+                
+                console.log("🎉 First AI response via room metadata detected");
+              }
             }
           } catch (e) {
             console.log("Room metadata not JSON:", metadata);
@@ -3894,44 +5403,39 @@
 
         languageSelect.disabled = true;
 
-        // 🎤 Enable microphone with enhanced feedback prevention
+        // 🎤 Keep microphone DISABLED initially - will enable after first AI response
         try {
-          await room.localParticipant.setMicrophoneEnabled(true, {
+          await room.localParticipant.setMicrophoneEnabled(false, {
             // Enhanced feedback prevention
             echoCancellation: true,
             noiseSuppression: true,
-            autoGainControl: true, // Enable for consistent levels and feedback prevention
-            suppressLocalAudioPlayback: true, // Critical for feedback prevention
+            autoGainControl: true,
+            suppressLocalAudioPlayback: true,
 
             // Stable audio settings
             channelCount: 1,
             sampleRate: 48000,
             sampleSize: 16,
-
-            // Conservative volume to prevent feedback
-            volume: 0.5, // Reduced to prevent feedback loops
-            latency: 0.1, // Slightly higher for stability
+            volume: 0.3,
+            latency: 0.1,
             facingMode: "user",
           });
-          isMuted = false;
-          console.log("🎤 Microphone enabled with optimized settings");
+          isMuted = true; // Start muted
+          console.log("🎤 Microphone disabled - waiting for first AI response");
         } catch (micError) {
           console.warn(
-            "⚠️ Failed to enable microphone with full config, trying basic:",
+            "⚠️ Failed to disable microphone with full config, trying basic:",
             micError
           );
           try {
-            // Fallback to basic microphone enabling
-            await room.localParticipant.setMicrophoneEnabled(true);
-            isMuted = false;
-            console.log("🎤 Microphone enabled (basic mode)");
+            // Fallback to basic microphone disabling
+            await room.localParticipant.setMicrophoneEnabled(false);
+            isMuted = true; // Start muted
+            console.log("🎤 Microphone disabled (basic mode) - waiting for first AI response");
           } catch (basicError) {
             console.error(
-              "❌ Failed to enable microphone completely:",
+              "❌ Failed to disable microphone completely:",
               basicError
-            );
-            alert(
-              "Failed to enable microphone. Please check your microphone permissions and try again."
             );
           }
         }
@@ -3957,7 +5461,7 @@
           }
         }
 
-        updateStatus("✅ Connected - Speak now!", "connected");
+        updateStatus("🤖 AI is Initializing...", "connected");
 
         // Stop connecting sound
         stopConnectingSound();
@@ -3967,9 +5471,9 @@
           "✅ Connection established - microphone ready for conversation"
         );
 
-        // 🎤 Keep microphone ENABLED at all times
+        // 🎤 Keep microphone DISABLED initially - will enable after first AI response
         console.log(
-          "🎤 Microphone will remain enabled throughout the conversation"
+          "🔇 Microphone remains disabled - waiting for AI to speak first"
         );
 
         // Mobile compatibility - microphone is already enabled
@@ -3988,9 +5492,43 @@
           console.log(
             "🎤 Audio track found and monitoring started immediately"
           );
+          
+          // ✅ Setup for VAD but keep microphone disabled initially
+          if (vadEnabled && localAudioTrack) {
+            console.log("🎤 VAD ready - microphone will enable after first AI response...");
+            
+            // Keep microphone muted until first AI response
+            localAudioTrack.mute();
+            isVadMuted = true;
+            isMuted = true;
+            updateMuteButton();
+            
+            console.log("🔇 Microphone disabled - waiting for first AI response");
+            updateStatus("🤖 Waiting for AI response...", "connected");
+          } else {
+            console.log("ℹ️ VAD not available - using manual microphone control");
+            updateStatus("✅ Connected", "connected");
+          }
         }
 
         console.log("🎤 Microphone enabled and ready for conversation");
+        
+        // Fallback timeout: Enable microphone after 10 seconds if no AI response detected
+        setTimeout(async () => {
+          if (!hasReceivedFirstAIResponse && isConnected && room) {
+            console.log("⏰ Fallback timeout: Enabling microphone after 10s (no AI response detected)");
+            try {
+              await room.localParticipant.setMicrophoneEnabled(true);
+              isMuted = false;
+              updateMuteButton();
+              if (muteBtn) muteBtn.style.display = "flex";
+              updateStatus("🎤 Ready to speak!", "connected");
+              hasReceivedFirstAIResponse = true; // Prevent multiple fallback triggers
+            } catch (error) {
+              console.error("❌ Error enabling microphone (fallback):", error);
+            }
+          }
+        }, 10000); // 10 second fallback
       });
 
       // Room disconnected
@@ -4139,6 +5677,32 @@
                     }
                   } else if (jsonData.role === "assistant") {
                     addMessage("assistant", jsonData.text);
+                    
+                    // Enable microphone on first AI response via data message
+                    if (!hasReceivedFirstAIResponse) {
+                      hasReceivedFirstAIResponse = true;
+                      startCallTimer();
+                      stopConnectingSound();
+                      updateStatus("🤖 AI Speaking... (Mic disabled)", "speaking");
+                      
+                      setTimeout(async () => {
+                        console.log("🎤 1s delay completed (data message), enabling mic...");
+                        if (isConnected && room && hasReceivedFirstAIResponse) {
+                          try {
+                            await room.localParticipant.setMicrophoneEnabled(true);
+                            isMuted = false;
+                            updateMuteButton();
+                            if (muteBtn) muteBtn.style.display = "flex";
+                            console.log("🎤 Microphone enabled after data message response");
+                            updateStatus("🎤 You can speak now!", "connected");
+                          } catch (error) {
+                            console.error("❌ Error enabling mic (data message):", error);
+                          }
+                        }
+                      }, 1000);
+                      
+                      console.log("🎉 First AI response via data message detected");
+                    }
                   }
                   console.log("✅ Processed legacy format transcript");
                   return;
@@ -4296,6 +5860,32 @@
                     sender: participantInfo.identity,
                     text,
                   });
+                  
+                  // Enable microphone on first AI response via chat
+                  if (!hasReceivedFirstAIResponse) {
+                    hasReceivedFirstAIResponse = true;
+                    startCallTimer();
+                    stopConnectingSound();
+                    updateStatus("🤖 AI Speaking... (Mic disabled)", "speaking");
+                    
+                    setTimeout(async () => {
+                      console.log("🎤 1s delay completed (chat), enabling mic...");
+                      if (isConnected && room && hasReceivedFirstAIResponse) {
+                        try {
+                          await room.localParticipant.setMicrophoneEnabled(true);
+                          isMuted = false;
+                          updateMuteButton();
+                          if (muteBtn) muteBtn.style.display = "flex";
+                          console.log("🎤 Microphone enabled after chat response");
+                          updateStatus("🎤 You can speak now!", "connected");
+                        } catch (error) {
+                          console.error("❌ Error enabling mic (chat):", error);
+                        }
+                      }
+                    }, 1000);
+                    
+                    console.log("🎉 First AI response via chat detected");
+                  }
                 }
               } catch (error) {
                 console.error("❌ Error processing chat stream:", error);
@@ -4367,126 +5957,102 @@
 
       updateStatus(`❌ ${errorMsg} - Click to retry`, "disconnected");
       console.error("❌ Connection terminated due to error:", error);
-
+      
       // Reset all connection flags
       isConnected = false;
       isConnecting = false;
       isDisconnecting = false;
-
+      
       // Ensure button is clickable for retry
       connectBtn.disabled = false;
       connectBtn.innerHTML =
         '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path></svg>';
       connectBtn.classList.remove("connected");
       connectBtn.title = "Retry Connection";
-
-      alert(
-        `Connection failed: ${errorMsg}. Click the call button to try again.`
-      );
+      
+      alert(`Connection failed: ${errorMsg}. Click the call button to try again.`);
       stopConversation();
     }
   }
   async function stopConversation() {
-    console.log("🛑 stopConversation() called");
+    console.log("🛑 stopConversation() called - Releasing microphone resources");
 
-    // Stop connecting sound immediately
-    stopConnectingSound();
-
-    isConnected = false;
-    isConnecting = false;
-    hasReceivedFirstAIResponse = false;
-    shouldAutoUnmute = false;
-    isMuted = false;
-    aiJustFinished = false;
-
-    // Hide message interface when disconnected
-    hideMessageInterface();
-
-    stopCallTimer();
-    clearLoadingStatus();
-
-    // Clear all timeouts
-    if (connectionTimeout) {
-      clearTimeout(connectionTimeout);
-      connectionTimeout = null;
+    // Complete microphone release when conversation stops
+    console.log("🎤 Conversation ended - Releasing ALL microphone resources");
+    
+    if (mediaStream) {
+      console.log("🎤 Stopping media stream tracks on conversation end");
+      mediaStream.getTracks().forEach((track) => {
+        console.log(`Stopping track: ${track.kind}, label: ${track.label}`);
+        track.stop();
+        track.enabled = false;
+      });
+      mediaStream = null;
     }
-    if (aiResponseTimeout) {
-      clearTimeout(aiResponseTimeout);
-      aiResponseTimeout = null;
-    }
-
-    // Close WebSocket if exists
-    if (ws) {
-      console.log("🔌 Closing WebSocket in stopConversation");
+    
+    // Stop LiveKit tracks
+    if (localAudioTrack) {
       try {
-        ws.close();
-      } catch (err) {
-        console.warn("Error closing WebSocket in stopConversation:", err);
+        localAudioTrack.stop();
+      } catch (e) {
+        console.warn("Error stopping local audio track:", e);
       }
-      ws = null;
+      localAudioTrack = null;
     }
-    try {
-      playSound("call-end");
-    } catch (e) {
-      console.warn("Could not play call-end sound:", e);
-    }
-    if (window.currentCallId) {
+    
+    if (remoteAudioTrack) {
       try {
-        updateStatus("Disconnecting...", "connecting");
-        const response = await fetch(
-          "https://shivai-com-backend.onrender.com/api/v1/calls/end-call",
-          {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              callId: window.currentCallId,
-            }),
-          }
-        );
-        if (response.ok) {
-          const data = await response.json();
-          console.log("Call ended successfully:", data);
-        }
+        remoteAudioTrack.stop();
+      } catch (e) {
+        console.warn("Error stopping remote audio track:", e);
+      }
+      remoteAudioTrack = null;
+    }
+    
+    // Close audio contexts
+    if (audioContext) {
+      try {
+        audioContext.close();
       } catch (error) {
-        console.error("Error ending call:", error);
-      } finally {
-        window.currentCallId = null;
+        console.warn("Error closing audio context:", error);
       }
+      audioContext = null;
+    }
+    
+    // Stop VAD and release VAD microphone
+    if (vadEnabled) {
+      vadMonitoringActive = false;
+      if (vadSilenceTimeout) {
+        clearTimeout(vadSilenceTimeout);
+        vadSilenceTimeout = null;
+      }
+      if (vadAudioContext) {
+        try {
+          vadAudioContext.close();
+        } catch (e) {
+          console.warn("Error closing VAD context:", e);
+        }
+        vadAudioContext = null;
+      }
+      vadSpeechStartTime = null;
+      vadBuffer = new Array(vadBufferSize).fill(0);
+      isVadMuted = true;
+      vadAnalyser = null;
+      vadDataArray = null;
     }
 
-    // Disconnect LiveKit room
-    if (room) {
-      await room.disconnect();
-      room = null;
-      console.log("🔴 LiveKit room disconnected");
+    try {
+      // Only handle remaining async cleanup that wasn't done in immediate hangup
+      
+      // Final status update
+      if (!isDisconnecting) {
+        updateStatus("Ready to connect", "disconnected");
+      }
+      
+      console.log("✅ stopConversation cleanup completed - Microphone fully released");
+    } catch (error) {
+      console.warn("Error in stopConversation cleanup:", error);
     }
-
-    localAudioTrack = null;
-    remoteAudioTrack = null;
-
-    if (visualizerInterval) {
-      clearInterval(visualizerInterval);
-      visualizerInterval = null;
-      animateVisualizer(false);
-    }
-    updateStatus("Ready to connect", "disconnected");
-    connectBtn.innerHTML =
-      '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path></svg>';
-    connectBtn.classList.remove("connected");
-    connectBtn.title = "Start Call";
-    if (muteBtn) {
-      muteBtn.style.display = "none";
-      muteBtn.classList.remove("muted");
-      isMuted = false;
-    }
-    languageSelect.disabled = false;
-
-    // Remove any attached audio elements
-    document.querySelectorAll("audio").forEach((el) => el.remove());
-
-    console.log("✅ Conversation stopped - LiveKit cleanup complete");
   }
 
   // Remove unused WebSocket audio streaming function

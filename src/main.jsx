@@ -22,9 +22,17 @@ function Root() {
     let isMounted = true;
     const loadStyles = async () => {
       try {
-        await import("./assets/css/Style.css");
+        // Import styles with timeout
+        const timeoutPromise = new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Import timeout')), 5000)
+        );
+        await Promise.race([
+          import("./assets/css/Style.css"),
+          timeoutPromise
+        ]);
       } catch (error) {
-        console.error("Failed to load styles:", error);
+        console.warn("Failed to load styles, continuing without them:", error);
+        // Continue without styles rather than blocking
       } finally {
         if (isMounted) setIsLoading(false);
       }
