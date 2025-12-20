@@ -25,12 +25,14 @@ export default defineConfig({
           icons: ['react-icons'],
           admin: [
             './src/Admin/Dashboard/DashboardLayout.jsx',
-            './src/Admin/Dashboard/DashboardOverview/DashboardHome.jsx'
+            './src/Admin/Dashboard/DashboardOverview/DashboardHome.jsx'  
           ]
         }
       },
-    },
+    },  
     // Increase chunk size warning limit
+
+
     chunkSizeWarningLimit: 1000,
     // Optimize dependencies
     target: 'esnext',

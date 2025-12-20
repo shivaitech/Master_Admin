@@ -5,6 +5,7 @@ import React, {
   useCallback,
   useRef,
 } from "react";
+import { useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
 import {
   RiTeamLine,
@@ -54,6 +55,10 @@ import {
   RiVipCrownLine,
   RiShoppingBag3Line,
   RiExchangeDollarLine,
+  RiBarChartLine,
+  RiPhoneLine,
+  RiChatOffLine,
+  RiUser3Line,
 } from "react-icons/ri";
 import { useTheme } from "../contexts/ThemeContext";
 import { shivaiApiService } from "../../../Redux-config/apisModel/apiService";
@@ -212,72 +217,76 @@ const ClientDetailsView = ({ client, onBack, onEdit, onDelete, onApprove, onReje
   return (
     <div className="space-y-4 md:space-y-6">
       {/* Header with Back Button */}
-      <div className="flex flex-col gap-3 sm:gap-4">
-        {/* Top Row: Back button and title */}
-        <div className="flex items-center gap-3 sm:gap-4 min-w-0">
-          <button
-            onClick={onBack}
-            className={`p-2 rounded-lg ${currentTheme.hover} ${currentTheme.text} transition-all duration-200 flex-shrink-0`}
-          >
-            <RiArrowLeftLine className="w-5 h-5" />
-          </button>
-          <div className="min-w-0 flex-1">
-            <h1
-              className={`text-xl sm:text-2xl font-bold ${currentTheme.text} truncate`}
+      <div className="flex flex-col gap-3 sm:gap-0">
+        {/* Main Header Row: Back button, title, and action buttons */}
+        <div className="flex items-start justify-between gap-3 sm:gap-4 min-w-0">
+          {/* Left side: Back button and title info */}
+          <div className="flex items-start gap-3 sm:gap-4 min-w-0 flex-1">
+            <button
+              onClick={onBack}
+              className={`p-2 rounded-lg ${currentTheme.hover} ${currentTheme.text} transition-all duration-200 flex-shrink-0 mt-1`}
             >
-              {client?.userData?.fullName ||
-                client?.company_basics?.name ||
-                "Client Details"}
-            </h1>
-            <p className={`text-sm ${currentTheme.textSecondary} truncate`}>
-              {client?.userData?.email ||
-                client?.company_basics?.company_email ||
-                ""}
-            </p>
+              <RiArrowLeftLine className="w-5 h-5" />
+            </button>
+            <div className="min-w-0 flex-1">
+              <h1
+                className={`text-xl sm:text-2xl font-bold ${currentTheme.text} truncate`}
+              >
+                {client?.userData?.fullName ||
+                  client?.company_basics?.name ||
+                  "Client Details"}
+              </h1>
+              <p className={`text-sm ${currentTheme.textSecondary} truncate mt-1`}>
+                {client?.userData?.email ||
+                  client?.company_basics?.company_email ||
+                  ""}
+              </p>
+            </div>
           </div>
-        </div>
-        
-        {/* Bottom Row: Action Buttons */}
-        <div className="flex items-center justify-end gap-2 flex-wrap">
-          {/* Accept/Reject buttons for onboarded but not approved/rejected users */}
-          {client?.userData?.onboarding && !client?.isApproved && !client?.isRejected && (
-            <>
-              <button
-                onClick={() => onReject && onReject(client)}
-                className="px-3 py-2 bg-red-500 hover:bg-red-600 text-white text-sm font-medium rounded-lg transition-all duration-200 flex items-center gap-2"
-                title="Reject Client"
-              >
-                <RiCloseLine className="w-4 h-4" />
-                <span className="hidden xs:inline">Reject</span>
-              </button>
-              <button
-                onClick={() => onApprove && onApprove(client)}
-                className="px-3 py-2 bg-green-500 hover:bg-green-600 text-white text-sm font-medium rounded-lg transition-all duration-200 flex items-center gap-2"
-                title="Approve Client"
-              >
-                <RiCheckLine className="w-4 h-4" />
-                <span className="hidden xs:inline">Approve</span>
-              </button>
-            </>
-          )}
           
-          {/* Edit Button */}
-          <button
-            onClick={() => onEdit && onEdit(client?.userData)}
-            className={`p-2 rounded-lg ${currentTheme.hover} ${currentTheme.text} transition-all duration-200`}
-            title="Edit Client"
-          >
-            <RiEditLine className="w-4 h-4" />
-          </button>
-          
-          {/* Delete Button */}
-          <button
-            onClick={() => onDelete && onDelete(client?.userData)}
-            className="p-2 rounded-lg hover:bg-red-50 text-red-500 transition-all duration-200"
-            title="Delete Client"
-          >
-            <RiDeleteBinLine className="w-4 h-4" />
-          </button>
+          {/* Right side: Action Buttons */}
+          <div className="flex items-center gap-2 flex-shrink-0">
+            {/* Accept/Reject buttons for onboarded but not approved/rejected users */}
+            {(client?.userData?.isOnboarded || client?.isOnboarded) && !client?.onboarding?.status === "approved" && !client?.isRejected && (
+              <>
+              {console.log("Rendering Accept/Reject buttons for client:", client)}
+                <button
+                  onClick={() => onReject && onReject(client?.onboardingDetails?.onboarding || client?.onBoarding || client)}
+                  className="px-3 py-2 bg-red-500 hover:bg-red-600 text-white text-sm font-medium rounded-lg transition-all duration-200 flex items-center gap-2"
+                  title="Reject Client"
+                >
+                  <RiCloseLine className="w-4 h-4" />
+                  <span className="hidden sm:inline">Reject</span>
+                </button>
+                <button
+                  onClick={() => onApprove && onApprove(client?.onboardingDetails?.onboarding || client?.onBoarding || client)}
+                  className="px-3 py-2 bg-green-500 hover:bg-green-600 text-white text-sm font-medium rounded-lg transition-all duration-200 flex items-center gap-2"
+                  title="Approve Client"
+                >
+                  <RiCheckLine className="w-4 h-4" />
+                  <span className="hidden sm:inline">Approve</span>
+                </button>
+              </>
+            )}
+            
+            {/* Edit Button */}
+            <button
+              onClick={() => onEdit && onEdit(client?.userData)}
+              className={`p-2 rounded-lg ${currentTheme.hover} ${currentTheme.text} transition-all duration-200`}
+              title="Edit Client"
+            >
+              <RiEditLine className="w-4 h-4" />
+            </button>
+            
+            {/* Delete Button */}
+            <button
+              onClick={() => onDelete && onDelete(client?.userData)}
+              className="p-2 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 text-red-500 transition-all duration-200"
+              title="Delete Client"
+            >
+              <RiDeleteBinLine className="w-4 h-4" />
+            </button>
+          </div>
         </div>
       </div>
 
@@ -291,11 +300,11 @@ const ClientDetailsView = ({ client, onBack, onEdit, onDelete, onApprove, onReje
           >
             <div className="flex items-center justify-between mb-3">
               <div
-                className={`w-10 h-10 md:w-12 md:h-12 rounded-lg bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center`}
+                className={`w-10 h-10 md:w-12 md:h-12 rounded-lg ${currentTheme.searchBg} flex items-center justify-center`}
               >
-                <RiRobotLine className="w-5 h-5 md:w-6 md:h-6 text-blue-600 dark:text-blue-400" />
+                <RiRobotLine className={`w-5 h-5 md:w-6 md:h-6 ${currentTheme.text}`} />
               </div>
-              <span className="text-sm font-medium text-blue-500">Total</span>
+              <span className={`text-sm font-medium ${currentTheme.textSecondary}`}>Total</span>
             </div>
             <h3
               className={`text-2xl md:text-3xl font-semibold ${currentTheme.text} mb-1`}
@@ -316,11 +325,11 @@ const ClientDetailsView = ({ client, onBack, onEdit, onDelete, onApprove, onReje
           >
             <div className="flex items-center justify-between mb-3">
               <div
-                className={`w-10 h-10 md:w-12 md:h-12 rounded-lg bg-green-100 dark:bg-green-900/30 flex items-center justify-center`}
+                className={`w-10 h-10 md:w-12 md:h-12 rounded-lg ${currentTheme.searchBg} flex items-center justify-center`}
               >
-                <RiPulseLine className="w-5 h-5 md:w-6 md:h-6 text-green-600 dark:text-green-400" />
+                <RiPulseLine className={`w-5 h-5 md:w-6 md:h-6 ${currentTheme.text}`} />
               </div>
-              <span className="text-sm font-medium text-green-500">Live</span>
+              <span className={`text-sm font-medium ${currentTheme.textSecondary}`}>Live</span>
             </div>
             <h3
               className={`text-2xl md:text-3xl font-semibold ${currentTheme.text} mb-1`}
@@ -339,11 +348,11 @@ const ClientDetailsView = ({ client, onBack, onEdit, onDelete, onApprove, onReje
           >
             <div className="flex items-center justify-between mb-3">
               <div
-                className={`w-10 h-10 md:w-12 md:h-12 rounded-lg bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center`}
+                className={`w-10 h-10 md:w-12 md:h-12 rounded-lg ${currentTheme.searchBg} flex items-center justify-center`}
               >
-                <RiUserVoiceLine className="w-5 h-5 md:w-6 md:h-6 text-purple-600 dark:text-purple-400" />
+                <RiUserVoiceLine className={`w-5 h-5 md:w-6 md:h-6 ${currentTheme.text}`} />
               </div>
-              <span className="text-sm font-medium text-purple-500">Calls</span>
+              <span className={`text-sm font-medium ${currentTheme.textSecondary}`}>Calls</span>
             </div>
             <h3
               className={`text-2xl md:text-3xl font-semibold ${currentTheme.text} mb-1`}
@@ -364,12 +373,12 @@ const ClientDetailsView = ({ client, onBack, onEdit, onDelete, onApprove, onReje
           >
             <div className="flex items-center justify-between mb-3">
               <div
-                className={`w-10 h-10 md:w-12 md:h-12 rounded-lg bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center`}
+                className={`w-10 h-10 md:w-12 md:h-12 rounded-lg ${currentTheme.searchBg} flex items-center justify-center`}
               >
-                <RiMoneyDollarCircleLine className="w-5 h-5 md:w-6 md:h-6 text-emerald-600 dark:text-emerald-400" />
+                <RiMoneyDollarCircleLine className={`w-5 h-5 md:w-6 md:h-6 ${currentTheme.text}`} />
               </div>
               <span
-                className={`text-sm font-medium ${clientStats.isActive ? "text-emerald-500" : "text-gray-500"}`}
+                className={`text-sm font-medium ${currentTheme.textSecondary}`}
               >
                 {clientStats.isActive ? "Active" : "Inactive"}
               </span>
@@ -399,11 +408,11 @@ const ClientDetailsView = ({ client, onBack, onEdit, onDelete, onApprove, onReje
               >
                 <div className="flex items-center justify-between mb-2 md:mb-3">
                   <div
-                    className={`w-8 h-8 md:w-10 md:h-10 rounded-lg bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center`}
+                    className={`w-8 h-8 md:w-10 md:h-10 rounded-lg ${currentTheme.searchBg} flex items-center justify-center`}
                   >
-                    <RiRobotLine className="w-4 h-4 md:w-5 md:h-5 text-blue-600 dark:text-blue-400" />
+                    <RiRobotLine className={`w-4 h-4 md:w-5 md:h-5 ${currentTheme.text}`} />
                   </div>
-                  <span className="text-xs font-medium text-blue-500">
+                  <span className={`text-xs font-medium ${currentTheme.textSecondary}`}>
                     Total
                   </span>
                 </div>
@@ -432,11 +441,11 @@ const ClientDetailsView = ({ client, onBack, onEdit, onDelete, onApprove, onReje
               >
                 <div className="flex items-center justify-between mb-2 md:mb-3">
                   <div
-                    className={`w-8 h-8 md:w-10 md:h-10 rounded-lg bg-green-100 dark:bg-green-900/30 flex items-center justify-center`}
+                    className={`w-8 h-8 md:w-10 md:h-10 rounded-lg ${currentTheme.searchBg} flex items-center justify-center`}
                   >
-                    <RiPulseLine className="w-4 h-4 md:w-5 md:h-5 text-green-600 dark:text-green-400" />
+                    <RiPulseLine className={`w-4 h-4 md:w-5 md:h-5 ${currentTheme.text}`} />
                   </div>
-                  <span className="text-xs font-medium text-green-500">
+                  <span className={`text-xs font-medium ${currentTheme.textSecondary}`}>
                     Live
                   </span>
                 </div>
@@ -465,11 +474,11 @@ const ClientDetailsView = ({ client, onBack, onEdit, onDelete, onApprove, onReje
               >
                 <div className="flex items-center justify-between mb-2 md:mb-3">
                   <div
-                    className={`w-8 h-8 md:w-10 md:h-10 rounded-lg bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center`}
+                    className={`w-8 h-8 md:w-10 md:h-10 rounded-lg ${currentTheme.searchBg} flex items-center justify-center`}
                   >
-                    <RiUserVoiceLine className="w-4 h-4 md:w-5 md:h-5 text-purple-600 dark:text-purple-400" />
+                    <RiUserVoiceLine className={`w-4 h-4 md:w-5 md:h-5 ${currentTheme.text}`} />
                   </div>
-                  <span className="text-xs font-medium text-purple-500">
+                  <span className={`text-xs font-medium ${currentTheme.textSecondary}`}>
                     Calls
                   </span>
                 </div>
@@ -498,12 +507,12 @@ const ClientDetailsView = ({ client, onBack, onEdit, onDelete, onApprove, onReje
               >
                 <div className="flex items-center justify-between mb-2 md:mb-3">
                   <div
-                    className={`w-8 h-8 md:w-10 md:h-10 rounded-lg bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center`}
+                    className={`w-8 h-8 md:w-10 md:h-10 rounded-lg ${currentTheme.searchBg} flex items-center justify-center`}
                   >
-                    <RiMoneyDollarCircleLine className="w-4 h-4 md:w-5 md:h-5 text-emerald-600 dark:text-emerald-400" />
+                    <RiMoneyDollarCircleLine className={`w-4 h-4 md:w-5 md:h-5 ${currentTheme.text}`} />
                   </div>
                   <span
-                    className={`text-xs font-medium ${clientStats.isActive ? "text-emerald-500" : "text-gray-500"}`}
+                    className={`text-xs font-medium ${currentTheme.textSecondary}`}
                   >
                     {clientStats.isActive ? "Active" : "Inactive"}
                   </span>
@@ -556,16 +565,16 @@ const ClientDetailsView = ({ client, onBack, onEdit, onDelete, onApprove, onReje
         {/* Tab Content */}
         <div className="p-6">
           {activeTab === "onboarding" && (
-            <OnboardingDataTab client={client} currentTheme={currentTheme} />
+            <OnboardingDataTab key={`onboarding-${client?._id}`} client={client} currentTheme={currentTheme} />
           )}
           {activeTab === "details" && (
-            <ClientDetailsTab client={client} currentTheme={currentTheme} />
+            <ClientDetailsTab key={`details-${client?._id}`} client={client} currentTheme={currentTheme} />
           )}
           {activeTab === "employees" && (
-            <AIEmployeesTab client={client} currentTheme={currentTheme} onViewAgent={onViewAgent} />
+            <AIEmployeesTab key={`employees-${client?._id}-${activeTab}`} client={client} currentTheme={currentTheme} onViewAgent={onViewAgent} />
           )}
           {activeTab === "transactions" && (
-            <TransactionsTab client={client} currentTheme={currentTheme} />
+            <TransactionsTab key={`transactions-${client?._id}`} client={client} currentTheme={currentTheme} />
           )}
         </div>
       </div>
@@ -1139,8 +1148,9 @@ const OnboardingDataTab = ({ client, currentTheme }) => {
 };
 
 const ClientDetailsTab = ({ client, currentTheme }) => {
-  const userData = client?.userData || {};
-  const companyBasics = client?.company_basics || {};
+  // Handle different data structures - client data can be nested in userData or directly on client
+  const userData = client?.userData || client || {};
+  const companyBasics = client?.company_basics || client?.userData?.onboarding?.company_basics || {};
 
   return (
     <div className="space-y-6">
@@ -1156,7 +1166,7 @@ const ClientDetailsTab = ({ client, currentTheme }) => {
             Full Name
           </label>
           <p className={`${currentTheme.text} font-medium`}>
-            {userData.fullName || "N/A"}
+            {userData.fullName || userData.name || companyBasics.name || "N/A"}
           </p>
         </div>
         <div>
@@ -1176,7 +1186,7 @@ const ClientDetailsTab = ({ client, currentTheme }) => {
             Phone
           </label>
           <p className={`${currentTheme.text} font-medium`}>
-            {companyBasics.company_phone || "N/A"}
+            {userData.phone || companyBasics.company_phone || "N/A"}
           </p>
         </div>
         <div>
@@ -1186,7 +1196,7 @@ const ClientDetailsTab = ({ client, currentTheme }) => {
             Website
           </label>
           <p className={`${currentTheme.text} font-medium`}>
-            {companyBasics.company_website || "N/A"}
+            {userData.website || companyBasics.company_website || "N/A"}
           </p>
         </div>
         <div>
@@ -1196,7 +1206,7 @@ const ClientDetailsTab = ({ client, currentTheme }) => {
             Company Size
           </label>
           <p className={`${currentTheme.text} font-medium`}>
-            {companyBasics.company_size || "N/A"}
+            {userData.companySize || companyBasics.company_size || "N/A"}
           </p>
         </div>
         <div>
@@ -1207,23 +1217,84 @@ const ClientDetailsTab = ({ client, currentTheme }) => {
           </label>
           <span
             className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-              client?.isApproved
+              client?.isApproved || userData?.isApproved
                 ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400"
-                : client?.isRejected
+                : client?.isRejected || userData?.isRejected
                   ? "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400"
-                  : "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400"
+                  : userData?.isActive
+                    ? "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400"
+                    : "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400"
             }`}
           >
-            {client?.isApproved
+            {client?.isApproved || userData?.isApproved
               ? "Approved"
-              : client?.isRejected
+              : client?.isRejected || userData?.isRejected
                 ? "Rejected"
-                : "Pending"}
+                : userData?.isActive
+                  ? "Active"
+                  : "Pending"}
+          </span>
+        </div>
+        <div>
+          <label
+            className={`text-sm ${currentTheme.textSecondary} uppercase block mb-2`}
+          >
+            Email Verified
+          </label>
+          <span
+            className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+              userData?.emailVerified
+                ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400"
+                : "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400"
+            }`}
+          >
+            {userData?.emailVerified ? "Verified" : "Not Verified"}
+          </span>
+        </div>
+        <div>
+          <label
+            className={`text-sm ${currentTheme.textSecondary} uppercase block mb-2`}
+          >
+            Onboarded
+          </label>
+          <span
+            className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+              userData?.isOnboarded
+                ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400"
+                : "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400"
+            }`}
+          >
+            {userData?.isOnboarded ? "Completed" : "Pending"}
           </span>
         </div>
       </div>
 
-      {companyBasics.company_address && (
+      {/* Additional Details */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div>
+          <label
+            className={`text-sm ${currentTheme.textSecondary} uppercase block mb-2`}
+          >
+            Created At
+          </label>
+          <p className={`${currentTheme.text} font-medium`}>
+            {userData?.createdAt ? new Date(userData.createdAt).toLocaleDateString() : "N/A"}
+          </p>
+        </div>
+        <div>
+          <label
+            className={`text-sm ${currentTheme.textSecondary} uppercase block mb-2`}
+          >
+            Last Login
+          </label>
+          <p className={`${currentTheme.text} font-medium`}>
+            {userData?.lastLoginAt ? new Date(userData.lastLoginAt).toLocaleDateString() : "N/A"}
+          </p>
+        </div>
+      </div>
+
+      {/* Company Address */}
+      {(userData?.address || companyBasics?.company_address) && (
         <div>
           <label
             className={`text-sm ${currentTheme.textSecondary} uppercase block mb-2`}
@@ -1231,7 +1302,7 @@ const ClientDetailsTab = ({ client, currentTheme }) => {
             Company Address
           </label>
           <p className={`${currentTheme.text} leading-relaxed`}>
-            {companyBasics.company_address}
+            {userData?.address || companyBasics?.company_address}
           </p>
         </div>
       )}
@@ -1244,59 +1315,61 @@ const AIEmployeesTab = ({ client, currentTheme, onViewAgent }) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  // Fetch AI agents data when component mounts
+  // Fetch AI agents data every time this tab is rendered
   useEffect(() => {
     const fetchAIEmployees = async () => {
+      if (!client) {
+        setLoading(false);
+        return;
+      }
+
       try {
         setLoading(true);
         setError(null);
         
-        const response = await shivaiApiService.getAllAgents();
+        console.log("🔄 AIEmployeesTab mounted - fetching agents for client:", client?.id);
+        console.log("📋 Client user ID:", client?.userData?.id);
+        console.log("📋 Full client object:", client);
+        
+        // Fetch all agents and filter by client
+        const response = await shivaiApiService.getAgentsById(client?.id);
         console.log("🤖 AI Agents API Response:", response);
         
-        if (response?.success) {
-          // Handle different response structures
-          let agentsData = response.data;
-          
-          // If data is nested in agents property
-          if (response.data?.agents && Array.isArray(response.data.agents)) {
-            agentsData = response.data.agents;
+        // Don't check response.success, just check if we have data
+        let agentsData = response?.data || response;
+        
+        console.log("📦 Raw agents data:", agentsData);
+        
+        // Handle different response structures
+        if (agentsData?.agents && Array.isArray(agentsData.agents)) {
+          agentsData = agentsData.agents;
+        }
+        
+        if (Array.isArray(agentsData)) {
+          console.log("✅ Agents data is an array with length:", agentsData.length);
+          if (agentsData.length > 0) {
+            console.log("📊 Sample agent data:", agentsData[0]);
           }
-          
-          // If data is directly an array
-          if (Array.isArray(agentsData)) {
-            // Filter agents by client ID if available
-            const clientAgents = agentsData.filter(agent => 
-              agent.userId === client?.userData?._id || 
-              agent.clientId === client?._id ||
-              agent.user_id === client?.userData?._id ||
-              agent.client_id === client?._id
-            );
-            
-            setAiEmployees(clientAgents);
-          } else {
-            // If it's not an array, treat all as client agents for now
-            console.log("📊 Response data is not an array, using all agents");
-            setAiEmployees(agentsData ? [agentsData] : []);
-          }
+          setAiEmployees(agentsData);
+        } else if (agentsData && typeof agentsData === 'object') {
+          // If it's a single agent object, wrap it in an array
+          console.log("📦 Single agent object, wrapping in array");
+          setAiEmployees([agentsData]);
         } else {
-          throw new Error(response?.message || "Failed to fetch AI employees");
+          console.log("📊 Response data is not an array or object:", typeof agentsData);
+          setAiEmployees([]);
         }
       } catch (error) {
-        console.error("Error fetching AI employees:", error);
-        setError(error.message || "Failed to load AI employees");
-        
-        // Fallback to client data if API fails
-        const fallbackEmployees = client?.ai_employees || [];
-        setAiEmployees(fallbackEmployees);
+        console.error("❌ Error fetching AI employees:", error);
+        console.error("❌ Error details:", error?.response?.data);
+        // Don't set error state, just set empty array to avoid showing error UI
+        setAiEmployees([]);
       } finally {
         setLoading(false);
       }
     };
 
-    if (client) {
-      fetchAIEmployees();
-    }
+    fetchAIEmployees();
   }, [client]);
 
   if (loading) {
@@ -1374,9 +1447,9 @@ const AIEmployeesTab = ({ client, currentTheme, onViewAgent }) => {
               <div className="flex items-start justify-between mb-3">
                 <div className="flex items-center gap-3">
                   <div
-                    className={`w-10 h-10 rounded-lg bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center`}
+                    className={`w-10 h-10 rounded-lg ${currentTheme.cardBg} border ${currentTheme.border} flex items-center justify-center`}
                   >
-                    <RiRobotLine className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                    <RiRobotLine className={`w-5 h-5 ${currentTheme.text}`} />
                   </div>
                   <div>
                     <h4 className={`font-semibold ${currentTheme.text}`}>
@@ -1399,7 +1472,7 @@ const AIEmployeesTab = ({ client, currentTheme, onViewAgent }) => {
                   </span>
                   <button
                     onClick={() => onViewAgent && onViewAgent(employee)}
-                    className="px-3 py-1 bg-blue-500 hover:bg-blue-600 text-white text-sm font-medium rounded-lg transition-all duration-200 flex items-center gap-1"
+                    className={`px-3 py-1 ${currentTheme.searchBg} hover:${currentTheme.hover} ${currentTheme.text} border ${currentTheme.border} text-sm font-medium rounded-lg transition-all duration-200 flex items-center gap-1`}
                     title="View Agent Details"
                   >
                     <RiEyeLine className="w-3 h-3" />
@@ -1491,13 +1564,95 @@ const AgentDetailsView = ({ agent, onBack, currentTheme }) => {
     autoGainControl: true
   });
   const [room, setRoom] = useState(null);
+  
+  // Analytics/Sessions state
+  const [sessions, setSessions] = useState([]);
+  const [loadingSessions, setLoadingSessions] = useState(false);
+  const [selectedSession, setSelectedSession] = useState(null);
+  const [transcripts, setTranscripts] = useState([]);
+  const [loadingTranscripts, setLoadingTranscripts] = useState(false);
 
   // Memoize tabs array to prevent re-renders
   const tabs = useMemo(() => [
     { id: "overview", label: "Overview", icon: RiInformationLine },
     { id: "test", label: "Preview & Test", icon: RiChatVoiceLine },
+    { id: "analytics", label: "Analytics", icon: RiBarChartLine },
     { id: "instructions", label: "Instructions", icon: RiFileTextLine },
   ], []);
+
+  // Fetch agent sessions when analytics tab is active
+  useEffect(() => {
+    const fetchAgentSessions = async () => {
+      if (activeTab !== "analytics") return;
+      
+      try {
+        setLoadingSessions(true);
+        const agentId = agent?.id || agent?._id;
+        
+        if (!agentId) {
+          console.error("No agent ID found");
+          return;
+        }
+
+        console.log("📋 Fetching sessions for agent:", agentId);
+        const response = await shivaiApiService.getAgentSessions(agentId);
+        console.log("✅ Sessions response:", response);
+
+        // Handle different response structures
+        const sessionsData = response?.sessions || response?.data?.sessions || response;
+        const sessionsArray = Array.isArray(sessionsData) ? sessionsData : [];
+        
+        setSessions(sessionsArray);
+      } catch (error) {
+        console.error("❌ Error fetching agent sessions:", error);
+        toast.error("Failed to load sessions");
+        setSessions([]);
+      } finally {
+        setLoadingSessions(false);
+      }
+    };
+
+    fetchAgentSessions();
+  }, [activeTab, agent]);
+
+  // Handle viewing session transcripts
+  const handleViewSession = useCallback(async (session) => {
+    try {
+      setSelectedSession(session);
+
+      // Check if transcripts are already in the session object
+      if (session?.transcripts && Array.isArray(session.transcripts)) {
+        console.log("📜 Using transcripts from session object:", session.transcripts);
+        setTranscripts(session.transcripts);
+        return;
+      }
+
+      // Otherwise fetch from API
+      setLoadingTranscripts(true);
+      const sessionId = session?.session_id || session?.id || session?._id;
+      console.log("📜 Fetching transcripts for session:", sessionId);
+
+      const response = await shivaiApiService.getSessionTranscripts(sessionId);
+      console.log("✅ Transcripts response:", response);
+
+      const transcriptsData = response?.transcripts || response?.data || response;
+      const transcriptsArray = Array.isArray(transcriptsData) ? transcriptsData : [];
+
+      setTranscripts(transcriptsArray);
+    } catch (error) {
+      console.error("❌ Error fetching transcripts:", error);
+      toast.error("Failed to load transcripts");
+      setTranscripts([]);
+    } finally {
+      setLoadingTranscripts(false);
+    }
+  }, []);
+
+  // Close transcript view
+  const handleCloseTranscript = useCallback(() => {
+    setSelectedSession(null);
+    setTranscripts([]);
+  }, []);
 
   // Agent Testing Functions - based on widget.js LiveKit implementation
   const startAgentCall = useCallback(async () => {
@@ -2159,6 +2314,316 @@ const AgentDetailsView = ({ agent, onBack, currentTheme }) => {
         </div>
       )}
 
+      {activeTab === "analytics" && (
+        <div className="space-y-6">
+          {/* Transcript Modal */}
+          {selectedSession && (
+            <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+              <div className={`${currentTheme.cardBg} rounded-xl shadow-2xl max-w-2xl w-full max-h-[90vh] flex flex-col border ${currentTheme.border}`}>
+                {/* Modal Header */}
+                <div className={`p-4 border-b ${currentTheme.border}`}>
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-1">
+                        <h3 className={`text-base font-semibold ${currentTheme.text}`}>
+                          Session Transcript
+                        </h3>
+                      </div>
+                      <p className={`text-xs ${currentTheme.textSecondary}`}>
+                        ID: {selectedSession?.session_id || selectedSession?.id}
+                      </p>
+                      <p className={`text-xs ${currentTheme.textSecondary}`}>
+                        {selectedSession?.location?.city || 'unknown'} ({selectedSession?.location?.country || 'Unknown'})
+                      </p>
+                    </div>
+                    <button
+                      onClick={handleCloseTranscript}
+                      className={`p-1.5 ${currentTheme.textSecondary} hover:${currentTheme.text} rounded-full ${currentTheme.hover} transition-all`}
+                    >
+                      <RiCloseLine className="w-5 h-5" />
+                    </button>
+                  </div>
+                  <div className={`mt-3 pt-3 border-t ${currentTheme.border}`}>
+                    <p className={`text-xs ${currentTheme.textSecondary} text-center`}>
+                      Conversation started at {new Date(selectedSession?.start_time).toLocaleDateString('en-US', { 
+                        month: 'short', 
+                        day: 'numeric', 
+                        year: 'numeric' 
+                      })}, {new Date(selectedSession?.start_time).toLocaleTimeString('en-US', {
+                        hour: '2-digit',
+                        minute: '2-digit',
+                        hour12: true
+                      })}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Modal Content */}
+                <div className={`overflow-y-auto p-4 ${currentTheme.background}`} style={{ height: '450px' }}>
+                  {loadingTranscripts ? (
+                    <div className="flex items-center justify-center py-12">
+                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                      <span className={`ml-3 ${currentTheme.textSecondary}`}>Loading transcripts...</span>
+                    </div>
+                  ) : transcripts.length === 0 ? (
+                    <div className="text-center py-12">
+                      <RiChatOffLine className={`w-12 h-12 mx-auto mb-3 ${currentTheme.textSecondary}`} />
+                      <p className={`${currentTheme.textSecondary}`}>No transcripts available for this session.</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      {transcripts.map((transcript, index) => {
+                        const isAgent = transcript.role === 'agent';
+                        const timestamp = new Date(transcript.timestamp);
+                        
+                        return (
+                          <div key={index}>
+                            {isAgent ? (
+                              // Agent message - left aligned with avatar
+                              <div className="flex items-start gap-2">
+                                <div className="flex-shrink-0">
+                                  <div className="w-6 h-6 rounded-full bg-gray-500 flex items-center justify-center">
+                                    <RiRobotLine className="w-4 h-4 text-white" />
+                                  </div>
+                                </div>
+                                <div className="flex flex-col items-start max-w-[80%]">
+                                  <span className={`text-[10px] ${currentTheme.textSecondary} mb-1 px-2 font-medium`}>
+                                    SHIVAI ASSISTANT {timestamp.toLocaleTimeString('en-US', {
+                                      hour: '2-digit',
+                                      minute: '2-digit',
+                                      hour12: false
+                                    })}
+                                  </span>
+                                  <div className={`rounded-2xl rounded-tl-sm px-4 py-2.5 ${currentTheme.searchBg}`}>
+                                    <p className={`text-sm ${currentTheme.text}`}>
+                                      {transcript.text}
+                                    </p>
+                                  </div>
+                                </div>
+                              </div>
+                            ) : (
+                              // Customer message - right aligned, blue background
+                              <div className="flex justify-end">
+                                <div className="flex flex-col items-end max-w-[80%]">
+                                  <span className={`text-[10px] ${currentTheme.textSecondary} mb-1 px-2 font-medium`}>
+                                    CUSTOMER {timestamp.toLocaleTimeString('en-US', {
+                                      hour: '2-digit',
+                                      minute: '2-digit',
+                                      hour12: false
+                                    })}
+                                  </span>
+                                  <div className="rounded-2xl rounded-tr-sm px-4 py-2.5 bg-blue-600">
+                                    <p className="text-sm text-white">
+                                      {transcript.text}
+                                    </p>
+                                  </div>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+
+                {/* Modal Footer */}
+                <div className={`p-4 border-t ${currentTheme.border}`}>
+                  <p className={`text-xs ${currentTheme.textSecondary} text-center mb-1`}>
+                    Session ended • Resolution: Session completed
+                  </p>
+                  <p className={`text-xs ${currentTheme.textSecondary} text-center flex items-center justify-center gap-1`}>
+                    <RiTimeLine className="w-3 h-3" />
+                    Updated: {new Date(selectedSession?.updated_at || selectedSession?.end_time).toLocaleDateString('en-US', {
+                      month: 'short',
+                      day: 'numeric',
+                      year: 'numeric'
+                    })}, {new Date(selectedSession?.updated_at || selectedSession?.end_time).toLocaleTimeString('en-US', {
+                      hour: '2-digit',
+                      minute: '2-digit',
+                      hour12: true
+                    })}
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Session History */}
+          <div>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className={`text-lg font-semibold ${currentTheme.text}`}>
+                Session History
+              </h3>
+              {loadingSessions && (
+                <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600"></div>
+              )}
+            </div>
+
+            {loadingSessions ? (
+              <div className={`text-center py-12 rounded-lg ${currentTheme.searchBg}`}>
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                <p className={`${currentTheme.textSecondary}`}>Loading sessions...</p>
+              </div>
+            ) : sessions.length === 0 ? (
+              <div className={`text-center py-12 rounded-lg ${currentTheme.searchBg}`}>
+                <RiPhoneLine className={`w-12 h-12 mx-auto mb-3 ${currentTheme.textSecondary}`} />
+                <h4 className={`text-lg font-semibold ${currentTheme.text} mb-2`}>
+                  No Sessions Yet
+                </h4>
+                <p className={`${currentTheme.textSecondary}`}>
+                  This agent hasn't had any sessions yet.
+                </p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                {sessions.map((session, index) => {
+                  const sessionId = session?.session_id || session?.id || `#${String(1000 + index).padStart(4, '0')}`;
+                  const status = session?.status || 'Completed';
+                  const durationSeconds = session?.duration_seconds || 0;
+                  const duration = durationSeconds > 0 
+                    ? `${Math.floor(durationSeconds / 60)}m ${Math.floor(durationSeconds % 60)}s`
+                    : '0s';
+                  const messageCount = session?.total_messages || 0;
+                  const startTime = session?.start_time || new Date();
+                  const location = session?.location || {};
+                  const tokenUsage = session?.token_usage || {};
+
+                  return (
+                    <div
+                      key={session?.id || index}
+                      className={`${currentTheme.cardBg} border ${currentTheme.border} rounded-lg p-4 hover:shadow-lg transition-all duration-200`}
+                    >
+                      {/* Session ID and View Button */}
+                      <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-center gap-2 flex-1 min-w-0">
+                          <RiPhoneLine className={`w-4 h-4 ${currentTheme.textSecondary} flex-shrink-0`} />
+                          <h4 className={`font-semibold ${currentTheme.text} text-sm truncate`}>
+                            {sessionId}
+                          </h4>
+                        </div>
+                        <button
+                          onClick={() => handleViewSession(session)}
+                          className={`p-1.5 ${currentTheme.textSecondary} rounded-lg ${currentTheme.activeBg} ${currentTheme.hover} transition-all duration-200 hover:shadow-lg flex-shrink-0`}
+                          title="View Session"
+                        >
+                          {loadingTranscripts && selectedSession?.id === session?.id ? (
+                            <div className="w-3 h-3 border border-gray-600 border-t-transparent rounded-full animate-spin"></div>
+                          ) : (
+                            <RiEyeLine className="w-3 h-3" />
+                          )}
+                        </button>
+                      </div>
+
+                      {/* Status Badge */}
+                      <div className="flex flex-wrap gap-1 mb-3">
+                        <span
+                          className={`px-2 py-1 text-xs rounded-full font-medium ${
+                            status === 'Completed'
+                              ? 'bg-green-500/10 text-green-600 border border-green-500/20'
+                              : status === 'In Progress'
+                              ? 'bg-blue-500/10 text-blue-600 border border-blue-500/20'
+                              : 'bg-gray-500/10 text-gray-600 border border-gray-500/20'
+                          }`}
+                        >
+                          {status}
+                        </span>
+                      </div>
+
+                      {/* Date & Time */}
+                      <div className="mb-3">
+                        <p className={`text-xs font-medium ${currentTheme.textSecondary} mb-1`}>
+                          Date & Time
+                        </p>
+                        <p className={`${currentTheme.text} text-sm font-medium`}>
+                          {new Date(startTime).toLocaleDateString('en-US', {
+                            month: 'short',
+                            day: 'numeric',
+                            year: 'numeric',
+                          })}
+                        </p>
+                        <p className={`text-xs ${currentTheme.textSecondary}`}>
+                          {new Date(startTime).toLocaleTimeString('en-US', {
+                            hour: '2-digit',
+                            minute: '2-digit',
+                            hour12: true,
+                          })}
+                        </p>
+                      </div>
+
+                      {/* Location */}
+                      <div className="mb-3">
+                        <p className={`text-xs font-medium ${currentTheme.textSecondary} mb-1`}>
+                          Location
+                        </p>
+                        <p className={`${currentTheme.text} text-sm font-medium truncate`}>
+                          {[location?.city, location?.country].filter(v => v && v !== 'unknown').join(', ') || 'Unknown'}
+                        </p>
+                      </div>
+
+                      {/* Stats Grid */}
+                      <div className="grid grid-cols-2 gap-3 mb-3">
+                        <div>
+                          <p className={`text-xs ${currentTheme.textSecondary}`}>Device</p>
+                          <p className={`${currentTheme.text} text-sm font-medium truncate`}>
+                            {session?.device?.device_type && session.device.device_type !== 'unknown' 
+                              ? session.device.device_type 
+                              : 'Unknown'}
+                          </p>
+                        </div>
+                        <div>
+                          <p className={`text-xs ${currentTheme.textSecondary}`}>Duration</p>
+                          <p className={`${currentTheme.text} text-sm font-medium`}>
+                            {duration}
+                          </p>
+                        </div>
+                        <div>
+                          <p className={`text-xs ${currentTheme.textSecondary}`}>Messages</p>
+                          <p className={`${currentTheme.text} text-sm font-medium`}>
+                            {messageCount}
+                          </p>
+                        </div>
+                        <div>
+                          <p className={`text-xs ${currentTheme.textSecondary}`}>Language</p>
+                          <p className={`${currentTheme.text} text-sm font-medium uppercase`}>
+                            {session?.language || 'EN'}
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Token Usage */}
+                      <div className={`pt-2 border-t ${currentTheme.border}`}>
+                        <p className={`text-xs ${currentTheme.textSecondary} mb-1`}>Token Usage</p>
+                        <div className="grid grid-cols-3 gap-2 text-center">
+                          <div>
+                            <p className={`text-xs ${currentTheme.textSecondary}`}>In</p>
+                            <p className={`${currentTheme.text} text-sm font-semibold`}>
+                              {tokenUsage?.input_tokens?.toLocaleString() || 0}
+                            </p>
+                          </div>
+                          <div>
+                            <p className={`text-xs ${currentTheme.textSecondary}`}>Out</p>
+                            <p className={`${currentTheme.text} text-sm font-semibold`}>
+                              {tokenUsage?.output_tokens?.toLocaleString() || 0}
+                            </p>
+                          </div>
+                          <div>
+                            <p className={`text-xs ${currentTheme.textSecondary}`}>Total</p>
+                            <p className={`${currentTheme.text} text-sm font-semibold`}>
+                              {tokenUsage?.total_tokens?.toLocaleString() || 0}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       {activeTab === "instructions" && (
         <div className="space-y-6">
           {/* Greeting Instructions */}
@@ -2403,6 +2868,273 @@ const AgentDetailsView = ({ agent, onBack, currentTheme }) => {
   );
 };
 
+const AnalyticsTab = ({ client, currentTheme }) => {
+  const [timeRange, setTimeRange] = useState("7days");
+  
+  // Mock analytics data - replace with actual API calls
+  const analyticsData = {
+    callStats: {
+      totalCalls: 1247,
+      successfulCalls: 1156,
+      failedCalls: 91,
+      avgDuration: "3m 45s",
+      peakHours: "2pm - 4pm",
+    },
+    tokenUsage: {
+      total: 125000,
+      inputTokens: 45000,
+      outputTokens: 80000,
+      avgPerCall: 100,
+    },
+    performance: {
+      avgResponseTime: "1.2s",
+      successRate: "92.7%",
+      customerSatisfaction: "4.5/5",
+      resolvedQueries: "87%",
+    },
+    revenue: {
+      currentMonth: 2450.0,
+      previousMonth: 2100.0,
+      growth: "+16.7%",
+    },
+  };
+
+  const timeRanges = [
+    { value: "7days", label: "Last 7 Days" },
+    { value: "30days", label: "Last 30 Days" },
+    { value: "90days", label: "Last 90 Days" },
+    { value: "12months", label: "Last 12 Months" },
+  ];
+
+  return (
+    <div className="space-y-6">
+      {/* Time Range Selector */}
+      <div className="flex items-center justify-between">
+        <h3 className={`text-lg font-semibold ${currentTheme.text}`}>
+          Analytics Overview
+        </h3>
+        <select
+          value={timeRange}
+          onChange={(e) => setTimeRange(e.target.value)}
+          className={`px-4 py-2 rounded-lg border ${currentTheme.border} ${currentTheme.cardBg} ${currentTheme.text} text-sm focus:outline-none focus:ring-2 focus:ring-blue-500`}
+        >
+          {timeRanges.map((range) => (
+            <option key={range.value} value={range.value}>
+              {range.label}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      {/* Call Statistics */}
+      <div>
+        <h4 className={`text-md font-semibold ${currentTheme.text} mb-4 flex items-center gap-2`}>
+          <RiUserVoiceLine className="w-5 h-5" />
+          Call Statistics
+        </h4>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+          <div className={`${currentTheme.cardBg} border ${currentTheme.border} rounded-lg p-4`}>
+            <p className={`text-xs ${currentTheme.textSecondary} mb-1`}>Total Calls</p>
+            <p className={`text-2xl font-bold ${currentTheme.text}`}>
+              {analyticsData.callStats.totalCalls.toLocaleString()}
+            </p>
+          </div>
+          <div className={`${currentTheme.cardBg} border ${currentTheme.border} rounded-lg p-4`}>
+            <p className={`text-xs ${currentTheme.textSecondary} mb-1`}>Successful</p>
+            <p className={`text-2xl font-bold text-green-600`}>
+              {analyticsData.callStats.successfulCalls.toLocaleString()}
+            </p>
+          </div>
+          <div className={`${currentTheme.cardBg} border ${currentTheme.border} rounded-lg p-4`}>
+            <p className={`text-xs ${currentTheme.textSecondary} mb-1`}>Failed</p>
+            <p className={`text-2xl font-bold text-red-600`}>
+              {analyticsData.callStats.failedCalls}
+            </p>
+          </div>
+          <div className={`${currentTheme.cardBg} border ${currentTheme.border} rounded-lg p-4`}>
+            <p className={`text-xs ${currentTheme.textSecondary} mb-1`}>Avg Duration</p>
+            <p className={`text-2xl font-bold ${currentTheme.text}`}>
+              {analyticsData.callStats.avgDuration}
+            </p>
+          </div>
+          <div className={`${currentTheme.cardBg} border ${currentTheme.border} rounded-lg p-4`}>
+            <p className={`text-xs ${currentTheme.textSecondary} mb-1`}>Peak Hours</p>
+            <p className={`text-lg font-bold ${currentTheme.text}`}>
+              {analyticsData.callStats.peakHours}
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* Token Usage */}
+      <div>
+        <h4 className={`text-md font-semibold ${currentTheme.text} mb-4 flex items-center gap-2`}>
+          <RiTokenSwapLine className="w-5 h-5" />
+          Token Usage
+        </h4>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className={`${currentTheme.cardBg} border ${currentTheme.border} rounded-lg p-4`}>
+            <p className={`text-xs ${currentTheme.textSecondary} mb-1`}>Total Tokens</p>
+            <p className={`text-2xl font-bold ${currentTheme.text}`}>
+              {analyticsData.tokenUsage.total.toLocaleString()}
+            </p>
+          </div>
+          <div className={`${currentTheme.cardBg} border ${currentTheme.border} rounded-lg p-4`}>
+            <p className={`text-xs ${currentTheme.textSecondary} mb-1`}>Input Tokens</p>
+            <p className={`text-2xl font-bold text-blue-600`}>
+              {analyticsData.tokenUsage.inputTokens.toLocaleString()}
+            </p>
+          </div>
+          <div className={`${currentTheme.cardBg} border ${currentTheme.border} rounded-lg p-4`}>
+            <p className={`text-xs ${currentTheme.textSecondary} mb-1`}>Output Tokens</p>
+            <p className={`text-2xl font-bold text-purple-600`}>
+              {analyticsData.tokenUsage.outputTokens.toLocaleString()}
+            </p>
+          </div>
+          <div className={`${currentTheme.cardBg} border ${currentTheme.border} rounded-lg p-4`}>
+            <p className={`text-xs ${currentTheme.textSecondary} mb-1`}>Avg per Call</p>
+            <p className={`text-2xl font-bold ${currentTheme.text}`}>
+              {analyticsData.tokenUsage.avgPerCall}
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* Performance Metrics */}
+      <div>
+        <h4 className={`text-md font-semibold ${currentTheme.text} mb-4 flex items-center gap-2`}>
+          <RiPulseLine className="w-5 h-5" />
+          Performance Metrics
+        </h4>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className={`${currentTheme.cardBg} border ${currentTheme.border} rounded-lg p-4`}>
+            <p className={`text-xs ${currentTheme.textSecondary} mb-1`}>Avg Response Time</p>
+            <p className={`text-2xl font-bold ${currentTheme.text}`}>
+              {analyticsData.performance.avgResponseTime}
+            </p>
+          </div>
+          <div className={`${currentTheme.cardBg} border ${currentTheme.border} rounded-lg p-4`}>
+            <p className={`text-xs ${currentTheme.textSecondary} mb-1`}>Success Rate</p>
+            <p className={`text-2xl font-bold text-green-600`}>
+              {analyticsData.performance.successRate}
+            </p>
+          </div>
+          <div className={`${currentTheme.cardBg} border ${currentTheme.border} rounded-lg p-4`}>
+            <p className={`text-xs ${currentTheme.textSecondary} mb-1`}>Customer Satisfaction</p>
+            <p className={`text-2xl font-bold text-yellow-600`}>
+              {analyticsData.performance.customerSatisfaction}
+            </p>
+          </div>
+          <div className={`${currentTheme.cardBg} border ${currentTheme.border} rounded-lg p-4`}>
+            <p className={`text-xs ${currentTheme.textSecondary} mb-1`}>Resolved Queries</p>
+            <p className={`text-2xl font-bold ${currentTheme.text}`}>
+              {analyticsData.performance.resolvedQueries}
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* Revenue Analytics */}
+      <div>
+        <h4 className={`text-md font-semibold ${currentTheme.text} mb-4 flex items-center gap-2`}>
+          <RiMoneyDollarCircleLine className="w-5 h-5" />
+          Revenue Analytics
+        </h4>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className={`${currentTheme.cardBg} border ${currentTheme.border} rounded-lg p-4`}>
+            <p className={`text-xs ${currentTheme.textSecondary} mb-1`}>Current Month</p>
+            <p className={`text-2xl font-bold ${currentTheme.text}`}>
+              ${analyticsData.revenue.currentMonth.toFixed(2)}
+            </p>
+          </div>
+          <div className={`${currentTheme.cardBg} border ${currentTheme.border} rounded-lg p-4`}>
+            <p className={`text-xs ${currentTheme.textSecondary} mb-1`}>Previous Month</p>
+            <p className={`text-2xl font-bold ${currentTheme.text}`}>
+              ${analyticsData.revenue.previousMonth.toFixed(2)}
+            </p>
+          </div>
+          <div className={`${currentTheme.cardBg} border ${currentTheme.border} rounded-lg p-4`}>
+            <p className={`text-xs ${currentTheme.textSecondary} mb-1`}>Growth</p>
+            <p className={`text-2xl font-bold text-green-600`}>
+              {analyticsData.revenue.growth}
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* AI Employees Performance */}
+      <div>
+        <h4 className={`text-md font-semibold ${currentTheme.text} mb-4 flex items-center gap-2`}>
+          <RiRobotLine className="w-5 h-5" />
+          AI Employees Performance
+        </h4>
+        <div className={`${currentTheme.cardBg} border ${currentTheme.border} rounded-lg p-4`}>
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead>
+                <tr className={`border-b ${currentTheme.border}`}>
+                  <th className={`text-left py-3 px-4 text-sm font-semibold ${currentTheme.text}`}>
+                    AI Employee
+                  </th>
+                  <th className={`text-left py-3 px-4 text-sm font-semibold ${currentTheme.text}`}>
+                    Calls
+                  </th>
+                  <th className={`text-left py-3 px-4 text-sm font-semibold ${currentTheme.text}`}>
+                    Avg Duration
+                  </th>
+                  <th className={`text-left py-3 px-4 text-sm font-semibold ${currentTheme.text}`}>
+                    Success Rate
+                  </th>
+                  <th className={`text-left py-3 px-4 text-sm font-semibold ${currentTheme.text}`}>
+                    Status
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {client?.ai_employees?.length > 0 ? (
+                  client.ai_employees.map((employee, index) => (
+                    <tr key={index} className={`border-b ${currentTheme.border} hover:${currentTheme.hover}`}>
+                      <td className={`py-3 px-4 text-sm ${currentTheme.text}`}>
+                        {employee.agent_name || `AI Employee ${index + 1}`}
+                      </td>
+                      <td className={`py-3 px-4 text-sm ${currentTheme.text}`}>
+                        {Math.floor(Math.random() * 500) + 100}
+                      </td>
+                      <td className={`py-3 px-4 text-sm ${currentTheme.text}`}>
+                        {Math.floor(Math.random() * 5) + 2}m {Math.floor(Math.random() * 60)}s
+                      </td>
+                      <td className={`py-3 px-4 text-sm`}>
+                        <span className="text-green-600 font-semibold">
+                          {(Math.random() * 10 + 85).toFixed(1)}%
+                        </span>
+                      </td>
+                      <td className={`py-3 px-4 text-sm`}>
+                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                          employee.status === 'active' 
+                            ? 'bg-green-100 text-green-700 dark:bg-green-900/20 dark:text-green-400'
+                            : 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-400'
+                        }`}>
+                          {employee.status || 'active'}
+                        </span>
+                      </td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td colSpan="5" className={`py-8 text-center text-sm ${currentTheme.textSecondary}`}>
+                      No AI employees configured yet
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 const TransactionsTab = ({ client, currentTheme }) => {
   // Mock transaction data - replace with actual API call
   const transactions = [
@@ -2502,6 +3234,7 @@ const TransactionsTab = ({ client, currentTheme }) => {
 
 const ClientManagement = () => {
   const { theme, currentTheme } = useTheme();
+  const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [activeTab, setActiveTab] = useState("all");
@@ -2598,10 +3331,10 @@ const ClientManagement = () => {
               params = { ...baseParams, isVerified: true, isOnboarded: true };
               break;
             case "approved":
-              params = { ...baseParams, status: "Approved" };
+              params = { ...baseParams, onbardingStatus: "Approved" };
               break;
             case "rejected":
-              params = { ...baseParams, status: "Rejected" };
+              params = { ...baseParams, onbardingStatus: "Rejected" };
               break;
           }
 
@@ -2650,9 +3383,9 @@ const ClientManagement = () => {
       case "onboarded":
         return { ...baseParams, isVerified: true, isOnboarded: true };
       case "approved":
-        return { ...baseParams, status: "Approved" };
+        return { ...baseParams, onbardingStatus: "Approved" };
       case "rejected":
-        return { ...baseParams, status: "Rejected" };
+        return { ...baseParams, onbardingStatus: "Rejected" };
       default:
         return baseParams;
     }
@@ -3036,44 +3769,13 @@ const ClientManagement = () => {
   const handleViewClient = async (client) => {
     try {
       console.log("🔍 handleViewClient called with client:", client);
-      setLoading(true);
-      setSelectedClient(client);
-
-      if (client.id) {
-        console.log(`🚀 Fetching onboarding data for view: ${client.id}`);
-        const onboardingResponse = await shivaiApiService.getOnboardingByUserId(
-          client.id
-        );
-        console.log("✅ View onboarding data response:", onboardingResponse);
-
-        let clientWithDetails = client;
-        if (onboardingResponse?.data) {
-          clientWithDetails = {
-            ...client,
-            onboardingDetails: onboardingResponse.data,
-          };
-        } else {
-          clientWithDetails = {
-            ...client,
-            onboardingDetails: { onboarding: null },
-          };
-        }
-
-        setSelectedClient(clientWithDetails);
-        setViewMode("details");
-      } else {
-        console.error("❌ No client._id available for view:", client);
-        setError("Client ID not found");
-        setSelectedClient(client);
-        setViewMode("details");
-      }
+      // Navigate to client details page with client data in state
+      navigate(`/dashboard/clients/${client?.id || client?._id}`, {
+        state: { client }
+      });
     } catch (error) {
-      console.error("❌ Error fetching onboarding data for view:", error);
-      setError(`Failed to fetch client data: ${error.message}`);
-      setSelectedClient(client);
-      setViewMode("details");
-    } finally {
-      setLoading(false);
+      console.error("❌ Error navigating to client details:", error);
+      toast.error("Failed to navigate to client details");
     }
   };
 
@@ -6027,3 +6729,6 @@ const ClientManagement = () => {
 };
 
 export default ClientManagement;
+
+// Export tab components for use in ClientDetailsPage
+export { OnboardingDataTab, ClientDetailsTab, AIEmployeesTab, TransactionsTab, AgentDetailsView };

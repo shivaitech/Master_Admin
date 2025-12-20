@@ -347,6 +347,64 @@ const shivaiApiService = {
       throw error;
     }
   },
+
+  getAgentsById: async (id) => {
+    try {
+      console.log(`🤖 Fetching agent with ID: ${id}...`);
+      const response = await apiClient.get(`/v1/agents/user/${id}`);
+      
+      if (response.data.success && response.data.data) {
+        return {
+          ...response.data.data,
+          stats: response.data.data.stats || {
+            conversations: 0,
+            successRate: 0,
+            avgResponseTime: 0,
+            activeUsers: 0
+          }
+        };
+      }
+      
+      throw new Error(response.data.message || 'Agent not found');
+    } catch (error) {
+      console.error('❌ Error fetching agent:', error);
+      throw error;
+    }
+  },
+
+  // Get agent sessions
+  getAgentSessions: async (agentId) => {
+    try {
+      console.log(`📋 Fetching sessions for agent ID: ${agentId}...`);
+      const response = await apiClient.get(`/v1/agent-sessions/agent/${agentId}`);
+      
+      if (response.data.success && response.data.data) {
+        return response.data.data;
+      }
+      
+      throw new Error(response.data.message || 'Failed to fetch agent sessions');
+    } catch (error) {
+      console.error('❌ Error fetching agent sessions:', error);
+      throw error;
+    }
+  },
+
+  // Get session transcripts
+  getSessionTranscripts: async (sessionId) => {
+    try {
+      console.log(`📜 Fetching transcripts for session ID: ${sessionId}...`);
+      const response = await apiClient.get(`/v1/agent-sessions/${sessionId}/transcripts`);
+      
+      if (response.data.success && response.data.data) {
+        return response.data.data;
+      }
+      
+      throw new Error(response.data.message || 'Failed to fetch session transcripts');
+    } catch (error) {
+      console.error('❌ Error fetching session transcripts:', error);
+      throw error;
+    }
+  },
 };
 
 export default apiService;

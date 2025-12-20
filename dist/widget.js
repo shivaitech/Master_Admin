@@ -1,6 +1,32 @@
 (function () {
   "use strict";
 
+  // Domain restriction - only allow widget on specific domains
+  function isAllowedDomain() {
+    const allowedDomains = [
+      'www.callshivai.com',
+      'callshivai.com',
+      'callshivai.com',
+      'callshivai.com/landing'
+    ];    
+    
+    const currentHostname = window.location.hostname;
+    const isAllowed = allowedDomains.some(domain => 
+      currentHostname === domain || currentHostname.endsWith('.' + domain)
+    );
+    
+    if (!isAllowed) {
+      console.warn(`ShivAI Widget: Not authorized for domain "${currentHostname}"`);
+    }
+    
+    return isAllowed;
+  }
+
+  // Exit early if domain is not allowed
+  if (!isAllowedDomain()) {
+    return;
+  }
+
   function loadLiveKitSDK() {
     return new Promise((resolve, reject) => {
       if (typeof LivekitClient !== "undefined") {
@@ -2963,17 +2989,7 @@
       languageSelect.disabled = false;
     }
     if (window.currentCallId) {
-      fetch("https://shivai-com-backend.onrender.com/api/v1/calls/end-call", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ callId: window.currentCallId }),
-      })
-        .catch((err) => {
-          console.warn("Error ending call via API:", err);
-        })
-        .finally(() => {
-          window.currentCallId = null;
-        });
+      window.currentCallId = null;
     }
     console.log("🔴 Complete cleanup finished on widget close");
     widgetContainer.classList.remove("active");
@@ -4431,29 +4447,7 @@
       console.warn("Could not play call-end sound:", e);
     }
     if (window.currentCallId) {
-      try {
-        updateStatus("Disconnecting...", "connecting");
-        const response = await fetch(
-          "https://shivai-com-backend.onrender.com/api/v1/calls/end-call",
-          {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              callId: window.currentCallId,
-            }),
-          }
-        );
-        if (response.ok) {
-          const data = await response.json();
-          console.log("Call ended successfully:", data);
-        }
-      } catch (error) {
-        console.error("Error ending call:", error);
-      } finally {
-        window.currentCallId = null;
-      }
+      window.currentCallId = null;
     }
 
     // Disconnect LiveKit room

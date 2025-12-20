@@ -386,22 +386,28 @@ const AIEmployeeStatsMain = ({ onViewEmployee }) => {
         if (allTranscripts && allTranscripts.length > 0) {
           return allTranscripts
             .map((transcript) => {
-              // Determine speaker - for agent sessions, we've already set the correct speaker
-              let speaker = transcript.speaker;
+              // Determine speaker - check multiple possible field names
+              let speaker =transcript.role || transcript.speaker;
               
-              // For non-agent sessions, handle various speaker field formats
-              if (selectedEmployee !== "emp1") {
-                speaker = transcript.speaker || transcript.role || transcript.sender || transcript.type || "user"; 
-                
-                // Map common speaker variations to our expected format
-                if (speaker === "agent" || speaker === "assistant" || speaker === "bot") {
-                  speaker = "ai";
-                } else if (speaker !== "ai") {
-                  speaker = "user";
-                }
+              console.log("📝 Processing transcript:", {
+                original: transcript,
+                speakerField: speaker,
+                allFields: Object.keys(transcript)
+              });
+              
+              // Map common speaker variations to our expected format
+              if (speaker === "user" || speaker === "customer" || speaker === "client") {
+                speaker = "user";
+              } else if (speaker === "agent" || speaker === "assistant" || speaker === "bot" || speaker === "ai") {
+                speaker = "ai";
               }
               
-              return {
+               else {
+                // If we can't determine, check the message content or default to user
+                speaker = "user";
+              }
+              
+              const processedMessage = {
                 timestamp:
                   transcript.timestamp ||
                   transcript.created_at ||
@@ -415,6 +421,10 @@ const AIEmployeeStatsMain = ({ onViewEmployee }) => {
                   transcript.msg ||
                   "",
               };
+              
+              console.log("✅ Processed message:", processedMessage);
+              
+              return processedMessage;
             })
             .filter((t) => t.message && t.message.trim() !== ""); // Filter out empty messages
         }
@@ -610,6 +620,7 @@ const AIEmployeeStatsMain = ({ onViewEmployee }) => {
       transcripts: transcripts,
     };
     console.log("Selected Session with Transcripts:", sessionWithTranscripts);
+    console.log("Token Usage Data:", session.token_usage);
     setSelectedSession(sessionWithTranscripts);
   };
 
@@ -1623,6 +1634,36 @@ const AIEmployeeStatsMain = ({ onViewEmployee }) => {
               </div>
 
               {/* Session Details - Mobile Optimized */}
+              {(selectedSession.token_usage || selectedSession.tokenUsage) && (
+                <div className={`px-3 sm:px-4 lg:px-6 py-3 border-b ${currentTheme.border} ${currentTheme.searchBg}`}>
+                  <div className="flex items-center gap-2 mb-2">
+                    <Activity className={`w-4 h-4 ${currentTheme.text}`} />
+                    <h4 className={`text-sm sm:text-base font-semibold ${currentTheme.text}`}>
+                      Token Usage
+                    </h4>
+                  </div>
+                  <div className="grid grid-cols-3 gap-2 sm:gap-4">
+                    <div className={`${currentTheme.cardBg} rounded-lg p-2 sm:p-3 border ${currentTheme.border}`}>
+                      <p className={`text-xs ${currentTheme.textSecondary} mb-1`}>Input Tokens</p>
+                      <p className={`text-lg sm:text-xl font-bold ${currentTheme.text}`}>
+                        {((selectedSession.token_usage || selectedSession.tokenUsage)?.input_tokens || (selectedSession.token_usage || selectedSession.tokenUsage)?.inputTokens || 0).toLocaleString()}
+                      </p>
+                    </div>
+                    <div className={`${currentTheme.cardBg} rounded-lg p-2 sm:p-3 border ${currentTheme.border}`}>
+                      <p className={`text-xs ${currentTheme.textSecondary} mb-1`}>Output Tokens</p>
+                      <p className={`txt-lg sm:text-xl font-bold ${currentTheme.text}`}>
+                        {((selectedSession.token_usage || selectedSession.tokenUsage)?.output_tokens || (selectedSession.token_usage || selectedSession.tokenUsage)?.outputTokens || 0).toLocaleString()}
+                      </p>
+                    </div>
+                    <div className={`${currentTheme.cardBg} rounded-lg p-2 sm:p-3 border ${currentTheme.border}`}>
+                      <p className={`text-xs ${currentTheme.textSecondary} mb-1`}>Total Tokens</p>
+                      <p className={`text-lg sm:text-xl font-bold text-blue-600`}>
+                        {((selectedSession.token_usage || selectedSession.tokenUsage)?.total_tokens || (selectedSession.token_usage || selectedSession.tokenUsage)?.totalTokens || 0).toLocaleString()}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {/* Transcript Messages - Mobile Optimized */}
               <div

@@ -3,6 +3,7 @@ import { BrowserRouter, Route, Routes } from "react-router-dom";
 import toast, { Toaster } from "react-hot-toast";
 import { AuthProvider } from "./Admin/Auth/AuthContext";
 import { ThemeProvider } from "./Admin/Dashboard/contexts/ThemeContext";
+import ScriptLoader from "./components/ScriptLoader";
 
 // Error boundary for lazy loading failures
 class LazyLoadErrorBoundary extends React.Component {
@@ -67,6 +68,10 @@ const ClientManagement = createLazyComponent(
   () => import("./Admin/Dashboard/Client Management/ClientManagement"),
   "ClientManagement"
 );
+const ClientDetailsPage = createLazyComponent(
+  () => import("./Admin/Dashboard/Client Management/ClientDetailsPage"),
+  "ClientDetailsPage"
+);
 const AIEmployeeStatsContainer = createLazyComponent(
   () => import("./Admin/Dashboard/AIEmployeeStats"),
   "AIEmployeeStatsContainer"
@@ -113,11 +118,13 @@ function App() {
                 <Routes>
                   <Route path="/" element={<Authentication />} />
                   <Route path="/login" element={<Authentication />} />
+                  <Route path="/test/script-loader" element={<ScriptLoader />} />
                   
                   {/* Dashboard Layout with Outlet */}
                   <Route path="/dashboard" element={<DashboardLayout />}>
                     <Route index element={<DashboardHome />} />
                     <Route path="clients" element={<ClientManagement />} />
+                    <Route path="clients/:clientId" element={<ClientDetailsPage />} />
                     <Route path="ai-employees" element={<AIEmployeeStatsContainer />} />
                     <Route path="widgets" element={<WidgetManagement />} />
                     <Route path="transactions" element={<TransactionManagement />} />

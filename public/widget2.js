@@ -104,8 +104,10 @@
             <div class="agent-option" data-agent="sales">
               <div class="agent-icon">
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
-                  <circle cx="12" cy="7" r="4"></circle>
+                  <circle cx="9" cy="21" r="1"></circle>
+                  <circle cx="20" cy="21" r="1"></circle>
+                  <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path>
+                  <path d="M12 5v6m3-3l-3-3-3 3"></path>
                 </svg>
               </div>
               <div class="agent-info">
@@ -116,8 +118,10 @@
             <div class="agent-option" data-agent="support">
               <div class="agent-icon">
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <path d="M9 12l2 2 4-4"></path>
-                  <path d="M21 12c.552 0 1-.448 1-1V8a2 2 0 0 0-2-2h-1a2 2 0 0 0-2 2v1a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2V8a2 2 0 0 0-2-2H9a2 2 0 0 0-2 2v3c0 .552.448 1 1 1"></path>
+                  <path d="M3 11v3a1 1 0 0 0 1 1h1v-4H4a1 1 0 0 0-1 1Z"></path>
+                  <path d="M21 11v3a1 1 0 0 1-1 1h-1v-4h1a1 1 0 0 1 1 1Z"></path>
+                  <path d="M7 4a4 4 0 0 1 8 0v7a1 1 0 0 1-1 1H8a1 1 0 0 1-1-1V4Z"></path>
+                  <path d="M12 19v2"></path>
                 </svg>
               </div>
               <div class="agent-info">
@@ -132,6 +136,8 @@
                   <line x1="16" y1="2" x2="16" y2="6"></line>
                   <line x1="8" y1="2" x2="8" y2="6"></line>
                   <line x1="3" y1="10" x2="21" y2="10"></line>
+                  <circle cx="9" cy="15" r="1" fill="currentColor"></circle>
+                  <circle cx="15" cy="15" r="1" fill="currentColor"></circle>
                 </svg>
               </div>
               <div class="agent-info">
@@ -142,7 +148,11 @@
             <div class="agent-option" data-agent="product">
               <div class="agent-icon">
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"></path>
+                  <path d="M21 8v13H3V8"></path>
+                  <path d="M1 3h22v5H1z"></path>
+                  <path d="M10 12h4"></path>
+                  <circle cx="7" cy="8" r="1" fill="currentColor"></circle>
+                  <circle cx="17" cy="8" r="1" fill="currentColor"></circle>
                 </svg>
               </div>
               <div class="agent-info">
@@ -167,8 +177,10 @@
             <div class="gender-option" data-gender="male">
               <div class="gender-icon">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <circle cx="12" cy="12" r="10"></circle>
-                  <path d="M15.5 8.5a3.5 3.5 0 1 1-7 0 3.5 3.5 0 0 1 7 0z"></path>
+                  <circle cx="10" cy="14" r="6"></circle>
+                  <path d="M17 7l-3 3"></path>
+                  <path d="M21 3l-6 6"></path>
+                  <path d="M15 3h6v6"></path>
                 </svg>
               </div>
               <span>Male Voice</span>
@@ -177,8 +189,9 @@
             <div class="gender-option" data-gender="female">
               <div class="gender-icon">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <circle cx="12" cy="12" r="10"></circle>
-                  <path d="M9.5 8.5a2.5 2.5 0 1 1 5 0 2.5 2.5 0 0 1-5 0z"></path>
+                  <circle cx="12" cy="8" r="6"></circle>
+                  <path d="M12 14v7"></path>
+                  <path d="M8 18h8"></path>
                 </svg>
               </div>
               <span>Female Voice</span>
@@ -422,8 +435,8 @@
           <!-- Attachment Menu Popup -->
           <div id="shivai-attachment-menu" class="attachment-menu">
             <div class="attachment-option" id="shivai-attach-image">
-              <div class="attachment-icon" style="background: #7c3aed;">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="white" stroke="white" stroke-width="2">
+              <div class="attachment-icon">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#7c3aed" stroke-width="2">
                   <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
                   <circle cx="9" cy="9" r="2"></circle>
                   <path d="M21 15l-3.086-3.086a2 2 0 0 0-2.828 0L6 21"></path>
@@ -433,8 +446,8 @@
             </div>
             
             <div class="attachment-option" id="shivai-attach-document">
-              <div class="attachment-icon" style="background: #0ea5e9;">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="white" stroke="white" stroke-width="2">
+              <div class="attachment-icon">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#0ea5e9" stroke-width="2">
                   <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
                   <polyline points="14,2 14,8 20,8"></polyline>
                   <line x1="16" y1="13" x2="8" y2="13"></line>
@@ -879,13 +892,47 @@
 
       @media (max-width: 768px) {
         .agent-option {
-          padding: 12px 8px;
-          min-height: 80px;
+          padding: 14px 10px;
+          min-height: 95px;
           border-radius: 10px;
-          min-width: 140px;
-          max-width: 140px;
+          min-width: 160px;
+          max-width: 160px;
           flex-shrink: 0;
           scroll-snap-align: center;
+        }
+        
+        .agent-icon {
+          width: 30px;
+          height: 30px;
+        }
+        
+        .agent-name {
+          font-size: 13px !important;
+          font-weight: 600;
+          white-space: normal;
+          word-wrap: break-word;
+          overflow-wrap: break-word;
+          text-align: center;
+          width: 100%;
+        }
+        
+        .agent-desc {
+          font-size: 10.5px !important;
+          line-height: 1.35;
+          margin-top: 3px;
+          word-wrap: break-word;
+          overflow-wrap: break-word;
+        }
+      }
+
+      @media (max-width: 480px) {
+        .agent-option {
+          padding: 12px 8px;
+          min-height: 90px;
+          border-radius: 9px;
+          gap: 5px;
+          min-width: 145px;
+          max-width: 145px;
         }
         
         .agent-icon {
@@ -894,41 +941,21 @@
         }
         
         .agent-name {
-          font-size: 13px !important;
+          font-size: 12.5px !important;
           font-weight: 600;
+          white-space: normal;
+          word-wrap: break-word;
+          overflow-wrap: break-word;
+          text-align: center;
+          width: 100%;
         }
         
         .agent-desc {
           font-size: 10px !important;
           line-height: 1.3;
           margin-top: 2px;
-        }
-      }
-
-      @media (max-width: 480px) {
-        .agent-option {
-          padding: 10px 6px;
-          min-height: 70px;
-          border-radius: 8px;
-          gap: 6px;
-          min-width: 120px;
-          max-width: 120px;
-        }
-        
-        .agent-icon {
-          width: 24px;
-          height: 24px;
-        }
-        
-        .agent-name {
-          font-size: 12px !important;
-          font-weight: 600;
-        }
-        
-        .agent-desc {
-          font-size: 9px !important;
-          line-height: 1.2;
-          margin-top: 1px;
+          word-wrap: break-word;
+          overflow-wrap: break-word;
         }
       }
 
@@ -945,20 +972,18 @@
       .agent-icon {
         width: 30px;
         height: 30px;
-        background: #f3f4f6;
-        border-radius: 50%;
         display: flex;
         align-items: center;
         justify-content: center;
         margin: 0 auto 6px;
-        color: #6b7280;
+        color: #4a5568;
         transition: all 0.2s;
         flex-shrink: 0;
       }
 
       .agent-option.selected .agent-icon {
-        background: #4a5568;
-        color: white;
+        color: #3b82f6;
+        transform: scale(1.1);
       }
 
       .agent-name {
@@ -1053,13 +1078,11 @@
       .gender-icon {
         width: 28px;
         height: 28px;
-        background: #f3f4f6;
-        border-radius: 50%;
         display: flex;
         align-items: center;
         justify-content: center;
         margin: 0 auto 4px;
-        color: #6b7280;
+        color: #4a5568;
         transition: all 0.2s;
         flex-shrink: 0;
       }
@@ -1111,8 +1134,8 @@
       }
 
       .gender-option.selected .gender-icon {
-        background: #4a5568;
-        color: white;
+        color: #3b82f6;
+        transform: scale(1.1);
       }
 
       .gender-option span {
@@ -1257,16 +1280,16 @@
 
       @media (max-width: 768px) {
         .shivai-modal-overlay {
-          padding: 15px;
+          padding: 12px;
           align-items: flex-start;
-          padding-top: 5vh;
+          padding-top: 3vh;
         }
         
         .shivai-widget-container {
-          width: 95%;
-          max-width: 380px;
+          width: 96%;
+          max-width: 450px;
           border-radius: 12px;
-          max-height: 80vh;
+          max-height: 90vh;
         }
 
         .shivai-modal-overlay.show {
@@ -1276,14 +1299,14 @@
 
       @media (max-width: 480px) {
         .shivai-modal-overlay {
-          padding: 10px;
+          padding: 8px;
         }
         
         .shivai-widget-container {
-          width: 95%;
-          max-width: 350px;
-          border-radius: 8px;
-          max-height: 75vh;
+          width: 98%;
+          max-width: none;
+          border-radius: 10px;
+          max-height: 92vh;
         }
       }
 
@@ -1305,13 +1328,13 @@
 
       @media (max-width: 768px) {
         .modal-header {
-          padding: 12px 14px;
+          padding: 14px 16px;
         }
       }
 
       @media (max-width: 480px) {
         .modal-header {
-          padding: 10px 12px;
+          padding: 12px 14px;
         }
       }
 
@@ -1337,13 +1360,13 @@
 
       @media (max-width: 768px) {
         .modal-body {
-          padding: 20px 18px;
+          padding: 20px;
         }
       }
 
       @media (max-width: 480px) {
         .modal-body {
-          padding: 16px 14px;
+          padding: 18px 16px;
         }
       }
 
@@ -1435,6 +1458,17 @@
         opacity: 0.85;
         line-height: 1.2;
         margin: 0;
+      }
+
+      @media (max-width: 480px) {
+        .widget-title {
+          font-size: 15px;
+        }
+
+        .widget-subtitle {
+          font-size: 10.5px;
+          line-height: 1.3;
+        }
       }
 
       .modal-body {
@@ -1565,12 +1599,31 @@
 
       .language-scroll-container {
         display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(90px, 1fr));
-        grid-template-rows: repeat(2, 1fr);
+        grid-template-columns: repeat(4, 1fr);
         gap: 10px;
         padding: 10px 5px;
-        max-height: 190px;
-        grid-auto-flow: column;
+        max-height: 320px;
+        overflow-y: auto;
+        overflow-x: hidden;
+        -webkit-overflow-scrolling: touch;
+      }
+      
+      .language-scroll-container::-webkit-scrollbar {
+        width: 6px;
+      }
+      
+      .language-scroll-container::-webkit-scrollbar-track {
+        background: #f1f1f1;
+        border-radius: 3px;
+      }
+      
+      .language-scroll-container::-webkit-scrollbar-thumb {
+        background: #888;
+        border-radius: 3px;
+      }
+      
+      .language-scroll-container::-webkit-scrollbar-thumb:hover {
+        background: #555;
       }
 
       /* Scroll indicators removed - using grid layout instead */
@@ -1639,10 +1692,11 @@
         }
 
         .language-scroll-container {
-          grid-template-columns: repeat(auto-fit, minmax(70px, 1fr));
+          grid-template-columns: repeat(3, 1fr);
           gap: 8px;
           padding: 10px 6px;
-          max-height: 140px;
+          max-height: 280px;
+          overflow-y: auto;
         }
         
         .language-option {
@@ -1667,10 +1721,11 @@
 
       @media (max-width: 480px) {
         .language-scroll-container {
-          grid-template-columns: repeat(auto-fit, minmax(60px, 1fr));
+          grid-template-columns: repeat(2, 1fr);
           gap: 6px;
           padding: 8px 4px;
-          max-height: 130px;
+          max-height: 250px;
+          overflow-y: auto;
         }
         
         .language-option {
@@ -2125,11 +2180,11 @@
       .attachment-icon {
         width: 36px;
         height: 36px;
-        border-radius: 50%;
         display: flex;
         align-items: center;
         justify-content: center;
         margin-right: 12px;
+        transition: all 0.2s;
       }
 
       .attachment-option span {
@@ -2504,19 +2559,19 @@
     if (callBtn) {
       callBtn.addEventListener('click', async () => {
         console.log('📞 Call button clicked');
-        await startCall();
         
-        // Update button visibility and timer
-        callBtn.style.display = 'none';
-        const hangupBtn = document.getElementById('shivai-hangup-btn');
-        const muteBtn = document.getElementById('shivai-mute');
-        const callTimer = document.getElementById('call-timer');
+        // Disable button during connection attempt
+        callBtn.disabled = true;
+        callBtn.style.opacity = '0.6';
         
-        if (hangupBtn) hangupBtn.style.display = 'flex';
-        if (muteBtn) muteBtn.style.display = 'flex';
-        if (callTimer) callTimer.style.display = 'block';
-        
-        startCallTimer();
+        try {
+          await startCall();
+        } catch (error) {
+          // Re-enable button if call fails
+          callBtn.disabled = false;
+          callBtn.style.opacity = '1';
+          console.error('Call failed:', error);
+        }
       });
     }
 
@@ -2903,6 +2958,18 @@
       isConnected = true;
       isConnecting = false;
       updateCallStatus('Connected', 'connected');
+      
+      // Update button visibility when call is actually connected
+      const callBtn = document.getElementById('shivai-call-btn');
+      const hangupBtn = document.getElementById('shivai-hangup-btn');
+      const muteBtn = document.getElementById('shivai-mute');
+      const callTimer = document.getElementById('call-timer');
+      
+      if (callBtn) callBtn.style.display = 'none';
+      if (hangupBtn) hangupBtn.style.display = 'flex';
+      if (muteBtn) muteBtn.style.display = 'flex';
+      if (callTimer) callTimer.style.display = 'block';
+      
       startCallTimer();
       
       console.log('✅ Call connected successfully');
@@ -3081,6 +3148,24 @@
     
     updateCallStatus('Call ended', 'disconnected');
     stopCallTimer();
+    
+    // Reset button states
+    const callBtn = document.getElementById('shivai-call-btn');
+    const hangupBtn = document.getElementById('shivai-hangup-btn');
+    const muteBtn = document.getElementById('shivai-mute');
+    const callTimer = document.getElementById('call-timer');
+    
+    if (callBtn) {
+      callBtn.style.display = 'flex';
+      callBtn.disabled = false;
+      callBtn.style.opacity = '1';
+    }
+    if (hangupBtn) hangupBtn.style.display = 'none';
+    if (muteBtn) {
+      muteBtn.style.display = 'none';
+      muteBtn.classList.remove('muted');
+    }
+    if (callTimer) callTimer.style.display = 'none';
     
     // Reset connect button
     const connectBtn = document.getElementById('shivai-connect');
