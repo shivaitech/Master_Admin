@@ -1,22 +1,24 @@
 (function () {
   "use strict";
 
-  // Domain restriction - only allow widget on specific domains
+  // Domain restriction - only allow widget on specific domains and paths
   function isAllowedDomain() {
-    const allowedDomains = [
-      'www.callshivai.com',
-      'callshivai.com',
-      'callshivai.com',
-      'callshivai.com/landing'
-    ];    
-    
     const currentHostname = window.location.hostname;
-    const isAllowed = allowedDomains.some(domain => 
-      currentHostname === domain || currentHostname.endsWith('.' + domain)
-    );
+    const currentPath = window.location.pathname;
+    
+    // Allow localhost for testing
+    if (currentHostname === 'localhost' || currentHostname === '127.0.0.1') {
+      return true;
+    }
+    
+    // For production, only allow callshivai.com/landing
+    const isCallShivAI = currentHostname === 'callshivai.com' || currentHostname === 'www.callshivai.com';
+    const isLandingPage = currentPath === '/landing' || currentPath === '/landing/';
+    
+    const isAllowed = isCallShivAI && isLandingPage;
     
     if (!isAllowed) {
-      console.warn(`ShivAI Widget: Not authorized for domain "${currentHostname}"`);
+      console.warn(`ShivAI Widget: Not authorized for "${currentHostname}${currentPath}"`);
     }
     
     return isAllowed;
