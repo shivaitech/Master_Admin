@@ -11,11 +11,11 @@
       return true;
     }
     
-    // For production, only allow callshivai.com/landing
+    // For production, only allow callshivai.com on home page and /landing
     const isCallShivAI = currentHostname === 'callshivai.com' || currentHostname === 'www.callshivai.com';
-    const isLandingPage = currentPath === '/landing' || currentPath === '/landing/';
+    const isAllowedPath = currentPath === '/' || currentPath === '/landing' || currentPath === '/landing/';
     
-    const isAllowed = isCallShivAI && isLandingPage;
+    const isAllowed = isCallShivAI && isAllowedPath;
     
     if (!isAllowed) {
       console.warn(`ShivAI Widget: Not authorized for "${currentHostname}${currentPath}"`);
