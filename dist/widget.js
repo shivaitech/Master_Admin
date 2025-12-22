@@ -5,22 +5,29 @@
   function isAllowedDomain() {
     const currentHostname = window.location.hostname;
     const currentPath = window.location.pathname;
-    
+
     // Allow localhost for testing
-    if (currentHostname === 'localhost' || currentHostname === '127.0.0.1') {
+    if (currentHostname === "localhost" || currentHostname === "127.0.0.1") {
       return true;
     }
-    
+
     // For production, only allow callshivai.com on home page and /landing
-    const isCallShivAI = currentHostname === 'callshivai.com' || currentHostname === 'www.callshivai.com';
-    const isAllowedPath = currentPath === '/' || currentPath === '/landing' || currentPath === '/landing/';
-    
+    const isCallShivAI =
+      currentHostname === "callshivai.com" ||
+      currentHostname === "www.callshivai.com";
+    const isAllowedPath =
+      currentPath === "/" ||
+      currentPath === "/landing" ||
+      currentPath === "/landing/";
+
     const isAllowed = isCallShivAI && isAllowedPath;
-    
+
     if (!isAllowed) {
-      console.warn(`ShivAI Widget: Not authorized for "${currentHostname}${currentPath}"`);
+      console.warn(
+        `ShivAI Widget: Not authorized for "${currentHostname}${currentPath}"`
+      );
     }
-    
+
     return isAllowed;
   }
 
@@ -28,6 +35,81 @@
   if (!isAllowedDomain()) {
     return;
   }
+
+  // Real-time URL monitoring to unload widget if URL changes to unauthorized page
+  let lastCheckedUrl = window.location.href;
+
+  function monitorUrlChanges() {
+    const currentUrl = window.location.href;
+
+    if (currentUrl !== lastCheckedUrl) {
+      console.log("🔍 URL changed, checking authorization...");
+      lastCheckedUrl = currentUrl;
+
+      if (!isAllowedDomain()) {
+        console.log("❌ Unauthorized URL detected, unloading widget...");
+        unloadWidget();
+      }
+    }
+  }
+
+  function unloadWidget() {
+    // Disconnect any active calls
+    if (room) {
+      try {
+        room.disconnect();
+      } catch (e) {
+        console.warn("Error disconnecting room:", e);
+      }
+    }
+
+    // Stop all audio
+    stopConnectingSound();
+    stopRingSound();
+
+    // Remove widget elements from DOM
+    if (triggerBtn && triggerBtn.parentNode) {
+      triggerBtn.parentNode.removeChild(triggerBtn);
+    }
+    if (widgetContainer && widgetContainer.parentNode) {
+      widgetContainer.parentNode.removeChild(widgetContainer);
+    }
+    if (messageBubble && messageBubble.parentNode) {
+      messageBubble.parentNode.removeChild(messageBubble);
+    }
+
+    // Clear intervals
+    if (messageInterval) {
+      clearInterval(messageInterval);
+    }
+
+    console.log("✅ Widget unloaded successfully");
+  }
+
+  // Monitor URL changes using multiple methods for compatibility
+
+  // 1. Browser back/forward buttons
+  window.addEventListener("popstate", monitorUrlChanges);
+
+  // 2. History API (pushState/replaceState) - intercept for SPAs
+  const originalPushState = history.pushState;
+  const originalReplaceState = history.replaceState;
+
+  history.pushState = function () {
+    originalPushState.apply(this, arguments);
+    monitorUrlChanges();
+  };
+
+  history.replaceState = function () {
+    originalReplaceState.apply(this, arguments);
+    monitorUrlChanges();
+  };
+
+  // 3. Polling as fallback (for edge cases)
+  setInterval(monitorUrlChanges, 1000);
+
+  // 4. Hash changes
+  window.addEventListener("hashchange", monitorUrlChanges);
 
   function loadLiveKitSDK() {
     return new Promise((resolve, reject) => {
@@ -265,7 +347,9 @@
   function playRingSound() {
     try {
       if (!ringAudio) {
-        ringAudio = new Audio("https://shivai-s3-bucket.s3.ap-south-1.amazonaws.com/assets/ring1.mp3");
+        ringAudio = new Audio(
+          "https://shivai-s3-bucket.s3.ap-south-1.amazonaws.com/assets/ring1.mp3"
+        );
         ringAudio.loop = true;
         ringAudio.volume = 0.7;
       }
@@ -319,7 +403,8 @@
       delay += 100;
     });
   }
-  async function getClientIP() {
+  
+ async function getClientIP() {
     try {
       try {
         const response = await fetch("https://ipapi.co/json/", {
@@ -363,6 +448,7 @@
       return null;
     }
   }
+
   function generateTone(frequency, duration, volume = 0.1) {
     if (!soundContext) return;
     const oscillator = soundContext.createOscillator();
@@ -942,6 +1028,8 @@
         <div class="language-section-landing">
           <label class="language-label-landing">Select your preferred language:</label>
           <select id="shivai-language-landing" class="language-select-styled-landing">
+                     <option value="multilingual" selected>🌐 Multilingual</option>
+
             <option value="ar">🇸🇦 Arabic</option>
             <option value="zh">🇨🇳 Chinese</option>
             <option value="nl">🇳🇱 Dutch</option>
@@ -1011,6 +1099,8 @@
       <div class="language-section">
       <label class="language-label">Selected preferred language:</label>
       <select id="shivai-language" class="language-select-styled">
+      
+            <option value="multilingual" selected>🌐 Multilingual</option>
       <option value="ar">🇸🇦 Arabic</option>
       <option value="zh">🇨🇳 Chinese</option>
       <option value="nl">🇳🇱 Dutch</option>
@@ -1196,7 +1286,7 @@
       const baseLang = browserLang.split("-")[0];
       detectedLang = languageMap[baseLang];
     }
-    const defaultLang = detectedLang || "en-US";
+    const defaultLang = "multilingual" || detectedLang || "multilingual";
     if (languageSelect) {
       languageSelect.value = defaultLang;
     }
@@ -3754,8 +3844,9 @@
             agent_id: "6937bff1222bfd06ebdf0194",
             language: selectedLanguage,
             call_id: callId,
-            device: deviceType,
+          device: deviceType,
             user_agent: navigator.userAgent,
+            ip: await getClientIP(),
           }),
         }
       );
