@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { useTheme } from "../contexts/ThemeContext";
 import { shivaiApiService } from "../../../Redux-config/apisModel/apiService";
@@ -38,18 +38,66 @@ const ClientDetailsPage = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { theme, currentTheme } = useTheme();
-  
+
   const [client, setClient] = useState(location.state?.client || null);
   const [loading, setLoading] = useState(!location.state?.client);
-  const [activeTab, setActiveTab] = useState("onboarding");
   const [selectedAgent, setSelectedAgent] = useState(null);
   const [viewMode, setViewMode] = useState("details"); // "details" or "agentView"
+  const [previousTab, setPreviousTab] = useState(null); // Track tab before viewing agent
+
+  // Memoize isOnboarded to prevent recalculation on every render
+  const isOnboarded = useMemo(() => {
+    return client?.userData?.isOnboarded || client?.isOnboarded || false;
+  }, [client?.userData?.isOnboarded, client?.isOnboarded]);
+
+  // Memoize tabs array to prevent recreation on every render
+  const tabs = useMemo(() => {
+    const allTabs = [
+      { id: "onboarding", label: "Onboarding Data", icon: RiFileTextLine },
+      { id: "details", label: "Client Details", icon: RiUserLine },
+      { id: "employees", label: "AI Employees", icon: RiRobotLine },
+      { id: "transactions", label: "Transactions", icon: RiExchangeDollarLine },
+    ];
+    
+    return isOnboarded 
+      ? allTabs 
+      : allTabs.filter(tab => tab.id !== "onboarding");
+  }, [isOnboarded]);
+
+  // Get initial tab from URL or set based on onboarding status
+  const getInitialTab = useCallback(() => {
+    const urlParams = new URLSearchParams(location.search);
+    const tabFromUrl = urlParams.get('tab');
+    
+    if (tabFromUrl && tabs.some(t => t.id === tabFromUrl)) {
+      return tabFromUrl;
+    }
+    
+    return isOnboarded ? "onboarding" : "details";
+  }, [location.search, tabs, isOnboarded]);
+
+  // Initialize activeTab with URL state or default
+  const [activeTab, setActiveTab] = useState(getInitialTab);
+
+  // Update URL when tab changes
+  useEffect(() => {
+    const urlParams = new URLSearchParams(location.search);
+    const currentTabInUrl = urlParams.get('tab');
+    
+    if (currentTabInUrl !== activeTab) {
+      urlParams.set('tab', activeTab);
+      navigate(`${location.pathname}?${urlParams.toString()}`, { replace: true, state: location.state });
+    }
+  }, [activeTab, navigate, location.pathname, location.search, location.state]);
 
   useEffect(() => {
     const fetchClientDetails = async () => {
       // If client data is already in state, no need to fetch
       if (location.state?.client) {
-        console.log("✅ Client data received from navigation state:", location.state.client);
+        console.log(
+          "✅ Client data received from navigation state:",
+          location.state.client
+        );
         setClient(location.state.client);
         setLoading(false);
         return;
@@ -59,10 +107,10 @@ const ClientDetailsPage = () => {
       try {
         setLoading(true);
         console.log("🔄 Fetching client details from API for ID:", clientId);
-        
+
         const response = await shivaiApiService.getClientById(clientId);
         console.log("✅ Client data fetched from API:", response);
-        
+
         if (response?.success && response?.data) {
           setClient(response.data);
         } else {
@@ -86,8 +134,10 @@ const ClientDetailsPage = () => {
   // Update browser tab title
   useEffect(() => {
     if (client) {
-      const clientName = client?.userData?.fullName || client?.company_basics?.name || "Client";
-      const tabLabel = tabs.find(tab => tab.id === activeTab)?.label || "Details";
+      const clientName =
+        client?.userData?.fullName || client?.company_basics?.name || "Client";
+      const tabLabel =
+        tabs.find((tab) => tab.id === activeTab)?.label || "Details";
       document.title = `${clientName} - ${tabLabel} | ShivAI Admin`;
     } else {
       document.title = "Client Details | ShivAI Admin";
@@ -100,7 +150,12 @@ const ClientDetailsPage = () => {
   }, [client, activeTab]);
 
   const handleBack = () => {
-    navigate("/dashboard/clients");
+    // Use browser back if available, otherwise navigate to clients page
+    if (window.history.length > 1) {
+      navigate(-1);
+    } else {
+      navigate("/dashboard/clients");
+    }
   };
 
   const handleEdit = (client) => {
@@ -111,7 +166,11 @@ const ClientDetailsPage = () => {
   };
 
   const handleDelete = async (client) => {
-    if (window.confirm(`Are you sure you want to delete ${client?.userData?.fullName || "this client"}?`)) {
+    if (
+      window.confirm(
+        `Are you sure you want to delete ${client?.userData?.fullName || "this client"}?`
+      )
+    ) {
       try {
         await shivaiApiService.deleteClient(client?._id);
         toast.success("Client deleted successfully");
@@ -151,6 +210,7 @@ const ClientDetailsPage = () => {
 
   const handleViewAgent = (agent) => {
     console.log("View agent:", agent);
+    setPreviousTab(activeTab); // Save current tab
     setSelectedAgent(agent);
     setViewMode("agentView");
   };
@@ -158,14 +218,19 @@ const ClientDetailsPage = () => {
   const handleBackFromAgent = () => {
     setSelectedAgent(null);
     setViewMode("details");
+    // Restore the previous tab if it was saved
+    if (previousTab) {
+      setActiveTab(previousTab);
+      setPreviousTab(null);
+    }
   };
 
-  const tabs = [
-    { id: "onboarding", label: "Onboarding Data", icon: RiFileTextLine },
-    { id: "details", label: "Client Details", icon: RiUserLine },
-    { id: "employees", label: "AI Employees", icon: RiRobotLine },
-    { id: "transactions", label: "Transactions", icon: RiExchangeDollarLine },
-  ];
+  console.log("🔍 ClientDetailsPage - isOnboarded:", isOnboarded);
+  console.log(
+    "🔍 ClientDetailsPage - Tabs to display:",
+    tabs.map((t) => t.id)
+  );
+  console.log("🔍 ClientDetailsPage - Current active tab:", activeTab);
 
   if (loading) {
     return (
@@ -180,7 +245,9 @@ const ClientDetailsPage = () => {
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
           <RiErrorWarningLine className="w-16 h-16 mx-auto mb-4 text-red-500" />
-          <h2 className="text-2xl font-bold text-gray-900 mb-2">Client Not Found</h2>
+          <h2 className="text-2xl font-bold text-gray-900 mb-2">
+            Client Not Found
+          </h2>
           <button
             onClick={handleBack}
             className="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-colors"
@@ -205,11 +272,13 @@ const ClientDetailsPage = () => {
 
   const clientStats = {
     totalAIEmployees: client?.ai_employees?.length || 0,
-    liveAIEmployees: client?.ai_employees?.filter((emp) => emp.status === "active")?.length || 0,
-    totalCalls: 1247,
-    usedTokens: 125000,
-    totalRevenue: 2450.0,
-    planUsage: 75,
+    liveAIEmployees:
+      client?.ai_employees?.filter((emp) => emp.status === "active")?.length ||
+      0,
+    totalCalls: 0,
+    usedTokens: 0,
+    totalRevenue: 0,
+    planUsage: 0,
     isActive: client?.isApproved || false,
   };
 
@@ -226,37 +295,51 @@ const ClientDetailsPage = () => {
               <RiArrowLeftLine className="w-5 h-5" />
             </button>
             <div className="min-w-0 flex-1">
-              <h1 className={`text-xl sm:text-2xl font-bold ${currentTheme.text} truncate`}>
-                {client?.userData?.fullName || client?.company_basics?.name || "Client Details"}
+              <h1
+                className={`text-xl sm:text-2xl font-bold ${currentTheme.text} truncate`}
+              >
+                {client?.fullName ||
+                  client?.company_basics?.name ||
+                  "Client Details"}
               </h1>
-              <p className={`text-sm ${currentTheme.textSecondary} truncate mt-1`}>
-                {client?.userData?.email || client?.company_basics?.company_email || ""}
+              <p
+                className={`text-sm ${currentTheme.textSecondary} truncate mt-1`}
+              >
+                {client?.email ||
+                  client?.company_basics?.company_email ||
+                  ""}
               </p>
             </div>
           </div>
+          {console.log("🔍 Rendering action buttons for client:", client)}
 
           {/* Action Buttons */}
           <div className="flex items-center gap-2 flex-shrink-0">
             {(client?.userData?.isOnboarded || client?.isOnboarded) &&
-              !client?.onboarding?.status === "approved" &&
-              !client?.isRejected && (
+              client?.onboardingStatus !== "approved" && (
                 <>
                   <button
                     onClick={() => handleApprove(client)}
-                    className="px-3 py-1.5 bg-green-500 hover:bg-green-600 text-white text-sm font-medium rounded-lg transition-all duration-200 flex items-center gap-1.5"
+                    className={`p-2 rounded-lg ${currentTheme.hover} ${currentTheme.text} transition-all duration-200`}
+                    title="Accept Client"
                   >
-                    <RiCheckLine className="w-4 h-4" />
-                    Accept
+                    <RiCheckLine className="w-5 h-5" />
                   </button>
                   <button
                     onClick={() => handleReject(client)}
-                    className="px-3 py-1.5 bg-red-500 hover:bg-red-600 text-white text-sm font-medium rounded-lg transition-all duration-200 flex items-center gap-1.5"
+                    className={`p-2 rounded-lg ${currentTheme.hover} ${currentTheme.text} transition-all duration-200`}
+                    title="Reject Client"
                   >
-                    <RiCloseLine className="w-4 h-4" />
-                    Reject
+                    <RiCloseLine className="w-5 h-5" />
                   </button>
                 </>
               )}
+            {client?.onboardingStatus === "approved" && (
+                <div className="flex items-center gap-2 px-3 py-1.5 bg-green-100 text-green-700 rounded-lg text-sm font-medium">
+                    <RiCheckLine className="w-4 h-4" />
+                    <span>Approved</span>
+                </div>
+            )}
 
             <button
               onClick={() => handleEdit(client)}
@@ -267,7 +350,7 @@ const ClientDetailsPage = () => {
             </button>
             <button
               onClick={() => handleDelete(client)}
-              className="p-2 rounded-lg hover:bg-red-50 text-red-600 transition-all duration-200"
+              className={`p-2 rounded-lg ${currentTheme.hover} ${currentTheme.text} transition-all duration-200`}
               title="Delete Client"
             >
               <RiDeleteBinLine className="w-5 h-5" />
@@ -278,49 +361,71 @@ const ClientDetailsPage = () => {
 
       {/* Stats Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
-        <div className={`${currentTheme.cardBg} border ${currentTheme.border} rounded-xl p-3 md:p-4`}>
+        <div
+          className={`${currentTheme.cardBg} border ${currentTheme.border} rounded-xl p-3 md:p-4`}
+        >
           <div className="flex items-center justify-between mb-2">
             <RiRobotLine className={`w-5 h-5 ${currentTheme.textSecondary}`} />
           </div>
           <p className={`text-2xl md:text-3xl font-bold ${currentTheme.text}`}>
             {clientStats.totalAIEmployees}
           </p>
-          <p className={`text-xs ${currentTheme.textSecondary} mt-1`}>AI Employees</p>
+          <p className={`text-xs ${currentTheme.textSecondary} mt-1`}>
+            AI Employees
+          </p>
         </div>
 
-        <div className={`${currentTheme.cardBg} border ${currentTheme.border} rounded-xl p-3 md:p-4`}>
+        <div
+          className={`${currentTheme.cardBg} border ${currentTheme.border} rounded-xl p-3 md:p-4`}
+        >
           <div className="flex items-center justify-between mb-2">
-            <RiUserVoiceLine className={`w-5 h-5 ${currentTheme.textSecondary}`} />
+            <RiUserVoiceLine
+              className={`w-5 h-5 ${currentTheme.textSecondary}`}
+            />
           </div>
           <p className={`text-2xl md:text-3xl font-bold ${currentTheme.text}`}>
             {clientStats.liveAIEmployees}
           </p>
-          <p className={`text-xs ${currentTheme.textSecondary} mt-1`}>Active Now</p>
+          <p className={`text-xs ${currentTheme.textSecondary} mt-1`}>
+            Active Now
+          </p>
         </div>
 
-        <div className={`${currentTheme.cardBg} border ${currentTheme.border} rounded-xl p-3 md:p-4`}>
+        <div
+          className={`${currentTheme.cardBg} border ${currentTheme.border} rounded-xl p-3 md:p-4`}
+        >
           <div className="flex items-center justify-between mb-2">
             <RiPhoneLine className={`w-5 h-5 ${currentTheme.textSecondary}`} />
           </div>
           <p className={`text-2xl md:text-3xl font-bold ${currentTheme.text}`}>
             {clientStats.totalCalls}
           </p>
-          <p className={`text-xs ${currentTheme.textSecondary} mt-1`}>Total Calls</p>
+          <p className={`text-xs ${currentTheme.textSecondary} mt-1`}>
+            Total Calls
+          </p>
         </div>
 
-        <div className={`${currentTheme.cardBg} border ${currentTheme.border} rounded-xl p-3 md:p-4`}>
+        <div
+          className={`${currentTheme.cardBg} border ${currentTheme.border} rounded-xl p-3 md:p-4`}
+        >
           <div className="flex items-center justify-between mb-2">
-            <RiBankCardLine className={`w-5 h-5 ${currentTheme.textSecondary}`} />
+            <RiBankCardLine
+              className={`w-5 h-5 ${currentTheme.textSecondary}`}
+            />
           </div>
           <p className={`text-2xl md:text-3xl font-bold ${currentTheme.text}`}>
             ${clientStats.totalRevenue.toLocaleString()}
           </p>
-          <p className={`text-xs ${currentTheme.textSecondary} mt-1`}>Revenue</p>
+          <p className={`text-xs ${currentTheme.textSecondary} mt-1`}>
+            Revenue
+          </p>
         </div>
       </div>
 
       {/* Tabs */}
-      <div className={`${currentTheme.cardBg} border ${currentTheme.border} rounded-xl shadow-lg`}>
+      <div
+        className={`${currentTheme.cardBg} border ${currentTheme.border} rounded-xl shadow-lg`}
+      >
         <div className={`border-b ${currentTheme.border} px-4 md:px-6`}>
           <div className="flex gap-1 md:gap-2 overflow-x-auto scrollbar-hide -mb-px">
             {tabs.map((tab) => {

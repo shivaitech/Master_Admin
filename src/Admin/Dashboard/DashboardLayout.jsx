@@ -145,6 +145,29 @@ const DashboardLayoutContent = () => {
     return window.location.pathname;
   };
 
+  // Get page title based on current path
+  const getPageTitle = () => {
+    const currentPath = getCurrentPath();
+    
+    // Check if it's a client details page
+    if (currentPath.includes('/dashboard/clients/') && currentPath.split('/').length > 3) {
+      return 'Client Details';
+    }
+    
+    const pageLabels = {
+      '/dashboard': 'Dashboard',
+      '/dashboard/clients': 'Client Management',
+      '/dashboard/ai-employees': 'AI Employee Stats',
+      '/dashboard/widgets': 'Widget Management',
+      '/dashboard/transactions': 'Transactions',
+      '/dashboard/support': 'Support Tickets',
+      '/dashboard/analytics': 'Analytics',
+      '/dashboard/settings': 'Settings',
+    };
+    
+    return pageLabels[currentPath] || 'Dashboard';
+  };
+
   // Mobile tab navigation component with theme toggle and menu tools
   const MobileTabNavigation = () => (
     <div
@@ -357,7 +380,10 @@ const DashboardLayoutContent = () => {
           <nav className="flex-1 p-4 space-y-1 overflow-y-auto no-scrollbar">
             {navItems.map((item) => {
               const Icon = item.icon;
-              const isActive = getCurrentPath() === item.path;
+              const currentPath = getCurrentPath();
+              // Check for exact match or nested routes (e.g., client details page)
+              const isActive = currentPath === item.path || 
+                (item.id === 'clients' && currentPath.startsWith('/dashboard/clients/'));
 
               return (
                 <button
@@ -478,9 +504,9 @@ const DashboardLayoutContent = () => {
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-4">
                 <div
-                  className={`text-2xl font-semibold ${theme === "light" ? "text-gray-800" : "text-green-400"} capitalize`}
+                  className={`text-2xl font-semibold ${theme === "light" ? "text-gray-800" : "text-green-400"}`}
                 >
-                  {getCurrentPath().split('/').pop() || 'Dashboard'}
+                  {getPageTitle()}
                 </div>
               </div>
 

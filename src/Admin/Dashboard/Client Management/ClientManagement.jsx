@@ -5,7 +5,7 @@ import React, {
   useCallback,
   useRef,
 } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import toast from "react-hot-toast";
 import {
   RiTeamLine,
@@ -62,7 +62,29 @@ import {
 } from "react-icons/ri";
 import { useTheme } from "../contexts/ThemeContext";
 import { shivaiApiService } from "../../../Redux-config/apisModel/apiService";
-import { Target } from "lucide-react";
+import {
+  Target,
+  Volume2,
+  VolumeX,
+  SkipBack,
+  SkipForward,
+  Download,
+  Play,
+  Pause,
+  Bot,
+  Clock,
+  FileText,
+  Phone,
+  Loader2,
+  XCircle,
+  Activity,
+  MapPin,
+  Globe,
+  Smartphone,
+  Monitor,
+  Tablet,
+  MessageSquare,
+} from "lucide-react";
 
 // Industry options from onboarding (Step 3)
 const industryOptions = [
@@ -94,7 +116,7 @@ const industryOptions = [
   { value: "other", label: "Other" },
 ];
 
-// Agent configuration options from Step 3
+// Agent configuration options from Step 3  
 const agentTypeOptions = [
   { value: "sales", label: "Sales & Business Development" },
   { value: "support", label: "Customer Support & Service" },
@@ -188,418 +210,90 @@ const planOptions = [
   },
 ];
 
-// ClientDetailsView Component
-const ClientDetailsView = ({ client, onBack, onEdit, onDelete, onApprove, onReject, onViewAgent }) => {
-  const { theme, currentTheme } = useTheme();
-  const [activeTab, setActiveTab] = useState("onboarding");
-  const [loading, setLoading] = useState(false);
-
-  // Mock data - replace with actual API calls
-  const clientStats = {
-    totalAIEmployees: client?.ai_employees?.length || 0,
-    liveAIEmployees:
-      client?.ai_employees?.filter((emp) => emp.status === "active")?.length ||
-      0,
-    totalCalls: 1247, // Mock data
-    usedTokens: 125000, // Mock data
-    totalRevenue: 2450.0, // Mock data
-    planUsage: 75, // Mock percentage
-    isActive: client?.isApproved || false,
-  };
-
-  const tabs = [
-    { id: "onboarding", label: "Onboarding Data", icon: RiFileTextLine },
-    { id: "details", label: "Client Details", icon: RiUserLine },
-    { id: "employees", label: "AI Employees", icon: RiRobotLine },
-    { id: "transactions", label: "Transactions", icon: RiExchangeDollarLine },
-  ];
-
-  return (
-    <div className="space-y-4 md:space-y-6">
-      {/* Header with Back Button */}
-      <div className="flex flex-col gap-3 sm:gap-0">
-        {/* Main Header Row: Back button, title, and action buttons */}
-        <div className="flex items-start justify-between gap-3 sm:gap-4 min-w-0">
-          {/* Left side: Back button and title info */}
-          <div className="flex items-start gap-3 sm:gap-4 min-w-0 flex-1">
-            <button
-              onClick={onBack}
-              className={`p-2 rounded-lg ${currentTheme.hover} ${currentTheme.text} transition-all duration-200 flex-shrink-0 mt-1`}
-            >
-              <RiArrowLeftLine className="w-5 h-5" />
-            </button>
-            <div className="min-w-0 flex-1">
-              <h1
-                className={`text-xl sm:text-2xl font-bold ${currentTheme.text} truncate`}
-              >
-                {client?.userData?.fullName ||
-                  client?.company_basics?.name ||
-                  "Client Details"}
-              </h1>
-              <p className={`text-sm ${currentTheme.textSecondary} truncate mt-1`}>
-                {client?.userData?.email ||
-                  client?.company_basics?.company_email ||
-                  ""}
-              </p>
-            </div>
-          </div>
-          
-          {/* Right side: Action Buttons */}
-          <div className="flex items-center gap-2 flex-shrink-0">
-            {/* Accept/Reject buttons for onboarded but not approved/rejected users */}
-            {(client?.userData?.isOnboarded || client?.isOnboarded) && !client?.onboarding?.status === "approved" && !client?.isRejected && (
-              <>
-              {console.log("Rendering Accept/Reject buttons for client:", client)}
-                <button
-                  onClick={() => onReject && onReject(client?.onboardingDetails?.onboarding || client?.onBoarding || client)}
-                  className="px-3 py-2 bg-red-500 hover:bg-red-600 text-white text-sm font-medium rounded-lg transition-all duration-200 flex items-center gap-2"
-                  title="Reject Client"
-                >
-                  <RiCloseLine className="w-4 h-4" />
-                  <span className="hidden sm:inline">Reject</span>
-                </button>
-                <button
-                  onClick={() => onApprove && onApprove(client?.onboardingDetails?.onboarding || client?.onBoarding || client)}
-                  className="px-3 py-2 bg-green-500 hover:bg-green-600 text-white text-sm font-medium rounded-lg transition-all duration-200 flex items-center gap-2"
-                  title="Approve Client"
-                >
-                  <RiCheckLine className="w-4 h-4" />
-                  <span className="hidden sm:inline">Approve</span>
-                </button>
-              </>
-            )}
-            
-            {/* Edit Button */}
-            <button
-              onClick={() => onEdit && onEdit(client?.userData)}
-              className={`p-2 rounded-lg ${currentTheme.hover} ${currentTheme.text} transition-all duration-200`}
-              title="Edit Client"
-            >
-              <RiEditLine className="w-4 h-4" />
-            </button>
-            
-            {/* Delete Button */}
-            <button
-              onClick={() => onDelete && onDelete(client?.userData)}
-              className="p-2 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 text-red-500 transition-all duration-200"
-              title="Delete Client"
-            >
-              <RiDeleteBinLine className="w-4 h-4" />
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* Stats Cards - Responsive with Sliding for Mobile */}
-      <div className="relative">
-        {/* Desktop Grid */}
-        <div className="hidden lg:grid lg:grid-cols-4 gap-4">
-          {/* Total AI Employees */}
-          <div
-            className={`${currentTheme.cardBg} border ${currentTheme.border} rounded-lg p-4 md:p-6 shadow-lg hover:scale-[1.02] transition-all duration-200`}
-          >
-            <div className="flex items-center justify-between mb-3">
-              <div
-                className={`w-10 h-10 md:w-12 md:h-12 rounded-lg ${currentTheme.searchBg} flex items-center justify-center`}
-              >
-                <RiRobotLine className={`w-5 h-5 md:w-6 md:h-6 ${currentTheme.text}`} />
-              </div>
-              <span className={`text-sm font-medium ${currentTheme.textSecondary}`}>Total</span>
-            </div>
-            <h3
-              className={`text-2xl md:text-3xl font-semibold ${currentTheme.text} mb-1`}
-            >
-              {clientStats.totalAIEmployees}
-            </h3>
-            <p className={`text-sm font-medium ${currentTheme.text} mb-1`}>
-              AI Employees
-            </p>
-            <p className={`text-xs ${currentTheme.textSecondary}`}>
-              Configured
-            </p>
-          </div>
-
-          {/* Live AI Employees */}
-          <div
-            className={`${currentTheme.cardBg} border ${currentTheme.border} rounded-lg p-4 md:p-6 shadow-lg hover:scale-[1.02] transition-all duration-200`}
-          >
-            <div className="flex items-center justify-between mb-3">
-              <div
-                className={`w-10 h-10 md:w-12 md:h-12 rounded-lg ${currentTheme.searchBg} flex items-center justify-center`}
-              >
-                <RiPulseLine className={`w-5 h-5 md:w-6 md:h-6 ${currentTheme.text}`} />
-              </div>
-              <span className={`text-sm font-medium ${currentTheme.textSecondary}`}>Live</span>
-            </div>
-            <h3
-              className={`text-2xl md:text-3xl font-semibold ${currentTheme.text} mb-1`}
-            >
-              {clientStats.liveAIEmployees}
-            </h3>
-            <p className={`text-sm font-medium ${currentTheme.text} mb-1`}>
-              Active Now
-            </p>
-            <p className={`text-xs ${currentTheme.textSecondary}`}>Online</p>
-          </div>
-
-          {/* Total Calls */}
-          <div
-            className={`${currentTheme.cardBg} border ${currentTheme.border} rounded-lg p-4 md:p-6 shadow-lg hover:scale-[1.02] transition-all duration-200`}
-          >
-            <div className="flex items-center justify-between mb-3">
-              <div
-                className={`w-10 h-10 md:w-12 md:h-12 rounded-lg ${currentTheme.searchBg} flex items-center justify-center`}
-              >
-                <RiUserVoiceLine className={`w-5 h-5 md:w-6 md:h-6 ${currentTheme.text}`} />
-              </div>
-              <span className={`text-sm font-medium ${currentTheme.textSecondary}`}>Calls</span>
-            </div>
-            <h3
-              className={`text-2xl md:text-3xl font-semibold ${currentTheme.text} mb-1`}
-            >
-              {clientStats.totalCalls.toLocaleString()}
-            </h3>
-            <p className={`text-sm font-medium ${currentTheme.text} mb-1`}>
-              Total Calls
-            </p>
-            <p className={`text-xs ${currentTheme.textSecondary}`}>
-              This month
-            </p>
-          </div>
-
-          {/* Revenue */}
-          <div
-            className={`${currentTheme.cardBg} border ${currentTheme.border} rounded-lg p-4 md:p-6 shadow-lg hover:scale-[1.02] transition-all duration-200`}
-          >
-            <div className="flex items-center justify-between mb-3">
-              <div
-                className={`w-10 h-10 md:w-12 md:h-12 rounded-lg ${currentTheme.searchBg} flex items-center justify-center`}
-              >
-                <RiMoneyDollarCircleLine className={`w-5 h-5 md:w-6 md:h-6 ${currentTheme.text}`} />
-              </div>
-              <span
-                className={`text-sm font-medium ${currentTheme.textSecondary}`}
-              >
-                {clientStats.isActive ? "Active" : "Inactive"}
-              </span>
-            </div>
-            <h3
-              className={`text-2xl md:text-3xl font-semibold ${currentTheme.text} mb-1`}
-            >
-              ${clientStats.totalRevenue.toFixed(2)}
-            </h3>
-            <p className={`text-sm font-medium ${currentTheme.text} mb-1`}>
-              Revenue
-            </p>
-            <p className={`text-xs ${currentTheme.textSecondary}`}>Monthly</p>
-          </div>
-        </div>
-
-        {/* Mobile/Tablet Sliding Cards */}
-        <div className="lg:hidden overflow-x-auto scrollbar-hide">
-          <div
-            className="flex gap-3 md:gap-4 pb-2 px-1"
-            style={{ width: "max-content" }}
-          >
-            {/* Total AI Employees - Mobile */}
-            <div className="group flex-shrink-0 w-44 md:w-52">
-              <div
-                className={`${currentTheme.cardBg} border ${currentTheme.border} rounded-lg p-3 md:p-4 hover:scale-[1.02] transition-all duration-200 shadow-lg`}
-              >
-                <div className="flex items-center justify-between mb-2 md:mb-3">
-                  <div
-                    className={`w-8 h-8 md:w-10 md:h-10 rounded-lg ${currentTheme.searchBg} flex items-center justify-center`}
-                  >
-                    <RiRobotLine className={`w-4 h-4 md:w-5 md:h-5 ${currentTheme.text}`} />
-                  </div>
-                  <span className={`text-xs font-medium ${currentTheme.textSecondary}`}>
-                    Total
-                  </span>
-                </div>
-                <h3
-                  className={`text-xl md:text-2xl font-semibold ${currentTheme.text} mb-1`}
-                >
-                  {clientStats.totalAIEmployees}
-                </h3>
-                <p
-                  className={`text-xs md:text-sm font-medium ${currentTheme.text} mb-1 leading-tight`}
-                >
-                  AI Employees
-                </p>
-                <p
-                  className={`text-xs ${currentTheme.textSecondary} leading-tight`}
-                >
-                  Configured
-                </p>
-              </div>
-            </div>
-
-            {/* Live AI Employees - Mobile */}
-            <div className="group flex-shrink-0 w-44 md:w-52">
-              <div
-                className={`${currentTheme.cardBg} border ${currentTheme.border} rounded-lg p-3 md:p-4 hover:scale-[1.02] transition-all duration-200 shadow-lg`}
-              >
-                <div className="flex items-center justify-between mb-2 md:mb-3">
-                  <div
-                    className={`w-8 h-8 md:w-10 md:h-10 rounded-lg ${currentTheme.searchBg} flex items-center justify-center`}
-                  >
-                    <RiPulseLine className={`w-4 h-4 md:w-5 md:h-5 ${currentTheme.text}`} />
-                  </div>
-                  <span className={`text-xs font-medium ${currentTheme.textSecondary}`}>
-                    Live
-                  </span>
-                </div>
-                <h3
-                  className={`text-xl md:text-2xl font-semibold ${currentTheme.text} mb-1`}
-                >
-                  {clientStats.liveAIEmployees}
-                </h3>
-                <p
-                  className={`text-xs md:text-sm font-medium ${currentTheme.text} mb-1 leading-tight`}
-                >
-                  Active Now
-                </p>
-                <p
-                  className={`text-xs ${currentTheme.textSecondary} leading-tight`}
-                >
-                  Online
-                </p>
-              </div>
-            </div>
-
-            {/* Total Calls - Mobile */}
-            <div className="group flex-shrink-0 w-44 md:w-52">
-              <div
-                className={`${currentTheme.cardBg} border ${currentTheme.border} rounded-lg p-3 md:p-4 hover:scale-[1.02] transition-all duration-200 shadow-lg`}
-              >
-                <div className="flex items-center justify-between mb-2 md:mb-3">
-                  <div
-                    className={`w-8 h-8 md:w-10 md:h-10 rounded-lg ${currentTheme.searchBg} flex items-center justify-center`}
-                  >
-                    <RiUserVoiceLine className={`w-4 h-4 md:w-5 md:h-5 ${currentTheme.text}`} />
-                  </div>
-                  <span className={`text-xs font-medium ${currentTheme.textSecondary}`}>
-                    Calls
-                  </span>
-                </div>
-                <h3
-                  className={`text-xl md:text-2xl font-semibold ${currentTheme.text} mb-1`}
-                >
-                  {clientStats.totalCalls.toLocaleString()}
-                </h3>
-                <p
-                  className={`text-xs md:text-sm font-medium ${currentTheme.text} mb-1 leading-tight`}
-                >
-                  Total Calls
-                </p>
-                <p
-                  className={`text-xs ${currentTheme.textSecondary} leading-tight`}
-                >
-                  This month
-                </p>
-              </div>
-            </div>
-
-            {/* Revenue - Mobile */}
-            <div className="group flex-shrink-0 w-44 md:w-52">
-              <div
-                className={`${currentTheme.cardBg} border ${currentTheme.border} rounded-lg p-3 md:p-4 hover:scale-[1.02] transition-all duration-200 shadow-lg`}
-              >
-                <div className="flex items-center justify-between mb-2 md:mb-3">
-                  <div
-                    className={`w-8 h-8 md:w-10 md:h-10 rounded-lg ${currentTheme.searchBg} flex items-center justify-center`}
-                  >
-                    <RiMoneyDollarCircleLine className={`w-4 h-4 md:w-5 md:h-5 ${currentTheme.text}`} />
-                  </div>
-                  <span
-                    className={`text-xs font-medium ${currentTheme.textSecondary}`}
-                  >
-                    {clientStats.isActive ? "Active" : "Inactive"}
-                  </span>
-                </div>
-                <h3
-                  className={`text-xl md:text-2xl font-semibold ${currentTheme.text} mb-1`}
-                >
-                  ${clientStats.totalRevenue.toFixed(2)}
-                </h3>
-                <p
-                  className={`text-xs md:text-sm font-medium ${currentTheme.text} mb-1 leading-tight`}
-                >
-                  Revenue
-                </p>
-                <p
-                  className={`text-xs ${currentTheme.textSecondary} leading-tight`}
-                >
-                  Monthly
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Tabs */}
-      <div
-        className={`${currentTheme.cardBg} border ${currentTheme.border} rounded-lg shadow-lg`}
-      >
-        {/* Tab Headers */}
-        <div
-          className={`flex gap-1 border-b ${currentTheme.border} overflow-x-auto scrollbar-hide`}
-        >
-          {tabs.map((tab) => (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              className={`flex items-center gap-2 px-4 py-3 text-sm font-medium transition-all duration-200 whitespace-nowrap ${
-                activeTab === tab.id
-                  ? `${currentTheme.text} border-b-2 border-blue-500`
-                  : `${currentTheme.textSecondary} hover:${currentTheme.text}`
-              }`}
-            >
-              <tab.icon className="w-4 h-4" />
-              {tab.label}
-            </button>
-          ))}
-        </div>
-
-        {/* Tab Content */}
-        <div className="p-6">
-          {activeTab === "onboarding" && (
-            <OnboardingDataTab key={`onboarding-${client?._id}`} client={client} currentTheme={currentTheme} />
-          )}
-          {activeTab === "details" && (
-            <ClientDetailsTab key={`details-${client?._id}`} client={client} currentTheme={currentTheme} />
-          )}
-          {activeTab === "employees" && (
-            <AIEmployeesTab key={`employees-${client?._id}-${activeTab}`} client={client} currentTheme={currentTheme} onViewAgent={onViewAgent} />
-          )}
-          {activeTab === "transactions" && (
-            <TransactionsTab key={`transactions-${client?._id}`} client={client} currentTheme={currentTheme} />
-          )}
-        </div>
-      </div>
-    </div>
-  );
-};
-
-// Tab Components
+// Tab Components (exported for use in ClientDetailsPage)
 const OnboardingDataTab = ({ client, currentTheme }) => {
-  // Handle the nested structure: response.data.onboarding contains the actual onboarding data
-  const onboardingData =
-    client?.onboardingDetails?.onboarding ||
-    client?.userData?.onboarding ||
-    client?.onboarding ||
-    {};
-  console.log("🔍 OnboardingDataTab - Full client data:", client);
-  console.log("🔍 OnboardingDataTab - Onboarding data:", onboardingData);
+  const [onboardingData, setOnboardingData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  // Fetch onboarding data using the API
+  useEffect(() => {
+    const fetchOnboardingData = async () => {
+      const userId = client?.userData?._id || client?._id || client?.userData?.id || client?.id;
+      
+      if (!userId) {
+        console.warn("⚠️ No user ID found for fetching onboarding data");
+        setLoading(false);
+        return;
+      }
+
+      try {
+        setLoading(true);
+        setError(null);
+        console.log("🔍 Fetching onboarding data for user ID:", userId);
+        
+        const response = await shivaiApiService.getOnboardingByUserId(userId);
+        console.log("✅ Onboarding data fetched:", response);
+        
+        // Handle different response structures
+        const data = response?.data?.onboarding || response?.onboarding || response?.data || response;
+        setOnboardingData(data);
+      } catch (err) {
+        console.error("❌ Error fetching onboarding data:", err);
+        setError(err.message || "Failed to load onboarding data");
+        
+        // Fallback to client data if API fails
+        const fallbackData = 
+          client?.onboardingDetails?.onboarding ||
+          client?.userData?.onboarding ||
+          client?.onboarding ||
+          {};
+        
+        if (fallbackData && Object.keys(fallbackData).length > 0) {
+          console.log("📋 Using fallback onboarding data from client prop");
+          setOnboardingData(fallbackData);
+          setError(null);
+        }
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchOnboardingData();
+  }, [client]);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <div className="text-center">
+          <div className={`inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mb-3`}></div>
+          <p className={`${currentTheme.textSecondary} text-sm`}>Loading onboarding data...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className={`text-center py-8 rounded-lg border-2 border-dashed ${currentTheme.border} bg-red-50 dark:bg-red-900/10`}>
+        <RiCloseLine className={`w-12 h-12 mx-auto mb-3 text-red-500 opacity-50`} />
+        <p className={`text-red-600 dark:text-red-400 font-medium mb-2`}>
+          Error loading onboarding data
+        </p>
+        <p className={`text-red-500 dark:text-red-300 text-sm opacity-75`}>
+          {error}
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4 md:space-y-6">
       <h3 className={`text-lg font-semibold ${currentTheme.text} mb-4`}>
         Onboarding Information
       </h3>
-
-      {!onboardingData || Object.keys(onboardingData).length === 0 ? (
+{console.log("🔍 Onboarsssssssssssssding Data:", onboardingData)}
+      {!onboardingData || onboardingData?.onboarding === null || Object.keys(onboardingData).length === 0 ? (
         <div
           className={`text-center py-8 rounded-lg border-2 border-dashed ${currentTheme.border}`}
         >
@@ -1227,9 +921,9 @@ const ClientDetailsTab = ({ client, currentTheme }) => {
             }`}
           >
             {client?.isApproved || userData?.isApproved
-              ? "Approved"
+              ? "approved"
               : client?.isRejected || userData?.isRejected
-                ? "Rejected"
+                ? "rejected"
                 : userData?.isActive
                   ? "Active"
                   : "Pending"}
@@ -1331,8 +1025,20 @@ const AIEmployeesTab = ({ client, currentTheme, onViewAgent }) => {
         console.log("📋 Client user ID:", client?.userData?.id);
         console.log("📋 Full client object:", client);
         
+        // Get the user ID from the correct location
+        const userId = client?.userData?.id || client?.id || client?._id;
+        
+        if (!userId) {
+          console.error("❌ No user ID found in client object");
+          setAiEmployees([]);
+          setLoading(false);
+          return;
+        }
+        
+        console.log("✅ Using user ID:", userId);
+        
         // Fetch all agents and filter by client
-        const response = await shivaiApiService.getAgentsById(client?.id);
+        const response = await shivaiApiService.getAgentsById(userId);
         console.log("🤖 AI Agents API Response:", response);
         
         // Don't check response.success, just check if we have data
@@ -1571,6 +1277,24 @@ const AgentDetailsView = ({ agent, onBack, currentTheme }) => {
   const [selectedSession, setSelectedSession] = useState(null);
   const [transcripts, setTranscripts] = useState([]);
   const [loadingTranscripts, setLoadingTranscripts] = useState(false);
+  
+  // Modal tab state
+  const [modalActiveTab, setModalActiveTab] = useState('transcripts');
+  
+  // Call summary state
+  const [callSummary, setCallSummary] = useState(null);
+  const [summaryLoading, setSummaryLoading] = useState(false);
+  const [summaryError, setSummaryError] = useState(null);
+  
+  // Audio player state
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [currentTime, setCurrentTime] = useState(0);
+  const [duration, setDuration] = useState(0);
+  const [volume, setVolume] = useState(1);
+  const [isMuted, setIsMuted] = useState(false);
+  const [playbackSpeed, setPlaybackSpeed] = useState(1);
+  const audioRef = useRef(null);
+  const progressRef = useRef(null);
 
   // Memoize tabs array to prevent re-renders
   const tabs = useMemo(() => [
@@ -1615,35 +1339,69 @@ const AgentDetailsView = ({ agent, onBack, currentTheme }) => {
     fetchAgentSessions();
   }, [activeTab, agent]);
 
+  // Fetch call summary
+  const fetchCallSummary = async (agentId, callId) => {
+    try {
+      setSummaryLoading(true);
+      setSummaryError(null);
+      console.log('📊 Fetching call summary for agent:', agentId, 'callId:', callId);
+      
+      const response = await shivaiApiService.getCallSummary(agentId);
+      console.log('✅ Call summary response:', response);
+      
+      setCallSummary(response);
+    } catch (error) {
+      console.error('❌ Error fetching call summary:', error);
+      setSummaryError('Failed to load call summary');
+      setCallSummary(null);
+    } finally {
+      setSummaryLoading(false);
+    }
+  };
+
   // Handle viewing session transcripts
   const handleViewSession = useCallback(async (session) => {
     try {
       setSelectedSession(session);
+      setModalActiveTab('transcripts'); // Reset to transcripts tab
+      
+      // Reset audio player state
+      setIsPlaying(false);
+      setCurrentTime(0);
+      setDuration(0);
+      setPlaybackSpeed(1);
+      setIsMuted(false);
 
       // Check if transcripts are already in the session object
       if (session?.transcripts && Array.isArray(session.transcripts)) {
         console.log("📜 Using transcripts from session object:", session.transcripts);
         setTranscripts(session.transcripts);
-        return;
+      } else {
+        // Otherwise fetch from API
+        setLoadingTranscripts(true);
+        const sessionId = session?.session_id || session?.id || session?._id;
+        console.log("📜 Fetching transcripts for session:", sessionId);
+
+        const response = await shivaiApiService.getSessionTranscripts(sessionId);
+        console.log("✅ Transcripts response:", response);
+
+        const transcriptsData = response?.transcripts || response?.data || response;
+        const transcriptsArray = Array.isArray(transcriptsData) ? transcriptsData : [];
+
+        setTranscripts(transcriptsArray);
+        setLoadingTranscripts(false);
       }
-
-      // Otherwise fetch from API
-      setLoadingTranscripts(true);
-      const sessionId = session?.session_id || session?.id || session?._id;
-      console.log("📜 Fetching transcripts for session:", sessionId);
-
-      const response = await shivaiApiService.getSessionTranscripts(sessionId);
-      console.log("✅ Transcripts response:", response);
-
-      const transcriptsData = response?.transcripts || response?.data || response;
-      const transcriptsArray = Array.isArray(transcriptsData) ? transcriptsData : [];
-
-      setTranscripts(transcriptsArray);
+      
+      // Fetch call summary
+      const agentId = session?.agentId || session?.agent_id;
+      const callId = session?.callId || session?.session_id || session?.id;
+      if (agentId && callId) {
+        await fetchCallSummary(agentId, callId);
+      }
     } catch (error) {
-      console.error("❌ Error fetching transcripts:", error);
-      toast.error("Failed to load transcripts");
+      console.error("❌ Error fetching session data:", error);
+      toast.error("Failed to load session data");
       setTranscripts([]);
-    } finally {
       setLoadingTranscripts(false);
     }
   }, []);
@@ -1652,7 +1410,100 @@ const AgentDetailsView = ({ agent, onBack, currentTheme }) => {
   const handleCloseTranscript = useCallback(() => {
     setSelectedSession(null);
     setTranscripts([]);
+    setCallSummary(null);
+    setModalActiveTab('transcripts');
+    setIsPlaying(false);
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.currentTime = 0;
+    }
   }, []);
+  
+  // Audio player handlers
+  const togglePlayPause = () => {
+    if (!audioRef.current) return;
+    if (isPlaying) {
+      audioRef.current.pause();
+    } else {
+      audioRef.current.play();
+    }
+    setIsPlaying(!isPlaying);
+  };
+
+  const handleTimeUpdate = () => {
+    if (audioRef.current) {
+      setCurrentTime(audioRef.current.currentTime);
+    }
+  };
+
+  const handleLoadedMetadata = () => {
+    if (audioRef.current) {
+      setDuration(audioRef.current.duration);
+    }
+  };
+
+  const handleProgressClick = (e) => {
+    if (!progressRef.current || !audioRef.current) return;
+    const rect = progressRef.current.getBoundingClientRect();
+    const pos = (e.clientX - rect.left) / rect.width;
+    const newTime = pos * duration;
+    audioRef.current.currentTime = newTime;
+    setCurrentTime(newTime);
+  };
+
+  const toggleMute = () => {
+    if (!audioRef.current) return;
+    if (isMuted) {
+      audioRef.current.volume = volume;
+      setIsMuted(false);
+    } else {
+      audioRef.current.volume = 0;
+      setIsMuted(true);
+    }
+  };
+
+  const changeSpeed = () => {
+    if (!audioRef.current) return;
+    const speeds = [0.5, 0.75, 1, 1.25, 1.5, 2];
+    const currentIndex = speeds.indexOf(playbackSpeed);
+    const nextSpeed = speeds[(currentIndex + 1) % speeds.length];
+    audioRef.current.playbackRate = nextSpeed;
+    setPlaybackSpeed(nextSpeed);
+  };
+
+  const skip = (seconds) => {
+    if (!audioRef.current) return;
+    audioRef.current.currentTime = Math.max(0, Math.min(duration, currentTime + seconds));
+  };
+
+  const formatTimeDisplay = (seconds) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = Math.floor(seconds % 60);
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
+  
+  const formatTranscriptTimestamp = (timestamp) => {
+    if (!timestamp) return '';
+    const date = new Date(timestamp);
+    return date.toLocaleTimeString('en-US', {
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false
+    });
+  };
+  
+  const formatDate = (dateString) => {
+    if (!dateString) return 'N/A';
+    const date = new Date(dateString);
+    return date.toLocaleString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true
+    });
+  };
 
   // Agent Testing Functions - based on widget.js LiveKit implementation
   const startAgentCall = useCallback(async () => {
@@ -2318,132 +2169,521 @@ const AgentDetailsView = ({ agent, onBack, currentTheme }) => {
         <div className="space-y-6">
           {/* Transcript Modal */}
           {selectedSession && (
-            <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-              <div className={`${currentTheme.cardBg} rounded-xl shadow-2xl max-w-2xl w-full max-h-[90vh] flex flex-col border ${currentTheme.border}`}>
-                {/* Modal Header */}
-                <div className={`p-4 border-b ${currentTheme.border}`}>
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-1">
-                        <h3 className={`text-base font-semibold ${currentTheme.text}`}>
-                          Session Transcript
-                        </h3>
+            <div className="fixed inset-0 -top-8 bg-black/50 flex items-center justify-center z-50 p-2 sm:p-4 backdrop-blur-sm overflow-y-auto">
+              <div
+                className={`${currentTheme.cardBg} rounded-lg sm:rounded-xl w-full max-w-3xl  max-h-[95vh] sm:max-h-[90vh] overflow-hidden shadow-2xl my-auto flex flex-col`}
+              >
+                {/* Header - Mobile Optimized */}
+                <div
+                  className={`p-3 sm:p-4 border-b ${currentTheme.border}`}
+                >
+                  <div className="flex items-start justify-between gap-2 mb-2 sm:mb-3">
+                    <div className="flex items-center gap-2 flex-1 min-w-0">
+                      <div className={`w-7 h-7 sm:w-10 sm:h-10 ${currentTheme.activeBg} rounded-lg flex items-center justify-center flex-shrink-0`}>
+                        <MessageSquare className={`w-3.5 h-3.5 sm:w-5 sm:h-5 ${currentTheme.textSecondary}`} />
                       </div>
-                      <p className={`text-xs ${currentTheme.textSecondary}`}>
-                        ID: {selectedSession?.session_id || selectedSession?.id}
-                      </p>
-                      <p className={`text-xs ${currentTheme.textSecondary}`}>
-                        {selectedSession?.location?.city || 'unknown'} ({selectedSession?.location?.country || 'Unknown'})
-                      </p>
+                      <div className="flex-1 min-w-0">
+                        <h2 className={`text-sm sm:text-lg font-semibold ${currentTheme.text} truncate`}>
+                          Session Transcript
+                        </h2>
+                        <p className={`text-xs ${currentTheme.textSecondary} truncate font-mono`}>
+                          {selectedSession.session_id || selectedSession.id}
+                        </p>
+                      </div>
                     </div>
                     <button
                       onClick={handleCloseTranscript}
-                      className={`p-1.5 ${currentTheme.textSecondary} hover:${currentTheme.text} rounded-full ${currentTheme.hover} transition-all`}
+                      className={`p-1 sm:p-2 ${currentTheme.textSecondary} rounded-lg ${currentTheme.hover} transition-colors flex-shrink-0`}
                     >
-                      <RiCloseLine className="w-5 h-5" />
+                      <XCircle className="w-4 h-4 sm:w-5 sm:h-5" />
                     </button>
                   </div>
-                  <div className={`mt-3 pt-3 border-t ${currentTheme.border}`}>
-                    <p className={`text-xs ${currentTheme.textSecondary} text-center`}>
-                      Conversation started at {new Date(selectedSession?.start_time).toLocaleDateString('en-US', { 
-                        month: 'short', 
-                        day: 'numeric', 
-                        year: 'numeric' 
-                      })}, {new Date(selectedSession?.start_time).toLocaleTimeString('en-US', {
-                        hour: '2-digit',
-                        minute: '2-digit',
-                        hour12: true
-                      })}
-                    </p>
+
+                  {/* Session Info */}
+                  <div className="flex flex-wrap gap-1.5 sm:gap-2 mb-2 sm:mb-3">
+                    <div className={`flex items-center gap-1.5 min-w-0 flex-1 min-w-[calc(50%-0.375rem)] sm:min-w-0 ${currentTheme.searchBg} px-2 py-1.5 rounded-md`}>
+                      <Clock className={`w-3 h-3 ${currentTheme.textSecondary} flex-shrink-0`} />
+                      <div className="min-w-0 flex-1">
+                        <p className={`text-xs ${currentTheme.textSecondary} hidden sm:block`}>Date & Time</p>
+                        <span className={`text-xs font-medium ${currentTheme.text} truncate block`}>
+                          {formatDate(selectedSession.start_time)}
+                        </span>
+                      </div>
+                    </div>
+                    
+                    <div className={`flex items-center gap-1.5 min-w-0 flex-1 min-w-[calc(50%-0.375rem)] sm:min-w-0 ${currentTheme.searchBg} px-2 py-1.5 rounded-md`}>
+                      <MapPin className={`w-3 h-3 ${currentTheme.textSecondary} flex-shrink-0`} />
+                      <div className="min-w-0 flex-1">
+                        <p className={`text-xs ${currentTheme.textSecondary} hidden sm:block`}>IP Address</p>
+                        <span className={`text-xs font-medium ${currentTheme.text} truncate block`}>
+                          {selectedSession.ipAddress || selectedSession.ip_address || 'unknown'}
+                        </span>
+                      </div>
+                    </div>
+                    
+                    <div className={`flex items-center gap-1.5 min-w-0 flex-1 min-w-[calc(50%-0.375rem)] sm:min-w-0 ${currentTheme.searchBg} px-2 py-1.5 rounded-md`}>
+                      <Phone className={`w-3 h-3 ${currentTheme.textSecondary} flex-shrink-0`} />
+                      <div className="min-w-0 flex-1">
+                        <p className={`text-xs ${currentTheme.textSecondary} hidden sm:block`}>Device • Duration</p>
+                        <span className={`text-xs font-medium ${currentTheme.text} truncate block`}>
+                          {selectedSession.device?.deviceType || selectedSession.device?.device_type || 'Unknown'} • {selectedSession.duration}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Tabs */}
+                  <div className={`flex gap-1 p-1 ${currentTheme.searchBg} rounded-lg`}>
+                    <button
+                      onClick={() => setModalActiveTab('transcripts')}
+                      className={`flex-1 px-3 py-2 text-xs sm:text-sm font-medium rounded-md transition-all duration-200 ${
+                        modalActiveTab === 'transcripts'
+                          ? `${currentTheme.cardBg} ${currentTheme.text} shadow-sm`
+                          : `${currentTheme.textSecondary} hover:${currentTheme.text}`
+                      }`}
+                    >
+                      <MessageSquare className="w-3.5 h-3.5 sm:w-4 sm:h-4 inline mr-1.5" />
+                      Call Transcripts
+                    </button>
+                    <button
+                      onClick={() => setModalActiveTab('summary')}
+                      className={`flex-1 px-3 py-2 text-xs sm:text-sm font-medium rounded-md transition-all duration-200 ${
+                        modalActiveTab === 'summary'
+                          ? `${currentTheme.cardBg} ${currentTheme.text} shadow-sm`
+                          : `${currentTheme.textSecondary} hover:${currentTheme.text}`
+                      }`}
+                    >
+                      <FileText className="w-3.5 h-3.5 sm:w-4 sm:h-4 inline mr-1.5" />
+                      Recording & Summary
+                    </button>
                   </div>
                 </div>
 
                 {/* Modal Content */}
-                <div className={`overflow-y-auto p-4 ${currentTheme.background}`} style={{ height: '450px' }}>
-                  {loadingTranscripts ? (
-                    <div className="flex items-center justify-center py-12">
-                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-                      <span className={`ml-3 ${currentTheme.textSecondary}`}>Loading transcripts...</span>
-                    </div>
-                  ) : transcripts.length === 0 ? (
-                    <div className="text-center py-12">
-                      <RiChatOffLine className={`w-12 h-12 mx-auto mb-3 ${currentTheme.textSecondary}`} />
-                      <p className={`${currentTheme.textSecondary}`}>No transcripts available for this session.</p>
-                    </div>
-                  ) : (
-                    <div className="space-y-3">
-                      {transcripts.map((transcript, index) => {
-                        const isAgent = transcript.role === 'agent';
-                        const timestamp = new Date(transcript.timestamp);
-                        
-                        return (
-                          <div key={index}>
-                            {isAgent ? (
-                              // Agent message - left aligned with avatar
-                              <div className="flex items-start gap-2">
-                                <div className="flex-shrink-0">
-                                  <div className="w-6 h-6 rounded-full bg-gray-500 flex items-center justify-center">
-                                    <RiRobotLine className="w-4 h-4 text-white" />
-                                  </div>
-                                </div>
-                                <div className="flex flex-col items-start max-w-[80%]">
-                                  <span className={`text-[10px] ${currentTheme.textSecondary} mb-1 px-2 font-medium`}>
-                                    SHIVAI ASSISTANT {timestamp.toLocaleTimeString('en-US', {
-                                      hour: '2-digit',
-                                      minute: '2-digit',
-                                      hour12: false
-                                    })}
-                                  </span>
-                                  <div className={`rounded-2xl rounded-tl-sm px-4 py-2.5 ${currentTheme.searchBg}`}>
-                                    <p className={`text-sm ${currentTheme.text}`}>
-                                      {transcript.text}
-                                    </p>
-                                  </div>
-                                </div>
-                              </div>
-                            ) : (
-                              // Customer message - right aligned, blue background
-                              <div className="flex justify-end">
-                                <div className="flex flex-col items-end max-w-[80%]">
-                                  <span className={`text-[10px] ${currentTheme.textSecondary} mb-1 px-2 font-medium`}>
-                                    CUSTOMER {timestamp.toLocaleTimeString('en-US', {
-                                      hour: '2-digit',
-                                      minute: '2-digit',
-                                      hour12: false
-                                    })}
-                                  </span>
-                                  <div className="rounded-2xl rounded-tr-sm px-4 py-2.5 bg-blue-600">
-                                    <p className="text-sm text-white">
-                                      {transcript.text}
-                                    </p>
-                                  </div>
-                                </div>
-                              </div>
-                            )}
+                <div className="flex-1 overflow-y-auto p-3 sm:p-4">
+                  {/* Tab Content: Call Transcripts */}
+                  {modalActiveTab === 'transcripts' && (
+                    <>
+                      {/* Token Usage - Mobile Optimized */}
+                      {(selectedSession.token_usage || selectedSession.tokenUsage) && (
+                        <div className={`px-3 sm:px-4 py-3 mb-3 ${currentTheme.searchBg} rounded-lg`}>
+                          <div className="flex items-center gap-2 mb-2">
+                            <Activity className={`w-4 h-4 ${currentTheme.text}`} />
+                            <h4 className={`text-sm sm:text-base font-semibold ${currentTheme.text}`}>
+                              Token Usage
+                            </h4>
                           </div>
-                        );
-                      })}
+                          <div className="grid grid-cols-3 gap-2 sm:gap-4">
+                            <div className={`${currentTheme.cardBg} rounded-lg p-2 sm:p-3 border ${currentTheme.border}`}>
+                              <p className={`text-xs ${currentTheme.textSecondary} mb-1`}>Input</p>
+                              <p className={`text-lg sm:text-xl font-bold ${currentTheme.text}`}>
+                                {((selectedSession.token_usage || selectedSession.tokenUsage)?.input_tokens || (selectedSession.token_usage || selectedSession.tokenUsage)?.inputTokens || 0).toLocaleString()}
+                              </p>
+                            </div>
+                            <div className={`${currentTheme.cardBg} rounded-lg p-2 sm:p-3 border ${currentTheme.border}`}>
+                              <p className={`text-xs ${currentTheme.textSecondary} mb-1`}>Output</p>
+                              <p className={`text-lg sm:text-xl font-bold ${currentTheme.text}`}>
+                                {((selectedSession.token_usage || selectedSession.tokenUsage)?.output_tokens || (selectedSession.token_usage || selectedSession.tokenUsage)?.outputTokens || 0).toLocaleString()}
+                              </p>
+                            </div>
+                            <div className={`${currentTheme.cardBg} rounded-lg p-2 sm:p-3 border ${currentTheme.border}`}>
+                              <p className={`text-xs ${currentTheme.textSecondary} mb-1`}>Total</p>
+                              <p className={`text-lg sm:text-xl font-bold text-blue-600`}>
+                                {((selectedSession.token_usage || selectedSession.tokenUsage)?.total_tokens || (selectedSession.token_usage || selectedSession.tokenUsage)?.totalTokens || 0).toLocaleString()}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Transcript Messages */}
+                      <div className={`${currentTheme.searchBg} p-3 sm:p-4 rounded-lg`}>
+                        <h3 className={`text-sm sm:text-base font-semibold ${currentTheme.text} mb-3`}>
+                          Conversation Transcript
+                        </h3>
+                        <div className="space-y-1 max-h-[250px] sm:max-h-[400px] overflow-y-auto">
+                          {selectedSession.transcripts && selectedSession.transcripts.length > 0 ? (
+                            <>
+                              <p className={`text-xs sm:text-sm ${currentTheme.textSecondary} mb-2`}>
+                                Conversation started at {formatDate(selectedSession.start_time)}
+                              </p>
+                              
+                              {selectedSession.transcripts.map((message, index) => (
+                                <div key={index} className="flex flex-col gap-1.5 py-1.5 sm:py-2">
+                                  {message.speaker === "ai" || message.role === 'agent' ? (
+                                    <>
+                                      <div className="flex justify-start mb-1">
+                                        <span className={`text-xs ${currentTheme.textSecondary}`}>
+                                          SHIVAI ASSISTANT • {formatTranscriptTimestamp(message.timestamp)}
+                                        </span>
+                                      </div>
+                                      <div className="flex items-start gap-1.5 sm:gap-2">
+                                        <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center flex-shrink-0">
+                                          <Bot className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-white" />
+                                        </div>
+                                        <div className={`max-w-[80%] ${currentTheme.cardBg} rounded-2xl rounded-tl-sm px-3 py-2 sm:px-4 sm:py-3 border ${currentTheme.border}`}>
+                                          <p className={`text-xs sm:text-sm ${currentTheme.text}`}>{message.message || message.text}</p>
+                                        </div>
+                                      </div>
+                                    </>
+                                  ) : (
+                                    <>
+                                      <div className="flex justify-end mb-1">
+                                        <span className={`text-xs ${currentTheme.textSecondary}`}>
+                                          CUSTOMER • {formatTranscriptTimestamp(message.timestamp)}
+                                        </span>
+                                      </div>
+                                      <div className="flex justify-end">
+                                        <div className="flex flex-col items-end max-w-[80%]">
+                                          <div className="rounded-2xl rounded-tr-sm px-3 py-2 sm:px-4 sm:py-3 bg-gradient-to-br from-blue-500 to-blue-600">
+                                            <p className="text-xs sm:text-sm text-white">{message.message || message.text}</p>
+                                          </div>
+                                        </div>
+                                      </div>
+                                    </>
+                                  )}
+                                </div>
+                              ))}
+
+                              <p className={`text-xs ${currentTheme.textSecondary} mt-3 flex items-center gap-1`}>
+                                <Clock className="w-3 h-3" />
+                                Session ended • Resolution: {selectedSession.resolution}
+                              </p>
+                            </>
+                          ) : (
+                            <div className="text-center py-8">
+                              <FileText className={`w-10 h-10 sm:w-12 sm:h-12 ${currentTheme.textSecondary} mx-auto mb-3`} />
+                              <p className={`text-xs sm:text-sm ${currentTheme.textSecondary}`}>
+                                No transcripts available for this session
+                              </p>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </>
+                  )}
+
+                  {/* Tab Content: Summary */}
+                  {modalActiveTab === 'summary' && (
+                    <div className="space-y-3 sm:space-y-4">
+                      {/* Call Recording Section */}
+                      <div className={`${currentTheme.searchBg} p-3 sm:p-4 rounded-lg`}>
+                        <h3 className={`text-sm sm:text-base font-semibold ${currentTheme.text} mb-3 flex items-center gap-2`}>
+                          <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="currentColor" viewBox="0 0 20 20">
+                            <path d="M18 3a1 1 0 00-1.196-.98l-10 2A1 1 0 006 5v9.114A4.369 4.369 0 005 14c-1.657 0-3 .895-3 2s1.343 2 3 2 3-.895 3-2V7.82l8-1.6v5.894A4.37 4.37 0 0015 12c-1.657 0-3 .895-3 2s1.343 2 3 2 3-.895 3-2V3z"/>
+                          </svg>
+                          Call Recording
+                        </h3>
+                        
+                        {/* Audio Player */}
+                        <div className={`${currentTheme.cardBg} p-4 rounded-xl border ${currentTheme.border}`}>
+                          {/* Hidden audio element */}
+                          <audio
+                            ref={audioRef}
+                            onTimeUpdate={handleTimeUpdate}
+                            onLoadedMetadata={handleLoadedMetadata}
+                            onEnded={() => setIsPlaying(false)}
+                            src={selectedSession.recordingUrl || '#'}
+                          />
+                          
+                          {/* Progress bar */}
+                          <div
+                            ref={progressRef}
+                            onClick={handleProgressClick}
+                            className={`relative h-1 ${currentTheme.border} rounded-full cursor-pointer mb-2`}
+                            style={{ backgroundColor: currentTheme === 'dark' ? '#334155' : '#cbd5e1' }}
+                          >
+                            <div
+                              className="absolute top-0 left-0 h-full bg-blue-600 rounded-full transition-all"
+                              style={{ width: `${duration > 0 ? (currentTime / duration) * 100 : 0}%` }}
+                            />
+                          </div>
+
+                          {/* Controls */}
+                          <div className="flex items-center justify-between gap-3">
+                            {/* Time display */}
+                            <span className={`text-xs ${currentTheme.textSecondary} w-10`}>
+                              {formatTimeDisplay(currentTime)}
+                            </span>
+
+                            {/* Player controls */}
+                            <div className="flex items-center gap-2">
+                              <button
+                                onClick={() => skip(-10)}
+                                className={`p-1.5 hover:${currentTheme.searchBg} rounded transition-colors`}
+                                title="Rewind 10s"
+                              >
+                                <SkipBack className={`w-4 h-4 ${currentTheme.textSecondary}`} />
+                              </button>
+                              
+                              <button
+                                onClick={togglePlayPause}
+                                className="p-2 bg-blue-600 hover:bg-blue-700 text-white rounded-full transition-colors"
+                                title={isPlaying ? 'Pause' : 'Play'}
+                              >
+                                {isPlaying ? (
+                                  <Pause className="w-4 h-4" fill="currentColor" />
+                                ) : (
+                                  <Play className="w-4 h-4 ml-0.5" fill="currentColor" />
+                                )}
+                              </button>
+                              
+                              <button
+                                onClick={() => skip(10)}
+                                className={`p-1.5 hover:${currentTheme.searchBg} rounded transition-colors`}
+                                title="Forward 10s"
+                              >
+                                <SkipForward className={`w-4 h-4 ${currentTheme.textSecondary}`} />
+                              </button>
+
+                              <button
+                                onClick={changeSpeed}
+                                className={`px-2 py-1 hover:${currentTheme.searchBg} rounded transition-colors text-xs ${currentTheme.textSecondary}`}
+                                title="Playback speed"
+                              >
+                                {playbackSpeed}x
+                              </button>
+
+                              <button
+                                onClick={toggleMute}
+                                className={`p-1.5 hover:${currentTheme.searchBg} rounded transition-colors`}
+                                title={isMuted ? 'Unmute' : 'Mute'}
+                              >
+                                {isMuted ? (
+                                  <VolumeX className={`w-4 h-4 ${currentTheme.textSecondary}`} />
+                                ) : (
+                                  <Volume2 className={`w-4 h-4 ${currentTheme.textSecondary}`} />
+                                )}
+                              </button>
+                              
+                              <button
+                                className={`p-1.5 hover:${currentTheme.searchBg} rounded transition-colors`}
+                                title="Download recording"
+                              >
+                                <Download className={`w-4 h-4 ${currentTheme.textSecondary}`} />
+                              </button>
+                            </div>
+
+                            {/* Duration */}
+                            <span className={`text-xs ${currentTheme.textSecondary} w-10 text-right`}>
+                              {formatTimeDisplay(duration || selectedSession.duration || 0)}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Call Summary Section */}
+                      <div className={`${currentTheme.searchBg} p-3 sm:p-4 rounded-lg`}>
+                        <h3 className={`text-sm sm:text-base font-semibold ${currentTheme.text} mb-3 flex items-center gap-2`}>
+                          <FileText className="w-4 h-4 sm:w-5 sm:h-5" />
+                          Call Summary
+                        </h3>
+                        
+                        {summaryLoading ? (
+                          <div className="flex items-center justify-center py-8">
+                            <Loader2 className="w-6 h-6 text-blue-500 animate-spin" />
+                          </div>
+                        ) : summaryError ? (
+                          <div className="text-center py-6">
+                            <XCircle className={`w-10 h-10 ${currentTheme.textSecondary} mx-auto mb-2`} />
+                            <p className={`text-xs sm:text-sm ${currentTheme.textSecondary}`}>
+                              {summaryError}
+                            </p>
+                          </div>
+                        ) : callSummary?.data?.leads && callSummary.data.leads.length > 0 ? (
+                          (() => {
+                            const filteredLeads = callSummary.data.leads.filter(lead => 
+                              lead.callId === (selectedSession.callId || selectedSession.session_id || selectedSession.id)
+                            );
+                            
+                            console.log('🔍 Filtering leads. Looking for callId:', selectedSession.callId || selectedSession.session_id || selectedSession.id);
+                            console.log('🔍 Available callIds:', callSummary.data.leads.map(l => l.callId));
+                            console.log('🔍 Filtered leads:', filteredLeads);
+                            
+                            return filteredLeads.length > 0 ? (
+                              <div className="space-y-4">
+                                {filteredLeads.map((lead, leadIndex) => (
+                              <div key={lead.id || leadIndex} className={`border ${currentTheme.border} rounded-lg p-3 sm:p-4 space-y-3`}>
+                                {/* Call ID and Date */}
+                                <div className={`flex items-center justify-between pb-2 border-b ${currentTheme.border}`}>
+                                  <div className="flex items-center gap-2">
+                                    <Phone className="w-3.5 h-3.5 text-blue-500" />
+                                    <span className={`text-xs font-mono ${currentTheme.textSecondary}`}>
+                                      {lead.callId || 'N/A'}
+                                    </span> 
+                                  </div>
+                                  {lead.createdAt && (
+                                    <span className={`text-xs ${currentTheme.textSecondary}`}>
+                                      {new Date(lead.createdAt).toLocaleString('en-US', {
+                                        month: 'short',
+                                        day: 'numeric',
+                                        hour: '2-digit',
+                                        minute: '2-digit'
+                                      })}
+                                    </span>
+                                  )}
+                                </div>
+
+                                {/* Intent Details */}
+                                {lead.intent && (
+                                  <div className="space-y-2">
+                                    {lead.intent.primary && (
+                                      <div className={`bg-blue-50 dark:bg-blue-900/20 p-3 rounded-lg border border-blue-200 dark:border-blue-700`}>
+                                        <p className={`text-xs font-medium text-blue-700 dark:text-blue-300 mb-1`}>Primary Intent</p>
+                                        <p className={`text-xs sm:text-sm ${currentTheme.text} leading-relaxed`}>
+                                          {lead.intent.primary}
+                                        </p>
+                                      </div>
+                                    )}
+
+                                    {lead.intent.details && (
+                                      <div className={`${currentTheme.cardBg} p-3 rounded-lg border ${currentTheme.border}`}>
+                                        <p className={`text-xs font-medium ${currentTheme.textSecondary} mb-1`}>Details</p>
+                                        <p className={`text-xs sm:text-sm ${currentTheme.text} leading-relaxed`}>
+                                          {lead.intent.details}
+                                        </p>
+                                      </div>
+                                    )}
+
+                                    {/* Urgency */}
+                                    {lead.urgency && (
+                                      <div className="flex items-center gap-2">
+                                        <span className={`text-xs ${currentTheme.textSecondary}`}>Urgency:</span>
+                                        <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${
+                                          lead.urgency === 'high' 
+                                            ? 'bg-red-100 text-red-700 dark:bg-red-900/20 dark:text-red-400'
+                                            : lead.urgency === 'medium'
+                                            ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/20 dark:text-yellow-400'
+                                            : 'bg-green-100 text-green-700 dark:bg-green-900/20 dark:text-green-400'
+                                        }`}>
+                                          {lead.urgency}
+                                        </span>
+                                      </div>
+                                    )}
+
+                                    {/* Tags */}
+                                    {lead.tags && lead.tags.length > 0 && (
+                                      <div>
+                                        <p className={`text-xs font-medium ${currentTheme.textSecondary} mb-2`}>Tags</p>
+                                        <div className="flex flex-wrap gap-1.5">
+                                          {lead.tags.map((tag, tagIndex) => (
+                                            <span
+                                              key={tagIndex}
+                                              className={`px-2 py-0.5 ${currentTheme.cardBg} ${currentTheme.text} rounded-full text-xs border ${currentTheme.border}`}
+                                            >
+                                              {tag}
+                                            </span>
+                                          ))}
+                                        </div>
+                                      </div>
+                                    )}
+                                  </div>
+                                )}
+
+                                {/* Lead Contact Information */}
+                                {lead.leadData && (
+                                  <div>
+                                    <p className={`text-xs font-medium ${currentTheme.textSecondary} mb-2`}>Lead Information</p>
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                      {lead.leadData.name && (
+                                        <div className="flex items-start gap-2">
+                                          <Users className={`w-4 h-4 ${currentTheme.textSecondary} mt-0.5 flex-shrink-0`} />
+                                          <div className="min-w-0">
+                                            <p className={`text-xs ${currentTheme.textSecondary}`}>Name</p>
+                                            <p className={`text-sm font-medium ${currentTheme.text} truncate`}>{lead.leadData.name}</p>
+                                          </div>
+                                        </div>
+                                      )}
+                                      
+                                      {lead.leadData.email && (
+                                        <div className="flex items-start gap-2">
+                                          <Mail className={`w-4 h-4 ${currentTheme.textSecondary} mt-0.5 flex-shrink-0`} />
+                                          <div className="min-w-0">
+                                            <p className={`text-xs ${currentTheme.textSecondary}`}>Email</p>
+                                            <p className={`text-sm font-medium ${currentTheme.text} truncate`}>{lead.leadData.email}</p>
+                                          </div>
+                                        </div>
+                                      )}
+                                      
+                                      {lead.leadData.phone && (
+                                        <div className="flex items-start gap-2">
+                                          <Phone className={`w-4 h-4 ${currentTheme.textSecondary} mt-0.5 flex-shrink-0`} />
+                                          <div className="min-w-0">
+                                            <p className={`text-xs ${currentTheme.textSecondary}`}>Phone</p>
+                                            <p className={`text-sm font-medium ${currentTheme.text}`}>{lead.leadData.phone}</p>
+                                          </div>
+                                        </div>
+                                      )}
+
+                                      {lead.leadData.status && (
+                                        <div className="flex items-start gap-2">
+                                          <TrendingUp className={`w-4 h-4 ${currentTheme.textSecondary} mt-0.5 flex-shrink-0`} />
+                                          <div>
+                                            <p className={`text-xs ${currentTheme.textSecondary}`}>Status</p>
+                                            <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${
+                                              lead.leadData.status === 'qualified' 
+                                                ? 'bg-green-100 text-green-700 dark:bg-green-900/20 dark:text-green-400'
+                                                : lead.leadData.status === 'interested'
+                                                ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/20 dark:text-blue-400'
+                                                : lead.leadData.status === 'new'
+                                                ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/20 dark:text-purple-400'
+                                                : `${currentTheme.cardBg} ${currentTheme.text}`
+                                            }`}>
+                                              {lead.leadData.status === 'qualified' && <CheckCircle className="w-3 h-3" />}
+                                              {lead.leadData.status}
+                                            </span>
+                                          </div>
+                                        </div>
+                                      )}
+
+                                      {lead.leadData.group_size && (
+                                        <div className="flex items-start gap-2">
+                                          <Users className={`w-4 h-4 ${currentTheme.textSecondary} mt-0.5 flex-shrink-0`} />
+                                          <div>
+                                            <p className={`text-xs ${currentTheme.textSecondary}`}>Group Size</p>
+                                            <p className={`text-sm font-medium ${currentTheme.text}`}>{lead.leadData.group_size}</p>
+                                          </div>
+                                        </div>
+                                      )}
+
+                                      {lead.leadData.dates && (
+                                        <div className="flex items-start gap-2">
+                                          <Calendar className={`w-4 h-4 ${currentTheme.textSecondary} mt-0.5 flex-shrink-0`} />
+                                          <div>
+                                            <p className={`text-xs ${currentTheme.textSecondary}`}>Travel Dates</p>
+                                            <p className={`text-sm font-medium ${currentTheme.text}`}>{lead.leadData.dates}</p>
+                                          </div>
+                                        </div>
+                                      )}
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                            ) : (
+                              <div className="text-center py-6">
+                                <FileText className={`w-10 h-10 ${currentTheme.textSecondary} mx-auto mb-2`} />
+                                <p className={`text-xs sm:text-sm ${currentTheme.textSecondary}`}>
+                                  No matching summary for this call
+                                </p>
+                                <p className={`text-xs ${currentTheme.textSecondary} mt-1`}>
+                                  Call ID: {selectedSession.callId || selectedSession.session_id || selectedSession.id}
+                                </p>
+                              </div>
+                            );
+                          })()
+                        ) : (
+                          <div className="text-center py-6">
+                            <FileText className={`w-10 h-10 ${currentTheme.textSecondary} mx-auto mb-2`} />
+                            <p className={`text-xs sm:text-sm ${currentTheme.textSecondary}`}>
+                              No call summary available
+                            </p>
+                          </div>
+                        )}
+                      </div>
                     </div>
                   )}
-                </div>
-
-                {/* Modal Footer */}
-                <div className={`p-4 border-t ${currentTheme.border}`}>
-                  <p className={`text-xs ${currentTheme.textSecondary} text-center mb-1`}>
-                    Session ended • Resolution: Session completed
-                  </p>
-                  <p className={`text-xs ${currentTheme.textSecondary} text-center flex items-center justify-center gap-1`}>
-                    <RiTimeLine className="w-3 h-3" />
-                    Updated: {new Date(selectedSession?.updated_at || selectedSession?.end_time).toLocaleDateString('en-US', {
-                      month: 'short',
-                      day: 'numeric',
-                      year: 'numeric'
-                    })}, {new Date(selectedSession?.updated_at || selectedSession?.end_time).toLocaleTimeString('en-US', {
-                      hour: '2-digit',
-                      minute: '2-digit',
-                      hour12: true
-                    })}
-                  </p>
                 </div>
               </div>
             </div>
@@ -3235,9 +3475,17 @@ const TransactionsTab = ({ client, currentTheme }) => {
 const ClientManagement = () => {
   const { theme, currentTheme } = useTheme();
   const navigate = useNavigate();
+  const location = useLocation();
+  
+  // Get initial tab from URL params or default to "all"
+  const getInitialTab = () => {
+    const params = new URLSearchParams(location.search);
+    return params.get('tab') || 'all';
+  };
+  
   const [searchTerm, setSearchTerm] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
-  const [activeTab, setActiveTab] = useState("all");
+  const [activeTab, setActiveTab] = useState(getInitialTab());
   const [selectedClient, setSelectedClient] = useState(null);
   const [viewMode, setViewMode] = useState("list"); // list, edit, details, or agentView
   const [editData, setEditData] = useState(null);
@@ -3270,6 +3518,25 @@ const ClientManagement = () => {
   // Track which tabs have been visited to avoid unnecessary count fetches
   const visitedTabsRef = useRef(new Set());
   const fetchInProgressRef = useRef(false);
+  
+  // Update URL when active tab changes
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const currentTabParam = params.get('tab');
+    
+    if (currentTabParam !== activeTab) {
+      if (activeTab === 'all') {
+        params.delete('tab');
+      } else {
+        params.set('tab', activeTab);
+      }
+      
+      const newSearch = params.toString();
+      const newPath = newSearch ? `${location.pathname}?${newSearch}` : location.pathname;
+      
+      navigate(newPath, { replace: true });
+    }
+  }, [activeTab, location.pathname, location.search, navigate]);
 
   // Click outside handler for industry dropdown
   useEffect(() => {
@@ -3331,10 +3598,10 @@ const ClientManagement = () => {
               params = { ...baseParams, isVerified: true, isOnboarded: true };
               break;
             case "approved":
-              params = { ...baseParams, onbardingStatus: "Approved" };
+              params = { ...baseParams, onboardingStatus: "approved" };
               break;
             case "rejected":
-              params = { ...baseParams, onbardingStatus: "Rejected" };
+              params = { ...baseParams, onboardingStatus: "rejected" };
               break;
           }
 
@@ -3383,9 +3650,9 @@ const ClientManagement = () => {
       case "onboarded":
         return { ...baseParams, isVerified: true, isOnboarded: true };
       case "approved":
-        return { ...baseParams, onbardingStatus: "Approved" };
+        return { ...baseParams, onboardingStatus: "approved" };
       case "rejected":
-        return { ...baseParams, onbardingStatus: "Rejected" };
+        return { ...baseParams, onboardingStatus: "rejected" };
       default:
         return baseParams;
     }
@@ -4396,19 +4663,14 @@ const ClientManagement = () => {
     );
   }
 
-  // Client Details View
+  // Client Details View - Navigate to dedicated page
   if (viewMode === "details" && selectedClient) {
-    return (
-      <ClientDetailsView 
-        client={selectedClient} 
-        onBack={handleBackToList}
-        onEdit={handleEditClient}
-        onDelete={handleDeleteClient}
-        onApprove={handleApproveClient}
-        onReject={handleRejectClient}
-        onViewAgent={handleViewAgent}
-      />
-    );
+    navigate(`/dashboard/clients/${selectedClient._id || selectedClient.userData?._id}`, {
+      state: { client: selectedClient }
+    });
+    // Reset viewMode to prevent infinite loop
+    setViewMode("list");
+    return null;
   }
 
   // Edit View
@@ -6589,6 +6851,21 @@ const ClientManagement = () => {
                     >
                       <RiEyeLine className="w-4 h-4" />
                     </button>
+                    {/* Analytics button - only shown for onboarded clients */}
+                    {(client?.userData?.isOnboarded || client?.isOnboarded) && (
+                      <button
+                        onClick={() => {
+                          const clientId = client?.id || client?._id || client?.userData?.id || client?.userData?._id;
+                          navigate(`/dashboard/clients/${clientId}?tab=employees`, {
+                            state: { client }
+                          });
+                        }}
+                        className={`p-2 flex items-center justify-center ${currentTheme.textSecondary} rounded-lg ${currentTheme.activeBg} hover:scale-105 transition-all duration-200`}
+                        title="View AI Employee Analytics"
+                      >
+                        <RiBarChartLine className="w-4 h-4" />
+                      </button>
+                    )}
                     <button
                       onClick={() => handleEditClient(client?.userData)}
                       className={`p-2 flex items-center justify-center ${currentTheme.textSecondary} rounded-lg ${currentTheme.activeBg} hover:scale-105 transition-all duration-200`}

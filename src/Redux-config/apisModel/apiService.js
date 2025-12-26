@@ -405,6 +405,19 @@ const shivaiApiService = {
       throw error;
     }
   },
+
+  // Get call summary for an agent
+  getCallSummary: async (agentId) => {
+    try {
+      console.log(`📊 Fetching call summary for agent ID: ${agentId}...`);
+      const response = await apiClient.get(`v1/leads/agent/${agentId}`);
+      console.log('✅ Call summary fetched successfully:', response.data);
+      return response.data;
+    } catch (error) {
+      console.error('❌ Error fetching call summary:', error);
+      throw error;
+    }
+  },
 };
 
 export default apiService;
