@@ -1,6 +1,116 @@
 (function () {
   "use strict";
 
+  // Domain restriction - only allow widget on specific domains and paths
+  function isAllowedDomain() {
+    const currentHostname = window.location.hostname;
+    const currentPath = window.location.pathname;
+
+    // Allow localhost for testing
+    if (currentHostname === "localhost" || currentHostname === "127.0.0.1") {
+      return true;
+    }
+
+    // For production, only allow callshivai.com on home page and /landing
+    const isCallShivAI =
+      currentHostname === "callshivai.com" ||
+      currentHostname === "www.callshivai.com";
+    const isAllowedPath =
+      currentPath === "/" ||
+      currentPath === "/landing" ||
+      currentPath === "/landing/";
+
+    const isAllowed = isCallShivAI && isAllowedPath;
+
+    if (!isAllowed) {
+      console.warn(
+        `ShivAI Widget: Not authorized for "${currentHostname}${currentPath}"`
+      );
+    }
+
+    return isAllowed;
+  }
+
+  // Exit early if domain is not allowed
+  if (!isAllowedDomain()) {
+    return;
+  }
+
+  // Real-time URL monitoring to unload widget if URL changes to unauthorized page
+  let lastCheckedUrl = window.location.href;
+
+  function monitorUrlChanges() {
+    const currentUrl = window.location.href;
+
+    if (currentUrl !== lastCheckedUrl) {
+      console.log("🔍 URL changed, checking authorization...");
+      lastCheckedUrl = currentUrl;
+
+      if (!isAllowedDomain()) {
+        console.log("❌ Unauthorized URL detected, unloading widget...");
+        unloadWidget();
+      }
+    }
+  }
+
+  function unloadWidget() {
+    // Disconnect any active calls
+    if (room) {
+      try {
+        room.disconnect();
+      } catch (e) {
+        console.warn("Error disconnecting room:", e);
+      }
+    }
+
+    // Stop all audio
+    stopConnectingSound();
+    stopRingSound();
+
+    // Remove widget elements from DOM
+    if (triggerBtn && triggerBtn.parentNode) {
+      triggerBtn.parentNode.removeChild(triggerBtn);
+    }
+    if (widgetContainer && widgetContainer.parentNode) {
+      widgetContainer.parentNode.removeChild(widgetContainer);
+    }
+    if (messageBubble && messageBubble.parentNode) {
+      messageBubble.parentNode.removeChild(messageBubble);
+    }
+
+    // Clear intervals
+    if (messageInterval) {
+      clearInterval(messageInterval);
+    }
+
+    console.log("✅ Widget unloaded successfully");
+  }
+
+  // Monitor URL changes using multiple methods for compatibility
+
+  // 1. Browser back/forward buttons
+  window.addEventListener("popstate", monitorUrlChanges);
+
+  // 2. History API (pushState/replaceState) - intercept for SPAs
+  const originalPushState = history.pushState;
+  const originalReplaceState = history.replaceState;
+
+  history.pushState = function () {
+    originalPushState.apply(this, arguments);
+    monitorUrlChanges();
+  };
+
+  history.replaceState = function () {
+    originalReplaceState.apply(this, arguments);
+    monitorUrlChanges();
+  };
+
+  // 3. Polling as fallback (for edge cases)
+  setInterval(monitorUrlChanges, 1000);
+
+  // 4. Hash changes
+  window.addEventListener("hashchange", monitorUrlChanges);
+
   function loadLiveKitSDK() {
     return new Promise((resolve, reject) => {
       if (typeof LivekitClient !== "undefined") {
@@ -116,7 +226,56 @@
   let callTimerElement = null;
   let callStartTime = null;
   let callTimerInterval = null;
-  function initWidget() {
+  let agentStatus = { active: true, message: '' }; // Store agent status
+  
+  // Check agent status when widget loads
+  async function checkAgentStatusOnLoad() {
+    try {
+      // Extract agent ID from widget configuration or use default
+      const agentId = '67640c7c0961fa15eb8f1893'; // Replace with your agent ID or make it configurable
+      
+      console.log('🔍 Checking agent status for ID:', agentId);
+      
+      const response = await fetch(`https://nodejs.service.callshivai.com/api/v1/agents/${agentId}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      if (!response.ok) {
+        console.error('❌ Failed to fetch agent status:', response.status);
+        agentStatus = { active: false, message: 'AI employee is not active yet. Please try again later.' };
+        return;
+      }
+      
+      const data = await response.json();
+      console.log('📊 Agent status response:', data);
+      
+      // Check if agent is active
+      if (data.is_active === false) {
+        console.warn('⚠️ Agent is not active');
+        agentStatus = { 
+          active: false, 
+          message: 'AI Employee is not active yet or under maintenance. Please check back later.' 
+        };
+      } else {
+        console.log('✅ Agent is active and ready');
+        agentStatus = { active: true, message: '' };
+      }
+      
+    } catch (error) {
+      console.error('❌ Error checking agent status:', error);
+      agentStatus = { 
+        active: false, 
+        message: 'Unable to connect to AI Employee. Please try again later.' 
+      };
+    }
+  }
+  
+  async function initWidget() {
+    // Check agent status first
+    await checkAgentStatusOnLoad();
     createWidgetUI();
     setupEventListeners();
     initSoundContext();
@@ -237,7 +396,9 @@
   function playRingSound() {
     try {
       if (!ringAudio) {
-        ringAudio = new Audio("https://shivai-s3-bucket.s3.ap-south-1.amazonaws.com/assets/ring1.mp3");
+        ringAudio = new Audio(
+          "https://shivai-s3-bucket.s3.ap-south-1.amazonaws.com/assets/ring1.mp3"
+        );
         ringAudio.loop = true;
         ringAudio.volume = 0.7;
       }
@@ -291,7 +452,8 @@
       delay += 100;
     });
   }
-  async function getClientIP() {
+  
+ async function getClientIP() {
     try {
       try {
         const response = await fetch("https://ipapi.co/json/", {
@@ -335,6 +497,7 @@
       return null;
     }
   }
+
   function generateTone(frequency, duration, volume = 0.1) {
     if (!soundContext) return;
     const oscillator = soundContext.createOscillator();
@@ -914,6 +1077,8 @@
         <div class="language-section-landing">
           <label class="language-label-landing">Select your preferred language:</label>
           <select id="shivai-language-landing" class="language-select-styled-landing">
+                     <option value="multilingual" selected>🌐 Multilingual</option>
+
             <option value="ar">🇸🇦 Arabic</option>
             <option value="zh">🇨🇳 Chinese</option>
             <option value="nl">🇳🇱 Dutch</option>
@@ -933,12 +1098,9 @@
             <option value="tr">🇹🇷 Turkish</option>
           </select>
         </div>
-        <button class="start-call-btn mx-auto mb-4" id="start-call-btn">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path>
-          </svg>
-          Start Call
-        </button>
+        <div id="landing-action-area">
+          <!-- This will be populated based on agent status -->
+        </div>
         <div class="privacy-text">By using this service you agree to our <span class="privacy-link">T&C</span></div>
       </div>
       <div class="widget-footer" style="padding: 0; margin: 0; background-color: #f9fafb;">
@@ -983,6 +1145,8 @@
       <div class="language-section">
       <label class="language-label">Selected preferred language:</label>
       <select id="shivai-language" class="language-select-styled">
+      
+            <option value="multilingual" selected>🌐 Multilingual</option>
       <option value="ar">🇸🇦 Arabic</option>
       <option value="zh">🇨🇳 Chinese</option>
       <option value="nl">🇳🇱 Dutch</option>
@@ -1139,7 +1303,63 @@
     }, 100);
 
     setDefaultLanguage();
+    updateLandingViewBasedOnStatus();
   }
+  function updateLandingViewBasedOnStatus() {
+    const actionArea = document.getElementById('landing-action-area');
+    const privacyText = document.querySelector('.privacy-text');
+    if (!actionArea) return;
+    
+    if (agentStatus.active) {
+      // Show normal Start Call button
+      actionArea.innerHTML = `
+        <button class="start-call-btn mx-auto mb-4" id="start-call-btn">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path>
+          </svg>
+          Start Call
+        </button>
+      `;
+      
+      // Show privacy text
+      if (privacyText) {
+        privacyText.style.display = 'block';
+      }
+      
+      // Re-attach event listener for Start Call button
+      const startCallBtn = document.getElementById('start-call-btn');
+      if (startCallBtn) {
+        startCallBtn.addEventListener('click', () => {
+          switchToCallView();
+        });
+      }
+    } else {
+      // Show inactive/maintenance message
+      actionArea.innerHTML = `
+        <div class="agent-inactive-message" style="
+          background: #f3f4f6;
+          border: 1px solid #fecaca;
+          border-radius: 8px;
+          padding: 12px 16px;
+          margin: 12px 0;
+          text-align: center;
+        ">
+          <div style="font-size: 14px; font-weight: 600; color: #374151; margin-bottom: 4px;">
+            Our AI Employee is currently offline.
+          </div>
+          <div style="font-size: 13px; color: #6b7280; line-height: 1.4;">
+            We're getting things ready and will be back shortly to assist you.
+          </div>
+        </div>
+      `;
+      
+      // Hide privacy text when agent is not active
+      if (privacyText) {
+        privacyText.style.display = 'none';
+      }
+    }
+  }
+  
   function setDefaultLanguage() {
     const languageMap = {
       ar: "ar",
@@ -1168,7 +1388,7 @@
       const baseLang = browserLang.split("-")[0];
       detectedLang = languageMap[baseLang];
     }
-    const defaultLang = detectedLang || "en-US";
+    const defaultLang = "multilingual" || detectedLang || "multilingual";
     if (languageSelect) {
       languageSelect.value = defaultLang;
     }
@@ -2637,20 +2857,9 @@
     closeButtons.forEach((btn) => {
       btn.addEventListener("click", closeWidget);
     });
-    const startCallBtn = document.getElementById("start-call-btn");
-    if (startCallBtn) {
-      startCallBtn.addEventListener("click", async (e) => {
-        e.preventDefault();
-        const landingLanguageSelect = document.getElementById(
-          "shivai-language-landing"
-        );
-        if (landingLanguageSelect && languageSelect) {
-          languageSelect.value = landingLanguageSelect.value;
-        }
-        switchToCallView();
-        await handleConnectClick(e);
-      });
-    }
+    
+    // Start Call button listener will be added dynamically in updateLandingViewBasedOnStatus
+    
     const backBtn = document.getElementById("back-btn");
     if (backBtn) {
       backBtn.addEventListener("click", switchToLandingView);
@@ -2963,17 +3172,7 @@
       languageSelect.disabled = false;
     }
     if (window.currentCallId) {
-      fetch("https://shivai-com-backend.onrender.com/api/v1/calls/end-call", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ callId: window.currentCallId }),
-      })
-        .catch((err) => {
-          console.warn("Error ending call via API:", err);
-        })
-        .finally(() => {
-          window.currentCallId = null;
-        });
+      window.currentCallId = null;
     }
     console.log("🔴 Complete cleanup finished on widget close");
     widgetContainer.classList.remove("active");
@@ -3300,6 +3499,51 @@
       "0"
     )}:${String(seconds).padStart(2, "0")}`;
   }
+  
+  // Check if agent is active before starting conversation
+  async function checkAgentStatus() {
+    try {
+      // Extract agent ID from widget configuration or use default
+      const agentId = '6937bff1222bfd06ebdf0194'; // Replace with your agent ID or make it configurable
+      
+      console.log('🔍 Checking agent status for ID:', agentId);
+      
+      const response = await fetch(`https://nodejs.service.callshivai.com/api/v1/agents/${agentId}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      if (!response.ok) {
+        console.error('❌ Failed to fetch agent status:', response.status);
+        return { active: false, message: 'AI employee is not active yet. Please try again later.' };
+      }
+      
+      const data = await response.json();
+      console.log('📊 Agent status response:', data);
+      
+      // Check if agent is active
+      if (data.is_active === false) {
+        console.warn('⚠️ Agent is not active');
+        return { 
+          active: false, 
+          message: 'AI Employee is not active yet or under maintenance. Please check back later.' 
+        };
+      }
+      
+      console.log('✅ Agent is active and ready');
+      return { active: true };
+      
+    } catch (error) {
+      console.error('❌ Error checking agent status:', error);
+      return { 
+        active: false, 
+        message: 'Unable to connect to AI Employee. Please try again later.' 
+      };
+    }
+  }
+  
   async function showProgressiveConnectionStates() {
     const wasWarmedUp = false;
     const hasPreloadedAudio = audioContext !== null;
@@ -3736,8 +3980,9 @@
             agent_id: "6937bff1222bfd06ebdf0194",
             language: selectedLanguage,
             call_id: callId,
-            device: deviceType,
+          device: deviceType,
             user_agent: navigator.userAgent,
+            ip: await getClientIP(),
           }),
         }
       );
@@ -4431,29 +4676,7 @@
       console.warn("Could not play call-end sound:", e);
     }
     if (window.currentCallId) {
-      try {
-        updateStatus("Disconnecting...", "connecting");
-        const response = await fetch(
-          "https://shivai-com-backend.onrender.com/api/v1/calls/end-call",
-          {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              callId: window.currentCallId,
-            }),
-          }
-        );
-        if (response.ok) {
-          const data = await response.json();
-          console.log("Call ended successfully:", data);
-        }
-      } catch (error) {
-        console.error("Error ending call:", error);
-      } finally {
-        window.currentCallId = null;
-      }
+      window.currentCallId = null;
     }
 
     // Disconnect LiveKit room

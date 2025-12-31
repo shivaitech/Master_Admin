@@ -77,6 +77,9 @@
     const progressRef = useRef(null);
 
     const [viewMode, setViewMode] = useState("list"); // "list" or "grid"
+    
+    // IP Location cache state
+    const [ipLocationCache, setIpLocationCache] = useState({}); // Cache for IP to location mapping
 
     // API Filter states
     const [deviceTypeFilter, setDeviceTypeFilter] = useState("all"); // all, mobile, desktop, tablet
@@ -139,6 +142,81 @@
       document.head.appendChild(style);
       return () => document.head.removeChild(style);
     }, []);
+
+    // Function to resolve IP to location
+    const resolveIPLocation = async (ip) => {
+      // Check if IP is valid
+      if (!ip || ip === "Unknown" || ip === "N/A") {
+        return {
+          city: "Unknown",
+          region: "",
+          country: "Unknown",
+          countryCode: "",
+          isp: "Unknown ISP",
+          lat: null,
+          lon: null,
+          timezone: "",
+        };
+      }
+
+      // Check cache first
+      if (ipLocationCache[ip]) {
+        return ipLocationCache[ip];
+      }
+
+      try {
+        // Use ip-api.com for free IP geolocation (no API key required)
+        const response = await fetch(`http://ip-api.com/json/${ip}?fields=status,message,country,countryCode,region,regionName,city,zip,lat,lon,timezone,isp,org,as,query`);
+        const data = await response.json();
+
+        if (data.status === "success") {
+          const locationData = {
+            city: data.city || "Unknown",
+            region: data.regionName || data.region || "",
+            country: data.country || "Unknown",
+            countryCode: data.countryCode || "",
+            zip: data.zip || "",
+            isp: data.isp || data.org || "Unknown ISP",
+            lat: data.lat || null,
+            lon: data.lon || null,
+            timezone: data.timezone || "",
+            as: data.as || "",
+          };
+
+          // Cache the result
+          setIpLocationCache(prev => ({
+            ...prev,
+            [ip]: locationData
+          }));
+
+          return locationData;
+        } else {
+          console.warn(`IP geolocation failed for ${ip}:`, data.message);
+          return {
+            city: "Unknown",
+            region: "",
+            country: "Unknown",
+            countryCode: "",
+            isp: "Unknown ISP",
+            lat: null,
+            lon: null,
+            timezone: "",
+          };
+        }
+      } catch (error) {
+        console.error(`Error resolving IP location for ${ip}:`, error);
+        return {
+          city: "Unknown",
+          region: "",
+          country: "Unknown",
+          countryCode: "",
+          isp: "Unknown ISP",
+          lat: null,
+          lon: null,
+          timezone: "",
+        };
+      }
+    };
 
     // Demo Employee Data - Now as state
     const [employee, setEmployee] = useState({
@@ -227,18 +305,45 @@
           setTotalItems(total);
           setTotalPages(totalPagesCount);
 
-          const transformedSessions = sessionsArray.map((session, index) => ({
+          // Resolve IP locations for all sessions
+          const sessionsWithResolvedIP = await Promise.all(
+            sessionsArray.map(async (session, index) => {
+              const userIP = session.user_ip || session.userIP || session.ip || "Unknown";
+              const resolvedLocation = await resolveIPLocation(userIP);
+              
+              // Merge resolved location with existing location data (resolved takes priority)
+              const finalLocation = {
+                city: resolvedLocation.city !== "Unknown" ? resolvedLocation.city : (session.location?.city || "Unknown"),
+                region: resolvedLocation.region || session.location?.region || "",
+                country: resolvedLocation.country !== "Unknown" ? resolvedLocation.country : (session.location?.country || "Unknown"),
+                countryCode: resolvedLocation.countryCode || session.location?.countryCode || "",
+                zip: resolvedLocation.zip || session.location?.zip || "",
+                isp: resolvedLocation.isp !== "Unknown ISP" ? resolvedLocation.isp : (session.location?.isp || "Unknown ISP"),
+                lat: resolvedLocation.lat || session.location?.lat || null,
+                lon: resolvedLocation.lon || session.location?.lon || null,
+                timezone: resolvedLocation.timezone || session.location?.timezone || "",
+              };
+              
+              return {
+                ...session,
+                userIP,
+                resolvedLocation: finalLocation,
+              };
+            })
+          );
+
+          const transformedSessions = sessionsWithResolvedIP.map((session, index) => ({
             id: session.id || session.session_id || `session-${index + 1}`,
             sessionId:
               session.session_id ||
               session.id ||
               session._id ||
               `SES-${Date.now()}-${index}`,
-            clientName: session.location?.city
-              ? `${session.location.city}${
-                  session.location.region ? `, ${session.location.region}` : ""
+            clientName: session.resolvedLocation?.city !== "Unknown"
+              ? `${session.resolvedLocation.city}${
+                  session.resolvedLocation.region ? `, ${session.resolvedLocation.region}` : ""
                 }${
-                  session.location.country ? ` (${session.location.country})` : ""
+                  session.resolvedLocation.country ? ` (${session.resolvedLocation.country})` : ""
                 }`
               : session.client_name ||
                 session.clientName ||
@@ -277,15 +382,16 @@
                 : 0),
             resolution: session.resolution || "Session completed",
             tags: Array.isArray(session.tags) ? session.tags : [],
-            // Enhanced session data with fallbacks
-            location: {
-              city: session.location?.city || "Unknown",
-              country: session.location?.country || "Unknown",
-              region: session.location?.region || "",
-              zip: session.location?.zip || "",
-              lat: session.location?.lat || null,
-              lon: session.location?.lon || null,
-              isp: session.location?.isp || "Unknown ISP",
+            // Enhanced session data with fallbacks - using resolved location
+            location: session.resolvedLocation || {
+              city: "Unknown",
+              country: "Unknown",
+              region: "",
+              zip: "",
+              lat: null,
+              lon: null,
+              isp: "Unknown ISP",
+              timezone: "",
             },
             device: {
               browser: session.device?.browser || "Unknown Browser",
@@ -1808,9 +1914,9 @@
                     <div className={`flex items-center gap-1.5 min-w-0 flex-1 min-w-[calc(50%-0.375rem)] sm:min-w-0 ${currentTheme.searchBg} px-2 py-1.5 rounded-md`}>
                       <MapPin className={`w-3 h-3 ${currentTheme.textSecondary} flex-shrink-0`} />
                       <div className="min-w-0 flex-1">
-                        <p className={`text-xs ${currentTheme.textSecondary} hidden sm:block`}>IP Address</p>
-                        <span className={`text-xs font-medium ${currentTheme.text} truncate block`}>
-                          {selectedSession.ipAddress || selectedSession.ip_address || 'unknown'}
+                        <p className={`text-xs ${currentTheme.textSecondary} hidden sm:block`}>Location & IP</p>
+                        <span className={`text-xs font-medium ${currentTheme.text} truncate block`} title={`${selectedSession.location?.city || 'Unknown'}, ${selectedSession.location?.region || ''} ${selectedSession.location?.country || 'Unknown'} • IP: ${selectedSession.userIP || 'Unknown'} • ISP: ${selectedSession.location?.isp || 'Unknown'}`}>
+                          {selectedSession.location?.city || 'Unknown'}, {selectedSession.location?.country || 'Unknown'} • {selectedSession.userIP || 'Unknown'}
                         </span>
                       </div>
                     </div>

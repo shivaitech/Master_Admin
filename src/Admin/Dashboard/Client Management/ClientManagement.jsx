@@ -8,58 +8,55 @@ import React, {
 import { useNavigate, useLocation } from "react-router-dom";
 import toast from "react-hot-toast";
 import {
-  RiTeamLine,
-  RiSearchLine,
-  RiUserLine,
-  RiEyeLine,
-  RiEditLine,
-  RiDeleteBinLine,
-  RiUserAddLine,
-  RiBankCardLine,
-  RiDownloadLine,
-  RiCheckLine,
-  RiCheckDoubleLine,
-  RiCloseLine,
-  RiTimeLine,
-  RiArrowLeftLine,
-  RiGlobalLine,
-  RiMailLine,
-  RiBuildingLine,
-  RiUserVoiceLine,
-  RiBookOpenLine,
-  RiRocketLine,
-  RiFileTextLine,
-  RiQuestionLine,
-  RiRobotLine,
-  RiShieldCheckLine,
-  RiRefreshLine,
-  RiWhatsappLine,
-  RiErrorWarningLine,
-  RiInformationLine,
-  RiChatVoiceLine,
-  RiSendPlaneLine,
-  RiPlayLine,
-  RiMicLine,
-  RiCalendarLine,
-  RiShoppingBagLine,
-  RiSlackLine,
-  RiSettingsLine,
-  RiAddLine,
-  RiListCheck2,
-  RiArrowDownLine,
-  RiSettings4Line,
-  RiMoneyDollarCircleLine,
-  RiCpuLine,
-  RiPulseLine,
-  RiTokenSwapLine,
-  RiVipCrownLine,
-  RiShoppingBag3Line,
-  RiExchangeDollarLine,
-  RiBarChartLine,
-  RiPhoneLine,
-  RiChatOffLine,
-  RiUser3Line,
-} from "react-icons/ri";
+  Users,
+  Search,
+  User,
+  Eye,
+  Edit,
+  Trash2,
+  UserPlus,
+  CreditCard,
+  Download,
+  Check,
+  CheckCheck,
+  X,
+  Clock,
+  ArrowLeft,
+  Globe,
+  Mail,
+  Building2,
+  Mic2,
+  BookOpen,
+  Rocket,
+  FileText,
+  HelpCircle,
+  Bot,
+  ShieldCheck,
+  RefreshCw,
+  MessageCircle,
+  AlertCircle,
+  Info,
+  Send,
+  Play,
+  Mic,
+  Calendar,
+  ShoppingBag,
+  Slack,
+  Settings,
+  Plus,
+  ListChecks,
+  ArrowDown,
+  Settings2,
+  DollarSign,
+  Cpu,
+  Activity,
+  Repeat,
+  Crown,
+  BarChart3,
+  Phone,
+  MessageSquareOff,
+  UserCircle2,
+} from "lucide-react";
 import { useTheme } from "../contexts/ThemeContext";
 import { shivaiApiService } from "../../../Redux-config/apisModel/apiService";
 import {
@@ -68,18 +65,10 @@ import {
   VolumeX,
   SkipBack,
   SkipForward,
-  Download,
-  Play,
   Pause,
-  Bot,
-  Clock,
-  FileText,
-  Phone,
   Loader2,
   XCircle,
-  Activity,
   MapPin,
-  Globe,
   Smartphone,
   Monitor,
   Tablet,
@@ -276,7 +265,7 @@ const OnboardingDataTab = ({ client, currentTheme }) => {
   if (error) {
     return (
       <div className={`text-center py-8 rounded-lg border-2 border-dashed ${currentTheme.border} bg-red-50 dark:bg-red-900/10`}>
-        <RiCloseLine className={`w-12 h-12 mx-auto mb-3 text-red-500 opacity-50`} />
+        <X className={`w-5 h-5 mx-auto mb-3 text-red-500 opacity-50`} />
         <p className={`text-red-600 dark:text-red-400 font-medium mb-2`}>
           Error loading onboarding data
         </p>
@@ -297,8 +286,8 @@ const OnboardingDataTab = ({ client, currentTheme }) => {
         <div
           className={`text-center py-8 rounded-lg border-2 border-dashed ${currentTheme.border}`}
         >
-          <RiFileTextLine
-            className={`w-12 h-12 mx-auto mb-3 ${currentTheme.textSecondary} opacity-50`}
+          <FileText
+            className={`w-5 h-5 mx-auto mb-3 ${currentTheme.textSecondary} opacity-50`}
           />
           <p className={`${currentTheme.textSecondary} font-medium mb-2`}>
             No onboarding data available
@@ -317,7 +306,7 @@ const OnboardingDataTab = ({ client, currentTheme }) => {
               <h4
                 className={`text-base md:text-lg font-semibold ${currentTheme.text} mb-3 md:mb-4 flex items-center gap-2`}
               >
-                <RiBuildingLine className="w-4 h-4 md:w-5 md:h-5" />
+                <Building2 className="w-5 h-5" />
                 Company Basics
               </h4>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4">
@@ -475,7 +464,7 @@ const OnboardingDataTab = ({ client, currentTheme }) => {
               <h4
                 className={`text-base md:text-lg font-semibold ${currentTheme.text} mb-3 md:mb-4 flex items-center gap-2`}
               >
-                <RiBankCardLine className="w-4 h-4 md:w-5 md:h-5" />
+                <CreditCard className="w-5 h-5" />
                 Plan Details
               </h4>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
@@ -551,7 +540,7 @@ const OnboardingDataTab = ({ client, currentTheme }) => {
               <h4
                 className={`text-base md:text-lg font-semibold ${currentTheme.text} mb-3 md:mb-4 flex items-center gap-2`}
               >
-                <RiRocketLine className="w-4 h-4 md:w-5 md:h-5" />
+                <Rocket className="w-5 h-5" />
                 Deployment Targets
               </h4>
 
@@ -637,7 +626,7 @@ const OnboardingDataTab = ({ client, currentTheme }) => {
                 <h4
                   className={`text-base md:text-lg font-semibold ${currentTheme.text} mb-3 md:mb-4 flex items-center gap-2`}
                 >
-                  <RiRobotLine className="w-4 h-4 md:w-5 md:h-5" />
+                  <Bot className="w-5 h-5" />
                   AI Employees ({onboardingData.ai_employees.length})
                 </h4>
 
@@ -651,8 +640,8 @@ const OnboardingDataTab = ({ client, currentTheme }) => {
                         <div
                           className={`w-8 h-8 md:w-10 md:h-10 rounded-lg bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center`}
                         >
-                          <RiRobotLine
-                            className={`w-4 h-4 md:w-5 md:h-5 text-blue-600 dark:text-blue-400`}
+                          <Bot
+                            className={`w-5 h-5 text-blue-600 dark:text-blue-400`}
                           />
                         </div>
                         <div className="min-w-0 flex-1">
@@ -1103,8 +1092,8 @@ const AIEmployeesTab = ({ client, currentTheme, onViewAgent }) => {
           </h3>
         </div>
         <div className={`text-center py-12 rounded-lg ${currentTheme.searchBg}`}>
-          <div className={`w-12 h-12 mx-auto mb-3 text-red-500`}>
-            <RiErrorWarningLine className="w-full h-full" />
+          <div className={`w-5 h-5 mx-auto mb-3 text-red-500`}>
+            <AlertCircle className="w-full h-full" />
           </div>
           <h4 className={`text-lg font-semibold ${currentTheme.text} mb-2`}>
             Error Loading Data
@@ -1133,8 +1122,8 @@ const AIEmployeesTab = ({ client, currentTheme, onViewAgent }) => {
         <div
           className={`text-center py-12 rounded-lg ${currentTheme.searchBg}`}
         >
-          <RiRobotLine
-            className={`w-12 h-12 mx-auto mb-3 ${currentTheme.textSecondary}`}
+          <Bot
+            className={`w-5 h-5 mx-auto mb-3 ${currentTheme.textSecondary}`}
           />
           <h4 className={`text-lg font-semibold ${currentTheme.text} mb-2`}>
             No AI Employees
@@ -1155,7 +1144,7 @@ const AIEmployeesTab = ({ client, currentTheme, onViewAgent }) => {
                   <div
                     className={`w-10 h-10 rounded-lg ${currentTheme.cardBg} border ${currentTheme.border} flex items-center justify-center`}
                   >
-                    <RiRobotLine className={`w-5 h-5 ${currentTheme.text}`} />
+                    <Bot className={`w-5 h-5 ${currentTheme.text}`} />
                   </div>
                   <div>
                     <h4 className={`font-semibold ${currentTheme.text}`}>
@@ -1181,7 +1170,7 @@ const AIEmployeesTab = ({ client, currentTheme, onViewAgent }) => {
                     className={`px-3 py-1 ${currentTheme.searchBg} hover:${currentTheme.hover} ${currentTheme.text} border ${currentTheme.border} text-sm font-medium rounded-lg transition-all duration-200 flex items-center gap-1`}
                     title="View Agent Details"
                   >
-                    <RiEyeLine className="w-3 h-3" />
+                    <Eye className="w-5 h-5" />
                     View
                   </button>
                 </div>
@@ -1298,10 +1287,10 @@ const AgentDetailsView = ({ agent, onBack, currentTheme }) => {
 
   // Memoize tabs array to prevent re-renders
   const tabs = useMemo(() => [
-    { id: "overview", label: "Overview", icon: RiInformationLine },
-    { id: "test", label: "Preview & Test", icon: RiChatVoiceLine },
-    { id: "analytics", label: "Analytics", icon: RiBarChartLine },
-    { id: "instructions", label: "Instructions", icon: RiFileTextLine },
+    { id: "overview", label: "Overview", icon: Info },
+    { id: "test", label: "Preview & Test", icon: MessageCircle },
+    { id: "analytics", label: "Analytics", icon: BarChart3 },
+    { id: "instructions", label: "Instructions", icon: FileText },
   ], []);
 
   // Fetch agent sessions when analytics tab is active
@@ -1811,7 +1800,7 @@ const AgentDetailsView = ({ agent, onBack, currentTheme }) => {
             onClick={onBack}
             className={`p-2 rounded-lg ${currentTheme.hover} ${currentTheme.text} transition-all duration-200`}
           >
-            <RiArrowLeftLine className="w-5 h-5" />
+            <ArrowLeft className="w-5 h-5" />
           </button>
           <div className="flex-1">
             <h1 className={`text-2xl font-bold ${currentTheme.text}`}>
@@ -1849,7 +1838,7 @@ const AgentDetailsView = ({ agent, onBack, currentTheme }) => {
                       : `border-transparent ${currentTheme.textSecondary} hover:text-gray-700 dark:hover:text-gray-300`
                   }`}
                 >
-                  <Icon className="w-4 h-4" />
+                  <Icon className="w-5 h-5" />
                   {tab.label}
                 </button>
               );
@@ -1866,7 +1855,7 @@ const AgentDetailsView = ({ agent, onBack, currentTheme }) => {
             <div className={`${currentTheme.cardBg} rounded-lg p-4 border ${currentTheme.border}`}>
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-lg bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center">
-                  <RiRobotLine className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                  <Bot className="w-5 h-5 text-blue-600 dark:text-blue-400" />
                 </div>
                 <div>
                   <p className={`text-sm ${currentTheme.textSecondary}`}>Agent Type</p>
@@ -1877,7 +1866,7 @@ const AgentDetailsView = ({ agent, onBack, currentTheme }) => {
             <div className={`${currentTheme.cardBg} rounded-lg p-4 border ${currentTheme.border}`}>
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-lg bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
-                  <RiMicLine className="w-5 h-5 text-green-600 dark:text-green-400" />
+                  <Mic className="w-5 h-5 text-green-600 dark:text-green-400" />
                 </div>
                 <div>
                   <p className={`text-sm ${currentTheme.textSecondary}`}>Voice</p>
@@ -1888,7 +1877,7 @@ const AgentDetailsView = ({ agent, onBack, currentTheme }) => {
             <div className={`${currentTheme.cardBg} rounded-lg p-4 border ${currentTheme.border}`}>
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-lg bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center">
-                  <RiGlobalLine className="w-5 h-5 text-purple-600 dark:text-purple-400" />
+                  <Globe className="w-5 h-5 text-purple-600 dark:text-purple-400" />
                 </div>
                 <div>
                   <p className={`text-sm ${currentTheme.textSecondary}`}>Language</p>
@@ -1928,7 +1917,7 @@ const AgentDetailsView = ({ agent, onBack, currentTheme }) => {
           {/* Agent Information Card */}
           <div className={`${currentTheme.cardBg} rounded-lg p-6 border ${currentTheme.border}`}>
             <h3 className={`text-lg font-semibold ${currentTheme.text} mb-4 flex items-center gap-2`}>
-              <RiInformationLine className="w-5 h-5" />
+              <Info className="w-5 h-5" />
               Agent Information
             </h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -2133,7 +2122,7 @@ const AgentDetailsView = ({ agent, onBack, currentTheme }) => {
                       disabled={!isConnected || !chatInput.trim()}
                       className="px-4 py-2 bg-blue-500 hover:bg-blue-600 disabled:bg-gray-400 text-white rounded-lg transition-colors"
                     >
-                      <RiSendPlaneLine className="w-4 h-4" />
+                      <Send className="w-5 h-5" />
                     </button>
                   </div>
                   <div className="text-xs text-gray-500 mt-2">
@@ -2202,7 +2191,7 @@ const AgentDetailsView = ({ agent, onBack, currentTheme }) => {
                   {/* Session Info */}
                   <div className="flex flex-wrap gap-1.5 sm:gap-2 mb-2 sm:mb-3">
                     <div className={`flex items-center gap-1.5 min-w-0 flex-1 min-w-[calc(50%-0.375rem)] sm:min-w-0 ${currentTheme.searchBg} px-2 py-1.5 rounded-md`}>
-                      <Clock className={`w-3 h-3 ${currentTheme.textSecondary} flex-shrink-0`} />
+                      <Clock className={`w-5 h-5 ${currentTheme.textSecondary} flex-shrink-0`} />
                       <div className="min-w-0 flex-1">
                         <p className={`text-xs ${currentTheme.textSecondary} hidden sm:block`}>Date & Time</p>
                         <span className={`text-xs font-medium ${currentTheme.text} truncate block`}>
@@ -2212,7 +2201,7 @@ const AgentDetailsView = ({ agent, onBack, currentTheme }) => {
                     </div>
                     
                     <div className={`flex items-center gap-1.5 min-w-0 flex-1 min-w-[calc(50%-0.375rem)] sm:min-w-0 ${currentTheme.searchBg} px-2 py-1.5 rounded-md`}>
-                      <MapPin className={`w-3 h-3 ${currentTheme.textSecondary} flex-shrink-0`} />
+                      <MapPin className={`w-5 h-5 ${currentTheme.textSecondary} flex-shrink-0`} />
                       <div className="min-w-0 flex-1">
                         <p className={`text-xs ${currentTheme.textSecondary} hidden sm:block`}>IP Address</p>
                         <span className={`text-xs font-medium ${currentTheme.text} truncate block`}>
@@ -2222,7 +2211,7 @@ const AgentDetailsView = ({ agent, onBack, currentTheme }) => {
                     </div>
                     
                     <div className={`flex items-center gap-1.5 min-w-0 flex-1 min-w-[calc(50%-0.375rem)] sm:min-w-0 ${currentTheme.searchBg} px-2 py-1.5 rounded-md`}>
-                      <Phone className={`w-3 h-3 ${currentTheme.textSecondary} flex-shrink-0`} />
+                      <Phone className={`w-5 h-5 ${currentTheme.textSecondary} flex-shrink-0`} />
                       <div className="min-w-0 flex-1">
                         <p className={`text-xs ${currentTheme.textSecondary} hidden sm:block`}>Device • Duration</p>
                         <span className={`text-xs font-medium ${currentTheme.text} truncate block`}>
@@ -2268,7 +2257,7 @@ const AgentDetailsView = ({ agent, onBack, currentTheme }) => {
                       {(selectedSession.token_usage || selectedSession.tokenUsage) && (
                         <div className={`px-3 sm:px-4 py-3 mb-3 ${currentTheme.searchBg} rounded-lg`}>
                           <div className="flex items-center gap-2 mb-2">
-                            <Activity className={`w-4 h-4 ${currentTheme.text}`} />
+                            <Activity className={`w-5 h-5 ${currentTheme.text}`} />
                             <h4 className={`text-sm sm:text-base font-semibold ${currentTheme.text}`}>
                               Token Usage
                             </h4>
@@ -2346,7 +2335,7 @@ const AgentDetailsView = ({ agent, onBack, currentTheme }) => {
                               ))}
 
                               <p className={`text-xs ${currentTheme.textSecondary} mt-3 flex items-center gap-1`}>
-                                <Clock className="w-3 h-3" />
+                                <Clock className="w-5 h-5" />
                                 Session ended • Resolution: {selectedSession.resolution}
                               </p>
                             </>
@@ -2413,7 +2402,7 @@ const AgentDetailsView = ({ agent, onBack, currentTheme }) => {
                                 className={`p-1.5 hover:${currentTheme.searchBg} rounded transition-colors`}
                                 title="Rewind 10s"
                               >
-                                <SkipBack className={`w-4 h-4 ${currentTheme.textSecondary}`} />
+                                <SkipBack className={`w-5 h-5 ${currentTheme.textSecondary}`} />
                               </button>
                               
                               <button
@@ -2422,7 +2411,7 @@ const AgentDetailsView = ({ agent, onBack, currentTheme }) => {
                                 title={isPlaying ? 'Pause' : 'Play'}
                               >
                                 {isPlaying ? (
-                                  <Pause className="w-4 h-4" fill="currentColor" />
+                                  <Pause className="w-5 h-5" fill="currentColor" />
                                 ) : (
                                   <Play className="w-4 h-4 ml-0.5" fill="currentColor" />
                                 )}
@@ -2433,7 +2422,7 @@ const AgentDetailsView = ({ agent, onBack, currentTheme }) => {
                                 className={`p-1.5 hover:${currentTheme.searchBg} rounded transition-colors`}
                                 title="Forward 10s"
                               >
-                                <SkipForward className={`w-4 h-4 ${currentTheme.textSecondary}`} />
+                                <SkipForward className={`w-5 h-5 ${currentTheme.textSecondary}`} />
                               </button>
 
                               <button
@@ -2450,9 +2439,9 @@ const AgentDetailsView = ({ agent, onBack, currentTheme }) => {
                                 title={isMuted ? 'Unmute' : 'Mute'}
                               >
                                 {isMuted ? (
-                                  <VolumeX className={`w-4 h-4 ${currentTheme.textSecondary}`} />
+                                  <VolumeX className={`w-5 h-5 ${currentTheme.textSecondary}`} />
                                 ) : (
-                                  <Volume2 className={`w-4 h-4 ${currentTheme.textSecondary}`} />
+                                  <Volume2 className={`w-5 h-5 ${currentTheme.textSecondary}`} />
                                 )}
                               </button>
                               
@@ -2460,7 +2449,7 @@ const AgentDetailsView = ({ agent, onBack, currentTheme }) => {
                                 className={`p-1.5 hover:${currentTheme.searchBg} rounded transition-colors`}
                                 title="Download recording"
                               >
-                                <Download className={`w-4 h-4 ${currentTheme.textSecondary}`} />
+                                <Download className={`w-5 h-5 ${currentTheme.textSecondary}`} />
                               </button>
                             </div>
 
@@ -2587,7 +2576,7 @@ const AgentDetailsView = ({ agent, onBack, currentTheme }) => {
                                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                       {lead.leadData.name && (
                                         <div className="flex items-start gap-2">
-                                          <Users className={`w-4 h-4 ${currentTheme.textSecondary} mt-0.5 flex-shrink-0`} />
+                                          <Users className={`w-5 h-5 ${currentTheme.textSecondary} mt-0.5 flex-shrink-0`} />
                                           <div className="min-w-0">
                                             <p className={`text-xs ${currentTheme.textSecondary}`}>Name</p>
                                             <p className={`text-sm font-medium ${currentTheme.text} truncate`}>{lead.leadData.name}</p>
@@ -2597,7 +2586,7 @@ const AgentDetailsView = ({ agent, onBack, currentTheme }) => {
                                       
                                       {lead.leadData.email && (
                                         <div className="flex items-start gap-2">
-                                          <Mail className={`w-4 h-4 ${currentTheme.textSecondary} mt-0.5 flex-shrink-0`} />
+                                          <Mail className={`w-5 h-5 ${currentTheme.textSecondary} mt-0.5 flex-shrink-0`} />
                                           <div className="min-w-0">
                                             <p className={`text-xs ${currentTheme.textSecondary}`}>Email</p>
                                             <p className={`text-sm font-medium ${currentTheme.text} truncate`}>{lead.leadData.email}</p>
@@ -2607,7 +2596,7 @@ const AgentDetailsView = ({ agent, onBack, currentTheme }) => {
                                       
                                       {lead.leadData.phone && (
                                         <div className="flex items-start gap-2">
-                                          <Phone className={`w-4 h-4 ${currentTheme.textSecondary} mt-0.5 flex-shrink-0`} />
+                                          <Phone className={`w-5 h-5 ${currentTheme.textSecondary} mt-0.5 flex-shrink-0`} />
                                           <div className="min-w-0">
                                             <p className={`text-xs ${currentTheme.textSecondary}`}>Phone</p>
                                             <p className={`text-sm font-medium ${currentTheme.text}`}>{lead.leadData.phone}</p>
@@ -2617,7 +2606,7 @@ const AgentDetailsView = ({ agent, onBack, currentTheme }) => {
 
                                       {lead.leadData.status && (
                                         <div className="flex items-start gap-2">
-                                          <TrendingUp className={`w-4 h-4 ${currentTheme.textSecondary} mt-0.5 flex-shrink-0`} />
+                                          <TrendingUp className={`w-5 h-5 ${currentTheme.textSecondary} mt-0.5 flex-shrink-0`} />
                                           <div>
                                             <p className={`text-xs ${currentTheme.textSecondary}`}>Status</p>
                                             <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${
@@ -2629,7 +2618,7 @@ const AgentDetailsView = ({ agent, onBack, currentTheme }) => {
                                                 ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/20 dark:text-purple-400'
                                                 : `${currentTheme.cardBg} ${currentTheme.text}`
                                             }`}>
-                                              {lead.leadData.status === 'qualified' && <CheckCircle className="w-3 h-3" />}
+                                              {lead.leadData.status === 'qualified' && <CheckCircle className="w-5 h-5" />}
                                               {lead.leadData.status}
                                             </span>
                                           </div>
@@ -2638,7 +2627,7 @@ const AgentDetailsView = ({ agent, onBack, currentTheme }) => {
 
                                       {lead.leadData.group_size && (
                                         <div className="flex items-start gap-2">
-                                          <Users className={`w-4 h-4 ${currentTheme.textSecondary} mt-0.5 flex-shrink-0`} />
+                                          <Users className={`w-5 h-5 ${currentTheme.textSecondary} mt-0.5 flex-shrink-0`} />
                                           <div>
                                             <p className={`text-xs ${currentTheme.textSecondary}`}>Group Size</p>
                                             <p className={`text-sm font-medium ${currentTheme.text}`}>{lead.leadData.group_size}</p>
@@ -2648,7 +2637,7 @@ const AgentDetailsView = ({ agent, onBack, currentTheme }) => {
 
                                       {lead.leadData.dates && (
                                         <div className="flex items-start gap-2">
-                                          <Calendar className={`w-4 h-4 ${currentTheme.textSecondary} mt-0.5 flex-shrink-0`} />
+                                          <Calendar className={`w-5 h-5 ${currentTheme.textSecondary} mt-0.5 flex-shrink-0`} />
                                           <div>
                                             <p className={`text-xs ${currentTheme.textSecondary}`}>Travel Dates</p>
                                             <p className={`text-sm font-medium ${currentTheme.text}`}>{lead.leadData.dates}</p>
@@ -2707,7 +2696,7 @@ const AgentDetailsView = ({ agent, onBack, currentTheme }) => {
               </div>
             ) : sessions.length === 0 ? (
               <div className={`text-center py-12 rounded-lg ${currentTheme.searchBg}`}>
-                <RiPhoneLine className={`w-12 h-12 mx-auto mb-3 ${currentTheme.textSecondary}`} />
+                <Phone className={`w-5 h-5 mx-auto mb-3 ${currentTheme.textSecondary}`} />
                 <h4 className={`text-lg font-semibold ${currentTheme.text} mb-2`}>
                   No Sessions Yet
                 </h4>
@@ -2737,7 +2726,7 @@ const AgentDetailsView = ({ agent, onBack, currentTheme }) => {
                       {/* Session ID and View Button */}
                       <div className="flex items-center justify-between mb-3">
                         <div className="flex items-center gap-2 flex-1 min-w-0">
-                          <RiPhoneLine className={`w-4 h-4 ${currentTheme.textSecondary} flex-shrink-0`} />
+                          <Phone className={`w-5 h-5 ${currentTheme.textSecondary} flex-shrink-0`} />
                           <h4 className={`font-semibold ${currentTheme.text} text-sm truncate`}>
                             {sessionId}
                           </h4>
@@ -2750,7 +2739,7 @@ const AgentDetailsView = ({ agent, onBack, currentTheme }) => {
                           {loadingTranscripts && selectedSession?.id === session?.id ? (
                             <div className="w-3 h-3 border border-gray-600 border-t-transparent rounded-full animate-spin"></div>
                           ) : (
-                            <RiEyeLine className="w-3 h-3" />
+                            <Eye className="w-5 h-5" />
                           )}
                         </button>
                       </div>
@@ -2968,7 +2957,7 @@ const AgentDetailsView = ({ agent, onBack, currentTheme }) => {
               <div className={`h-96 overflow-y-auto p-4 rounded-lg ${currentTheme.searchBg} border ${currentTheme.border}`}>
                 {chatMessages.length === 0 ? (
                   <div className={`text-center py-8 ${currentTheme.textSecondary}`}>
-                    <RiChatVoiceLine className="w-12 h-12 mx-auto mb-2 opacity-50" />
+                    <MessageCircle className="w-5 h-5 mx-auto mb-2 opacity-50" />
                     <p>Start a conversation to test the agent</p>
                   </div>
                 ) : (
@@ -3028,7 +3017,7 @@ const AgentDetailsView = ({ agent, onBack, currentTheme }) => {
                   </>
                 ) : (
                   <>
-                    <RiSendPlaneLine className="w-4 h-4" />
+                    <Send className="w-5 h-5" />
                     Send
                   </>
                 )}
@@ -3041,7 +3030,7 @@ const AgentDetailsView = ({ agent, onBack, currentTheme }) => {
                 onClick={() => setChatMessages([])}
                 className={`px-4 py-2 rounded-lg ${currentTheme.hover} ${currentTheme.text} text-sm font-medium transition-colors duration-200 flex items-center gap-2`}
               >
-                <RiDeleteBinLine className="w-4 h-4" />
+                <Trash2 className="w-5 h-5" />
                 Clear Chat
               </button>
               <button
@@ -3061,7 +3050,7 @@ const AgentDetailsView = ({ agent, onBack, currentTheme }) => {
                 }}
                 className="px-4 py-2 bg-green-500 hover:bg-green-600 text-white rounded-lg text-sm font-medium transition-colors duration-200 flex items-center gap-2"
               >
-                <RiPlayLine className="w-4 h-4" />
+                <Play className="w-5 h-5" />
                 Demo Chat
               </button>
             </div>
@@ -3169,7 +3158,7 @@ const AnalyticsTab = ({ client, currentTheme }) => {
       {/* Call Statistics */}
       <div>
         <h4 className={`text-md font-semibold ${currentTheme.text} mb-4 flex items-center gap-2`}>
-          <RiUserVoiceLine className="w-5 h-5" />
+          <Mic2 className="w-5 h-5" />
           Call Statistics
         </h4>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
@@ -3209,7 +3198,7 @@ const AnalyticsTab = ({ client, currentTheme }) => {
       {/* Token Usage */}
       <div>
         <h4 className={`text-md font-semibold ${currentTheme.text} mb-4 flex items-center gap-2`}>
-          <RiTokenSwapLine className="w-5 h-5" />
+          <Repeat className="w-5 h-5" />
           Token Usage
         </h4>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -3243,7 +3232,7 @@ const AnalyticsTab = ({ client, currentTheme }) => {
       {/* Performance Metrics */}
       <div>
         <h4 className={`text-md font-semibold ${currentTheme.text} mb-4 flex items-center gap-2`}>
-          <RiPulseLine className="w-5 h-5" />
+          <Activity className="w-5 h-5" />
           Performance Metrics
         </h4>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -3277,7 +3266,7 @@ const AnalyticsTab = ({ client, currentTheme }) => {
       {/* Revenue Analytics */}
       <div>
         <h4 className={`text-md font-semibold ${currentTheme.text} mb-4 flex items-center gap-2`}>
-          <RiMoneyDollarCircleLine className="w-5 h-5" />
+          <DollarSign className="w-5 h-5" />
           Revenue Analytics
         </h4>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -3305,7 +3294,7 @@ const AnalyticsTab = ({ client, currentTheme }) => {
       {/* AI Employees Performance */}
       <div>
         <h4 className={`text-md font-semibold ${currentTheme.text} mb-4 flex items-center gap-2`}>
-          <RiRobotLine className="w-5 h-5" />
+          <Bot className="w-5 h-5" />
           AI Employees Performance
         </h4>
         <div className={`${currentTheme.cardBg} border ${currentTheme.border} rounded-lg p-4`}>
@@ -3416,7 +3405,7 @@ const TransactionsTab = ({ client, currentTheme }) => {
         <div
           className={`text-center py-12 rounded-lg ${currentTheme.searchBg}`}
         >
-          <RiExchangeDollarLine
+          <DollarSign
             className={`w-12 h-12 mx-auto mb-3 ${currentTheme.textSecondary}`}
           />
           <h4 className={`text-lg font-semibold ${currentTheme.text} mb-2`}>
@@ -3438,7 +3427,7 @@ const TransactionsTab = ({ client, currentTheme }) => {
                   <div
                     className={`w-10 h-10 rounded-lg bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center`}
                   >
-                    <RiMoneyDollarCircleLine className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
+                    <DollarSign className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
                   </div>
                   <div>
                     <h4 className={`font-semibold ${currentTheme.text}`}>
@@ -4687,7 +4676,7 @@ const ClientManagement = () => {
                 onClick={handleCancelEdit}
                 className={`flex items-center justify-center sm:justify-start gap-2 px-4 py-2 rounded-lg ${currentTheme.hover} ${currentTheme.text} transition-all duration-200`}
               >
-                <RiArrowLeftLine className="w-5 h-5" />
+                <ArrowLeft className="w-5 h-5" />
                 <span className="text-sm sm:text-base">Cancel</span>
               </button>
               <h2
@@ -4702,7 +4691,7 @@ const ClientManagement = () => {
                   onClick={handleToggleEdit}
                   className={`flex-1 sm:flex-none px-3 sm:px-4 py-2 rounded-lg admin-btn-primary transition-all duration-200 flex items-center justify-center gap-2 text-sm sm:text-base`}
                 >
-                  <RiEditLine className="w-4 h-4" />
+                  <Edit className="w-5 h-5" />
                   <span className="hidden sm:inline">Edit</span>
                 </button>
               ) : (
@@ -4711,14 +4700,14 @@ const ClientManagement = () => {
                     onClick={handleCancelEdit}
                     className={`flex-1 sm:flex-none px-3 sm:px-4 py-2 border ${currentTheme.border} rounded-lg ${currentTheme.text} ${currentTheme.hover} transition-all duration-200 flex items-center justify-center gap-2 text-sm sm:text-base`}
                   >
-                    <RiCloseLine className="w-4 h-4" />
+                    <X className="w-5 h-5" />
                     <span className="hidden sm:inline">Cancel</span>
                   </button>
                   <button
                     onClick={handleSaveEdit}
                     className="flex-1 sm:flex-none admin-btn-primary px-3 sm:px-4 py-2 text-sm sm:text-base flex items-center justify-center gap-2"
                   >
-                    <RiCheckLine className="w-4 h-4" />
+                    <Check className="w-5 h-5" />
                     <span className="hidden sm:inline">Save</span>
                   </button>
                 </>
@@ -4736,7 +4725,7 @@ const ClientManagement = () => {
             <h3
               className={`text-base md:text-lg font-bold ${currentTheme.text} mb-3 md:mb-4 flex items-center gap-2`}
             >
-              <RiBuildingLine className="w-4 h-4 md:w-5 md:h-5" />
+              <Building2 className="w-5 h-5" />
               Company Basics
             </h3>
             <div className="space-y-3 md:space-y-4">
@@ -4818,7 +4807,7 @@ const ClientManagement = () => {
                         : "Search or select industries"
                     }
                   />
-                  <RiArrowDownLine
+                  <ArrowDown
                     className={`absolute right-2.5 top-2.5 w-4 h-4 text-gray-400 transition-transform cursor-pointer ${showIndustryDropdown ? "rotate-180" : ""}`}
                     onClick={() =>
                       isEditing &&
@@ -4852,7 +4841,7 @@ const ClientManagement = () => {
                                   }}
                                   className="text-blue-600 hover:text-blue-800"
                                 >
-                                  <RiCloseLine className="w-3 h-3" />
+                                  <X className="w-5 h-5" />
                                 </button>
                               )}
                             </span>
@@ -5115,7 +5104,7 @@ const ClientManagement = () => {
             <h3
               className={`text-base md:text-lg font-bold ${currentTheme.text} mb-3 md:mb-4 flex items-center gap-2`}
             >
-              <RiBankCardLine className="w-4 h-4 md:w-5 md:h-5" />
+              <CreditCard className="w-5 h-5" />
               Plan Details
             </h3>
             <div className="space-y-3 md:space-y-4">
@@ -5374,7 +5363,7 @@ const ClientManagement = () => {
                 className={`text-lg md:text-xl font-bold ${currentTheme.text} flex items-center gap-3`}
               >
                 <div className={`p-2 rounded-lg ${currentTheme.activeBg}`}>
-                  <RiUserVoiceLine className="w-5 h-5 md:w-6 md:h-6" />
+                  <Mic2 className="w-5 h-5" />
                 </div>
                 <div>
                   <span>AI Employees</span>
@@ -5390,7 +5379,7 @@ const ClientManagement = () => {
                 disabled={!isEditing}
                 className={`admin-btn-primary px-4 py-2.5 text-sm w-full sm:w-auto flex items-center justify-center gap-2 font-medium ${!isEditing ? "opacity-60 cursor-not-allowed" : ""}`}
               >
-                <RiUserAddLine className="w-4 h-4" />
+                <UserPlus className="w-5 h-5" />
                 Add AI Employee
               </button>
             </div>
@@ -5402,7 +5391,7 @@ const ClientManagement = () => {
                   <div
                     className={`p-3 rounded-full ${currentTheme.searchBg} w-16 h-16 mx-auto mb-4 flex items-center justify-center`}
                   >
-                    <RiUserVoiceLine
+                    <Mic2
                       className={`w-8 h-8 ${currentTheme.textSecondary}`}
                     />
                   </div>
@@ -5419,7 +5408,7 @@ const ClientManagement = () => {
                       onClick={addAIEmployee}
                       className="admin-btn-primary px-6 py-2.5 text-sm font-medium"
                     >
-                      <RiUserAddLine className="w-4 h-4 mr-2" />
+                      <UserPlus className="w-4 h-4 mr-2" />
                       Create First AI Employee
                     </button>
                   )}
@@ -5435,7 +5424,7 @@ const ClientManagement = () => {
                         <div
                           className={`p-2 rounded-lg ${currentTheme.cardBg} border ${currentTheme.border}`}
                         >
-                          <RiRobotLine
+                          <Bot
                             className={`w-5 h-5 ${currentTheme.text}`}
                           />
                         </div>
@@ -5459,7 +5448,7 @@ const ClientManagement = () => {
                           className={`p-2 rounded-lg ${currentTheme.hover} text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors flex items-center gap-2`}
                           title="Remove AI Employee"
                         >
-                          <RiCloseLine className="w-5 h-5" />
+                          <X className="w-5 h-5" />
                         </button>
                       )}
                     </div>
@@ -5640,7 +5629,7 @@ const ClientManagement = () => {
                           <label
                             className={`text-xs ${currentTheme.textSecondary} uppercase block`}
                           >
-                            <RiFileTextLine className="w-4 h-4 inline mr-1" />
+                            <FileText className="w-4 h-4 inline mr-1" />
                             Workflow Integrations (
                             {(ai?.workflows || []).length})
                           </label>
@@ -5670,7 +5659,7 @@ const ClientManagement = () => {
                             }}
                             className={`px-3 py-1 rounded-lg text-xs bg-green-50 text-green-700 border border-green-200 hover:bg-green-100 transition-colors flex items-center gap-1`}
                           >
-                            <RiAddLine className="w-3 h-3" />
+                            <Plus className="w-5 h-5" />
                             Add Workflow
                           </button>
                         </div>
@@ -5687,7 +5676,7 @@ const ClientManagement = () => {
                                     <h5
                                       className={`text-sm font-medium ${currentTheme.text} flex items-center gap-2`}
                                     >
-                                      <RiSettingsLine className="w-4 h-4" />
+                                      <Settings className="w-5 h-5" />
                                       Workflow #{workflowIdx + 1}
                                     </h5>
                                     <button
@@ -5715,7 +5704,7 @@ const ClientManagement = () => {
                                       }}
                                       className={`p-1 rounded ${currentTheme.hover} text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors`}
                                     >
-                                      <RiCloseLine className="w-4 h-4" />
+                                      <X className="w-5 h-5" />
                                     </button>
                                   </div>
 
@@ -5840,20 +5829,20 @@ const ClientManagement = () => {
                                           >
                                             {workflow?.name ===
                                               "WhatsApp Business" && (
-                                              <RiWhatsappLine className="w-4 h-4 text-green-600" />
+                                              <MessageCircle className="w-4 h-4 text-green-600" />
                                             )}
                                             {workflow?.name === "Gmail" && (
-                                              <RiMailLine className="w-4 h-4 text-blue-600" />
+                                              <Mail className="w-4 h-4 text-blue-600" />
                                             )}
                                             {workflow?.name ===
                                               "Google Calendar" && (
-                                              <RiCalendarLine className="w-4 h-4 text-blue-600" />
+                                              <Calendar className="w-4 h-4 text-blue-600" />
                                             )}
                                             {workflow?.name === "Shopify" && (
-                                              <RiShoppingBagLine className="w-4 h-4 text-green-600" />
+                                              <ShoppingBag className="w-4 h-4 text-green-600" />
                                             )}
                                             {workflow?.name === "Slack" && (
-                                              <RiSlackLine className="w-4 h-4 text-purple-600" />
+                                              <Slack className="w-4 h-4 text-purple-600" />
                                             )}
                                             {![
                                               "WhatsApp Business",
@@ -5862,7 +5851,7 @@ const ClientManagement = () => {
                                               "Shopify",
                                               "Slack",
                                             ].includes(workflow?.name) && (
-                                              <RiSettings4Line className="w-4 h-4 text-gray-600" />
+                                              <Settings2 className="w-4 h-4 text-gray-600" />
                                             )}
                                           </div>
                                           <div className="flex-1">
@@ -5897,7 +5886,7 @@ const ClientManagement = () => {
                             <div
                               className={`text-center py-6 border-2 border-dashed ${currentTheme.border} rounded-lg`}
                             >
-                              <RiFileTextLine
+                              <FileText
                                 className={`w-8 h-8 mx-auto mb-2 ${currentTheme.textSecondary} opacity-50`}
                               />
                               <p
@@ -5936,7 +5925,7 @@ const ClientManagement = () => {
                                 }}
                                 className={`px-4 py-2 rounded-lg text-sm bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100 transition-colors flex items-center gap-2 mx-auto`}
                               >
-                                <RiAddLine className="w-4 h-4" />
+                                <Plus className="w-5 h-5" />
                                 Add Your First Workflow
                               </button>
                             </div>
@@ -5950,7 +5939,7 @@ const ClientManagement = () => {
                           <label
                             className={`text-xs ${currentTheme.textSecondary} uppercase block`}
                           >
-                            <RiBookOpenLine className="w-4 h-4 inline mr-1" />
+                            <BookOpen className="w-4 h-4 inline mr-1" />
                             Knowledge Sources
                           </label>
                         </div>
@@ -5960,7 +5949,7 @@ const ClientManagement = () => {
                           <label
                             className={`text-xs ${currentTheme.textSecondary} uppercase block mb-2`}
                           >
-                            <RiGlobalLine className="w-4 h-4 inline mr-1" />
+                            <Globe className="w-4 h-4 inline mr-1" />
                             Website URL
                           </label>
                           <input
@@ -5994,7 +5983,7 @@ const ClientManagement = () => {
                           <label
                             className={`text-xs ${currentTheme.textSecondary} uppercase block mb-2`}
                           >
-                            <RiQuestionLine className="w-4 h-4 inline mr-1" />
+                            <HelpCircle className="w-4 h-4 inline mr-1" />
                             FAQs / Knowledge Text
                           </label>
                           <textarea
@@ -6028,7 +6017,7 @@ const ClientManagement = () => {
                           <label
                             className={`text-xs ${currentTheme.textSecondary} uppercase block mb-2`}
                           >
-                            <RiFileTextLine className="w-4 h-4 inline mr-1" />
+                            <FileText className="w-4 h-4 inline mr-1" />
                             Uploaded Files (
                             {
                               (ai?.knowledge_sources?.uploaded_files || [])
@@ -6048,8 +6037,8 @@ const ClientManagement = () => {
                                   className={`flex items-center justify-between p-3 rounded-lg border ${currentTheme.border} ${currentTheme.cardBg}`}
                                 >
                                   <div className="flex items-center gap-3 flex-1 min-w-0">
-                                    <RiFileTextLine
-                                      className={`w-4 h-4 ${currentTheme.textSecondary}`}
+                                    <FileText
+                                      className={`w-5 h-5 ${currentTheme.textSecondary}`}
                                     />
                                     <div className="flex-1 min-w-0">
                                       <p
@@ -6085,14 +6074,14 @@ const ClientManagement = () => {
                                       className={`p-2 rounded-lg ${currentTheme.hover} ${currentTheme.textSecondary} hover:text-blue-600 transition-colors`}
                                       title="View File"
                                     >
-                                      <RiEyeLine className="w-4 h-4" />
+                                      <Eye className="w-5 h-5" />
                                     </button>
                                     <button
                                       onClick={() => handleDownloadFile(file)}
                                       className={`p-2 rounded-lg ${currentTheme.hover} ${currentTheme.textSecondary} hover:text-green-600 transition-colors`}
                                       title="Download File"
                                     >
-                                      <RiDownloadLine className="w-4 h-4" />
+                                      <Download className="w-5 h-5" />
                                     </button>
                                     <button
                                       onClick={() => {
@@ -6123,7 +6112,7 @@ const ClientManagement = () => {
                                       className={`p-2 rounded-lg ${currentTheme.hover} text-red-500 hover:bg-red-50 transition-colors`}
                                       title="Remove File"
                                     >
-                                      <RiCloseLine className="w-4 h-4" />
+                                      <X className="w-5 h-5" />
                                     </button>
                                   </div>
                                 </div>
@@ -6133,7 +6122,7 @@ const ClientManagement = () => {
                             <div
                               className={`text-center py-6 border-2 border-dashed ${currentTheme.border} rounded-lg`}
                             >
-                              <RiFileTextLine
+                              <FileText
                                 className={`w-8 h-8 mx-auto mb-2 ${currentTheme.textSecondary} opacity-50`}
                               />
                               <p
@@ -6215,7 +6204,7 @@ const ClientManagement = () => {
                         <h4
                           className={`text-md font-semibold ${currentTheme.text} flex items-center gap-2 mb-4`}
                         >
-                          <RiListCheck2 className="w-4 h-4 text-green-600" />
+                          <ListChecks className="w-4 h-4 text-green-600" />
                           Instructions & Guidelines
                           <span
                             className={`text-xs ${currentTheme.textSecondary} font-normal`}
@@ -6346,7 +6335,7 @@ const ClientManagement = () => {
                                       }}
                                       className="px-2 py-2 rounded-lg text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
                                     >
-                                      <RiCloseLine className="w-4 h-4" />
+                                      <X className="w-5 h-5" />
                                     </button>
                                   </div>
                                 )
@@ -6365,7 +6354,7 @@ const ClientManagement = () => {
                                 }}
                                 className={`flex items-center gap-2 px-3 py-2 border-2 border-dashed ${currentTheme.border} rounded-lg ${currentTheme.text} hover:bg-opacity-50 transition-colors text-sm`}
                               >
-                                <RiAddLine className="w-4 h-4" />
+                                <Plus className="w-5 h-5" />
                                 Add Metric
                               </button>
                             </div>
@@ -6378,7 +6367,7 @@ const ClientManagement = () => {
                         <h4
                           className={`text-md font-semibold ${currentTheme.text} flex items-center gap-2 mb-4`}
                         >
-                          <RiRocketLine className="w-4 h-4 text-purple-600" />
+                          <Rocket className="w-4 h-4 text-purple-600" />
                           Deployment Configuration
                           <span
                             className={`text-xs ${currentTheme.textSecondary} font-normal`}
@@ -6412,7 +6401,7 @@ const ClientManagement = () => {
                                     )
                                   }
                                   disabled={!isEditing}
-                                  className={`w-4 h-4 text-blue-500 ${!isEditing ? "opacity-60 cursor-not-allowed" : ""}`}
+                                  className={`w-5 h-5 text-blue-500 ${!isEditing ? "opacity-60 cursor-not-allowed" : ""}`}
                                 />
                                 <span className="text-sm">Shivai</span>
                               </label>
@@ -6434,7 +6423,7 @@ const ClientManagement = () => {
                                     )
                                   }
                                   disabled={!isEditing}
-                                  className={`w-4 h-4 text-blue-500 ${!isEditing ? "opacity-60 cursor-not-allowed" : ""}`}
+                                  className={`w-5 h-5 text-blue-500 ${!isEditing ? "opacity-60 cursor-not-allowed" : ""}`}
                                 />
                                 <span className="text-sm">Self-managed</span>
                               </label>
@@ -6470,7 +6459,7 @@ const ClientManagement = () => {
                                       );
                                     }}
                                     disabled={!isEditing}
-                                    className={`w-3 h-3 text-blue-500 ${!isEditing ? "opacity-60 cursor-not-allowed" : ""}`}
+                                    className={`w-5 h-5 text-blue-500 ${!isEditing ? "opacity-60 cursor-not-allowed" : ""}`}
                                   />
                                   {channel}
                                 </label>
@@ -6508,7 +6497,7 @@ const ClientManagement = () => {
                         <h4
                           className={`text-md font-semibold ${currentTheme.text} flex items-center gap-2 mb-4`}
                         >
-                          <RiShieldCheckLine className="w-4 h-4 text-gray-600" />
+                          <ShieldCheck className="w-4 h-4 text-gray-600" />
                           Consent & Privacy Options
                           <span
                             className={`text-xs ${currentTheme.textSecondary} font-normal`}
@@ -6533,7 +6522,7 @@ const ClientManagement = () => {
                                   )
                                 }
                                 disabled={!isEditing}
-                                className={`w-4 h-4 text-blue-500 rounded ${!isEditing ? "opacity-50 cursor-not-allowed" : ""}`}
+                                className={`w-5 h-5 text-blue-500 rounded ${!isEditing ? "opacity-50 cursor-not-allowed" : ""}`}
                               />
                               <span className="text-sm">Recording Enabled</span>
                             </label>
@@ -6552,7 +6541,7 @@ const ClientManagement = () => {
                                   )
                                 }
                                 disabled={!isEditing}
-                                className={`w-4 h-4 text-blue-500 rounded ${!isEditing ? "opacity-50 cursor-not-allowed" : ""}`}
+                                className={`w-5 h-5 text-blue-500 rounded ${!isEditing ? "opacity-50 cursor-not-allowed" : ""}`}
                               />
                               <span className="text-sm">
                                 Transcript Email Opt-in
@@ -6607,8 +6596,8 @@ const ClientManagement = () => {
               <div
                 className={`w-10 h-10 md:w-12 md:h-12 rounded-lg ${currentTheme.searchBg} flex items-center justify-center`}
               >
-                <RiTeamLine
-                  className={`w-5 h-5 md:w-6 md:h-6 ${currentTheme.textSecondary}`}
+                <Users
+                  className={`w-5 h-5 ${currentTheme.textSecondary}`}
                 />
               </div>
               <span className="text-xs md:text-sm font-medium text-blue-500">
@@ -6641,8 +6630,8 @@ const ClientManagement = () => {
               <div
                 className={`w-10 h-10 md:w-12 md:h-12 rounded-lg ${currentTheme.searchBg} flex items-center justify-center`}
               >
-                <RiTimeLine
-                  className={`w-5 h-5 md:w-6 md:h-6 ${currentTheme.textSecondary}`}
+                <Clock
+                  className={`w-5 h-5 ${currentTheme.textSecondary}`}
                 />
               </div>
               <span className="text-xs md:text-sm font-medium text-yellow-500">
@@ -6669,8 +6658,8 @@ const ClientManagement = () => {
               <div
                 className={`w-10 h-10 md:w-12 md:h-12 rounded-lg ${currentTheme.searchBg} flex items-center justify-center`}
               >
-                <RiCheckLine
-                  className={`w-5 h-5 md:w-6 md:h-6 ${currentTheme.textSecondary}`}
+                <Check
+                  className={`w-5 h-5 ${currentTheme.textSecondary}`}
                 />
               </div>
               <span className="text-xs md:text-sm font-medium text-green-500">
@@ -6701,7 +6690,7 @@ const ClientManagement = () => {
             <h2
               className={`text-lg md:text-xl font-semibold ${currentTheme.text} flex items-center gap-2`}
             >
-              <RiTeamLine className="w-4 h-4 md:w-5 md:h-5" />
+              <Users className="w-5 h-5" />
               Client Requests
             </h2>
             <p
@@ -6717,11 +6706,11 @@ const ClientManagement = () => {
               className={`p-2 rounded-lg ${currentTheme.hover} ${currentTheme.text} transition-all duration-200 flex-shrink-0`}
               title="Refresh data"
             >
-              <RiRefreshLine className="w-4 h-4" />
+              <RefreshCw className="w-5 h-5" />
             </button>
 
             <div className="relative flex-1 sm:flex-none">
-              <RiSearchLine
+              <Search
                 className={`absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 ${currentTheme.textSecondary}`}
               />
               <input
@@ -6748,12 +6737,12 @@ const ClientManagement = () => {
             "rejected",
           ].map((tab) => {
             const tabConfig = {
-              all: { icon: RiListCheck2, label: "All" },
-              newlySignup: { icon: RiUserAddLine, label: "Newly Signup" },
-              pending: { icon: RiTimeLine, label: "Pending" },
-              onboarded: { icon: RiCheckLine, label: "Onboarded" },
-              approved: { icon: RiCheckDoubleLine, label: "Approved" },
-              rejected: { icon: RiCloseLine, label: "Rejected" },
+              all: { icon: ListChecks, label: "All" },
+              newlySignup: { icon: UserPlus, label: "Newly Signup" },
+              pending: { icon: Clock, label: "Pending" },
+              onboarded: { icon: Check, label: "Onboarded" },
+              approved: { icon: CheckCheck, label: "Approved" },
+              rejected: { icon: X, label: "Rejected" },
             };
             const { icon: TabIcon, label } = tabConfig[tab];
 
@@ -6796,7 +6785,7 @@ const ClientManagement = () => {
             <div
               className={`text-center py-8 md:py-12 rounded-lg ${currentTheme.cardBg} border ${currentTheme.border}`}
             >
-              <RiUserLine
+              <User
                 className={`w-10 h-10 md:w-12 md:h-12 mx-auto mb-2 md:mb-3 ${currentTheme.textSecondary}`}
               />
               <h3
@@ -6821,8 +6810,8 @@ const ClientManagement = () => {
                     <div
                       className={`w-9 h-9 md:w-10 md:h-10 rounded-lg ${currentTheme.activeBg} flex items-center justify-center flex-shrink-0`}
                     >
-                      <RiBuildingLine
-                        className={`w-4 h-4 md:w-5 md:h-5 ${currentTheme.text}`}
+                      <Building2
+                        className={`w-5 h-5 ${currentTheme.text}`}
                       />
                     </div>
                     <div className="flex-1 min-w-0">
@@ -6849,7 +6838,7 @@ const ClientManagement = () => {
                       className={`p-2 flex items-center justify-center ${currentTheme.textSecondary} rounded-lg ${currentTheme.activeBg} hover:scale-105 transition-all duration-200`}
                       title="View Client Details"
                     >
-                      <RiEyeLine className="w-4 h-4" />
+                      <Eye className="w-5 h-5" />
                     </button>
                     {/* Analytics button - only shown for onboarded clients */}
                     {(client?.userData?.isOnboarded || client?.isOnboarded) && (
@@ -6863,7 +6852,7 @@ const ClientManagement = () => {
                         className={`p-2 flex items-center justify-center ${currentTheme.textSecondary} rounded-lg ${currentTheme.activeBg} hover:scale-105 transition-all duration-200`}
                         title="View AI Employee Analytics"
                       >
-                        <RiBarChartLine className="w-4 h-4" />
+                        <BarChart3 className="w-5 h-5" />
                       </button>
                     )}
                     <button
@@ -6871,14 +6860,14 @@ const ClientManagement = () => {
                       className={`p-2 flex items-center justify-center ${currentTheme.textSecondary} rounded-lg ${currentTheme.activeBg} hover:scale-105 transition-all duration-200`}
                       title="Edit Client"
                     >
-                      <RiEditLine className="w-4 h-4" />
+                      <Edit className="w-5 h-5" />
                     </button>
                     <button
                       onClick={() => handleDeleteClient(client?.userData)}
                       className={`p-2 flex items-center justify-center text-red-500 rounded-lg hover:bg-red-50 hover:scale-105 transition-all duration-200`}
                       title="Delete Client"
                     >
-                      <RiDeleteBinLine className="w-4 h-4" />
+                      <Trash2 className="w-5 h-5" />
                     </button>
                   </div>
                 </div>
@@ -7009,3 +6998,5 @@ export default ClientManagement;
 
 // Export tab components for use in ClientDetailsPage
 export { OnboardingDataTab, ClientDetailsTab, AIEmployeesTab, TransactionsTab, AgentDetailsView };
+
+

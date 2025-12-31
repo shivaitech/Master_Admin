@@ -177,7 +177,7 @@
         console.log(`🚀 Starting call ${wasWarmedUp ? '(backend pre-warmed)' : '(cold start)'}`);
         
         const response = await fetch(
-          `https://shivai-com-backend.onrender.com/api/v1/calls/start-call`,
+          `https://nodejs.service.callshivai.com/api/v1/calls/start-call`,
           {
             method: "POST",
             headers: {
@@ -222,7 +222,7 @@
         }
 
         const response = await fetch(
-          `https://shivai-com-backend.onrender.com/api/v1/calls/end-call`,
+          `https://nodejs.service.callshivai.com/api/v1/calls/end-call`,
           {
             method: "POST",
             headers: {

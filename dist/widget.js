@@ -403,51 +403,46 @@
       delay += 100;
     });
   }
+async function getClientIP() {
+  console.log('🌐 Starting IP detection...');
   
- async function getClientIP() {
+  const services = [
+    { url: 'https://api.ipify.org?format=json', extract: (d) => d.ip },
+    { url: 'https://ipapi.co/json/', extract: (d) => d.ip },
+    { url: 'https://api.ip.sb/jsonip', extract: (d) => d.ip },
+    { url: 'https://ipinfo.io/json', extract: (d) => d.ip },
+  ];
+
+  for (const service of services) {
     try {
-      try {
-        const response = await fetch("https://ipapi.co/json/", {
-          method: "GET",
-        });
-        if (response.ok) {
-          const data = await response.json();
-          console.log("🌐 [IP] Retrieved via ipapi.co:", data.ip);
-          return data.ip;
+      console.log(`📡 Trying ${service.url}...`);
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 3000);
+      
+      const response = await fetch(service.url, { 
+        signal: controller.signal,
+        mode: 'cors'
+      });
+      clearTimeout(timeout);
+      
+      if (response.ok) {
+        const data = await response.json();
+        const ip = service.extract(data);
+        if (ip && ip !== 'unknown') {
+          console.log(`✅ Got IP from ${service.url}: ${ip}`);
+          return ip;
         }
-      } catch (e) {
-        console.warn("🌐 [IP] ipapi.co failed:", e.message);
       }
-      try {
-        const response = await fetch("https://api.ipify.org?format=json", {
-          method: "GET",
-        });
-        if (response.ok) {
-          const data = await response.json();
-          console.log("🌐 [IP] Retrieved via ipify:", data.ip);
-          return data.ip;
-        }
-      } catch (e) {
-        console.warn("🌐 [IP] ipify failed:", e.message);
-      }
-      try {
-        const response = await fetch("https://ipinfo.io/json", {
-          method: "GET",
-        });
-        if (response.ok) {
-          const data = await response.json();
-          console.log("🌐 [IP] Retrieved via ipinfo.io:", data.ip);
-          return data.ip;
-        }
-      } catch (e) {
-        console.warn("🌐 [IP] ipinfo.io failed:", e.message);
-      }
-      return null;
-    } catch (error) {
-      console.error("🌐 [IP] All IP detection methods failed:", error);
-      return null;
+    } catch (e) {
+      console.warn(`❌ ${service.url} failed: ${e.message}`);
     }
   }
+
+  console.warn('⚠️ All IP services failed, returning "unknown"');
+  return 'unknown';
+}
+ 
+
 
   function generateTone(frequency, duration, volume = 0.1) {
     if (!soundContext) return;
@@ -3834,7 +3829,7 @@
       // Get LiveKit token from backend
       const callId = `call_${Date.now()}`;
       window.currentCallId = callId;
-
+      let clientIp = await getClientIP();
       const response = await fetch(
         "https://python.service.callshivai.com/token",
         {
@@ -3844,9 +3839,9 @@
             agent_id: "6937bff1222bfd06ebdf0194",
             language: selectedLanguage,
             call_id: callId,
-          device: deviceType,
+            device: deviceType,
             user_agent: navigator.userAgent,
-            ip: await getClientIP(),
+            ip: clientIp,
           }),
         }
       );

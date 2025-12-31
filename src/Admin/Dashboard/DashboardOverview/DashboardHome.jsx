@@ -1,17 +1,6 @@
 import React from 'react';
 import { useTheme } from '../contexts/ThemeContext';
 import {
-  RiTeamLine,
-  RiEyeLine,
-  RiUserFollowLine,
-  RiBankCardLine,
-  RiErrorWarningLine,
-  RiExternalLinkLine,
-  RiVipCrownLine,
-  RiFlashlightLine,
-  RiPulseLine,
-} from "react-icons/ri";
-import {
   Users,
   DollarSign,
   Bot,
@@ -24,6 +13,11 @@ import {
   CreditCard,
   TrendingUp,
   CheckCircle,
+  Eye,
+  ExternalLink,
+  AlertCircle,
+  Zap,
+  Activity,
 } from "lucide-react";
 
 const DashboardHome = () => {
@@ -307,8 +301,8 @@ const DashboardHome = () => {
                 <h2
                   className={`text-lg md:text-xl font-bold ${currentTheme.text} flex items-center gap-2`}
                 >
-                  <RiTeamLine
-                    className={`w-5 h-5 md:w-6 md:h-6 ${currentTheme.textSecondary}`}
+                  <Users
+                    className={`w-5 h-5 ${currentTheme.textSecondary}`}
                   />
                   Recent Client Activity
                 </h2>
@@ -316,7 +310,7 @@ const DashboardHome = () => {
                   className="hidden admin-btn-primary  py-2 px-4"
                   type="button"
                 >
-                  <RiEyeLine className="w-4 h-4" />
+                  <Eye className="w-5 h-5" />
                   <span className="hidden md:inline">View All Clients</span>
                   <span className="md:hidden">View All</span>
                 </button>
@@ -331,8 +325,8 @@ const DashboardHome = () => {
                     <div
                       className={`w-6 h-6 ${currentTheme.activeBg} rounded-full flex items-center justify-center`}
                     >
-                      <RiUserFollowLine
-                        className={`w-3 h-3 ${currentTheme.text}`}
+                      <UserPlus
+                        className={`w-5 h-5 ${currentTheme.text}`}
                       />
                     </div>
                     <span
@@ -354,8 +348,8 @@ const DashboardHome = () => {
                     <div
                       className={`w-6 h-6 ${currentTheme.activeBg} rounded-full flex items-center justify-center`}
                     >
-                      <RiBankCardLine
-                        className={`w-3 h-3 ${currentTheme.text}`}
+                      <CreditCard
+                        className={`w-5 h-5 ${currentTheme.text}`}
                       />
                     </div>
                     <span
@@ -379,8 +373,8 @@ const DashboardHome = () => {
                     <div
                       className={`w-6 h-6 ${currentTheme.activeBg} rounded-full flex items-center justify-center`}
                     >
-                      <RiErrorWarningLine
-                        className={`w-3 h-3 ${currentTheme.text}`}
+                      <AlertCircle
+                        className={`w-5 h-5 ${currentTheme.text}`}
                       />
                     </div>
                     <span
@@ -427,7 +421,7 @@ const DashboardHome = () => {
                               {client.name}
                             </p>
                             {client.status === "premium" && (
-                              <RiVipCrownLine className="w-3 h-3 md:w-4 md:h-4 text-yellow-500 flex-shrink-0" />
+                              <Crown className="w-5 h-5 text-yellow-500 flex-shrink-0" />
                             )}
                           </div>
                           <p
@@ -457,13 +451,13 @@ const DashboardHome = () => {
                         </div>
                         <div className="flex items-center gap-1">
                           <button className="p-1 hover:bg-blue-500/20 rounded transition-colors">
-                            <RiEyeLine className="w-3 h-3 md:w-4 md:h-4 text-blue-500" />
+                            <Eye className="w-5 h-5 text-blue-500" />
                           </button>
                           <button
                             className={`p-1 ${currentTheme.hover} rounded transition-colors hidden sm:block`}
                           >
-                            <RiExternalLinkLine
-                              className={`w-3 h-3 md:w-4 md:h-4 ${currentTheme.textSecondary}`}
+                            <ExternalLink
+                              className={`w-5 h-5 ${currentTheme.textSecondary}`}
                             />
                           </button>
                         </div>
@@ -539,7 +533,7 @@ const DashboardHome = () => {
                             {client.lastActive}
                           </p>
                           <button className="p-1 hover:bg-blue-500/20 rounded transition-colors">
-                            <RiEyeLine className="w-3 h-3 text-blue-500" />
+                            <Eye className="w-5 h-5 text-blue-500" />
                           </button>
                         </div>
                       </div>
@@ -567,7 +561,7 @@ const DashboardHome = () => {
               <h3
                 className={`text-base md:text-lg font-bold ${currentTheme.text} mb-3 md:mb-4 flex items-center gap-2`}
               >
-                <RiFlashlightLine className="w-4 h-4 md:w-5 md:h-5 text-orange-500" />
+                <Zap className="w-5 h-5 text-orange-500" />
                 Quick Actions
               </h3>
               <div className="space-y-2 md:space-y-3">
@@ -609,7 +603,7 @@ const DashboardHome = () => {
               <h3
                 className={`text-base md:text-lg font-bold ${currentTheme.text} mb-3 md:mb-4 flex items-center gap-2`}
               >
-                <RiPulseLine className="w-4 h-4 md:w-5 md:h-5 text-blue-500" />
+                <Activity className="w-5 h-5 text-blue-500" />
                 Recent Transactions
               </h3>
               

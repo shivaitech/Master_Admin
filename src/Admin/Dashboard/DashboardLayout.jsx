@@ -1,24 +1,24 @@
 import React, { useEffect, useState } from "react";
 import { Outlet, useNavigate } from "react-router-dom";
 import {
-  RiHome4Line,
-  RiTeamLine,
-  RiSettingsLine,
-  RiCloseLine,
-  RiMenuLine,
-  RiSearchLine,
-  RiUserLine,
-  RiLogoutBoxLine,
-  RiNotificationLine,
-  RiSunLine,
-  RiMoonLine,
-  RiRobotLine,
-  RiPulseLine,
-  RiBankCardLine,
-  RiQuestionLine,
-  RiBarChartBoxLine,
-  RiArrowRightSLine,
-} from "react-icons/ri";
+  Home,
+  Users,
+  Settings,
+  X,
+  Menu,
+  Search,
+  User,
+  LogOut,
+  Bell,
+  Sun,
+  Moon,
+  Bot,
+  Activity,
+  CreditCard,
+  HelpCircle,
+  BarChart3,
+  ChevronRight,
+} from "lucide-react";
 import { ThemeProvider, useTheme } from "./contexts/ThemeContext";
 import Shivlogo from "/ShivaiLogo.svg";
 // import bg from "/assets/Hero/bg.svg";
@@ -37,54 +37,54 @@ const DashboardLayoutContent = () => {
   const navItems = [
     {
       id: "dashboard",
-      icon: RiHome4Line,
+      icon: Home,
       label: "Dashboard",
       path: "/dashboard",
     },
     {
       id: "clients",
-      icon: RiTeamLine,
+      icon: Users,
       label: "Client Management",
       path: "/dashboard/clients",
       badge: 24,
     },
     {
       id: "ai-employees",
-      icon: RiPulseLine,
+      icon: Activity,
       label: "AI Employee Stats",
       path: "/dashboard/ai-employees",
       badge: "NEW",
     },
     {
       id: "widgets",
-      icon: RiRobotLine,
+      icon: Bot,
       label: "Widget Management",
       path: "/dashboard/widgets",
       badge: "NEW",
     },
     {
       id: "transactions",
-      icon: RiBankCardLine,
+      icon: CreditCard,
       label: "Transactions",
       path: "/dashboard/transactions",
       badge: 12,
     },
     {
       id: "support",
-      icon: RiQuestionLine,
+      icon: HelpCircle,
       label: "Support Tickets",
       path: "/dashboard/support",
       badge: 5,
     },
     {
       id: "analytics",
-      icon: RiBarChartBoxLine,
+      icon: BarChart3,
       label: "Analytics",
       path: "/dashboard/analytics",
     },
     {
       id: "settings",
-      icon: RiSettingsLine,
+      icon: Settings,
       label: "Settings",
       path: "/dashboard/settings",
     },
@@ -182,9 +182,9 @@ const DashboardLayoutContent = () => {
             className={`mr-2`}
           >
             {isMobileMenuOpen ? (
-              <RiCloseLine className={`w-4 h-4 ${currentTheme.text}`} />
+              <X className={`w-5 h-5 ${currentTheme.text}`} />
             ) : (
-              <RiMenuLine className={`w-5 h-5 ${currentTheme.text}`} />
+              <Menu className={`w-5 h-5 ${currentTheme.text}`} />
             )}
           </div>
           <span className={`text-sm font-medium ${currentTheme.text}`}>
@@ -199,9 +199,9 @@ const DashboardLayoutContent = () => {
             className={` rounded-lg ${currentTheme.hover} transition-all duration-200`}
           >
             {theme === "dark" ? (
-              <RiSunLine className={`w-4 h-4 ${currentTheme.textSecondary}`} />
+              <Sun className={`w-5 h-5 ${currentTheme.textSecondary}`} />
             ) : (
-              <RiMoonLine className={`w-4 h-4 ${currentTheme.textSecondary}`} />
+              <Moon className={`w-5 h-5 ${currentTheme.textSecondary}`} />
             )}
           </div>
 
@@ -209,8 +209,8 @@ const DashboardLayoutContent = () => {
           <div
             className={`relative  rounded-lg ${currentTheme.hover} transition-all duration-200`}
           >
-            <RiNotificationLine
-              className={`w-4 h-4 ${currentTheme.textSecondary}`}
+            <Bell
+              className={`w-5 h-5 ${currentTheme.textSecondary}`}
             />
             <span className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full text-xs"></span>
           </div>
@@ -219,7 +219,7 @@ const DashboardLayoutContent = () => {
           <div
             className={`p-2 rounded-lg ${currentTheme.hover} transition-all duration-200`}
           >
-            <RiUserLine className={`w-4 h-4 ${currentTheme.textSecondary}`} />
+            <User className={`w-5 h-5 ${currentTheme.textSecondary}`} />
           </div>
 
           {/* Logout */}
@@ -227,8 +227,8 @@ const DashboardLayoutContent = () => {
             onClick={handleLogout}
             className={` rounded-lg ${currentTheme.hover} transition-all duration-200`}
           >
-            <RiLogoutBoxLine
-              className={`w-4 h-4 ${currentTheme.textSecondary}`}
+            <LogOut
+              className={`w-5 h-5 ${currentTheme.textSecondary}`}
             />
           </div>
         </div>
@@ -310,7 +310,7 @@ const DashboardLayoutContent = () => {
                   isSidebarCollapsed ? "lg:block" : "lg:hidden  hidden"
                 }`}
               >
-                <RiArrowRightSLine className={`w-5 h-5 ${currentTheme.text}`} />
+                <ChevronRight className={`w-5 h-5 ${currentTheme.text}`} />
               </button>
 
               <div className="flex items-end  justify-end ">
@@ -322,16 +322,16 @@ const DashboardLayoutContent = () => {
                   } mode`}
                 >
                   {theme === "dark" ? (
-                    <RiSunLine className={`w-5 h-5 ${currentTheme.text}`} />
+                    <Sun className={`w-5 h-5 ${currentTheme.text}`} />
                   ) : (
-                    <RiMoonLine className={`w-5 h-5 ${currentTheme.text}`} />
+                    <Moon className={`w-5 h-5 ${currentTheme.text}`} />
                   )}
                 </div>
                 <div
                   onClick={() => setIsMobileMenuOpen(false)}
                   className={`p-2 rounded-lg ${currentTheme.hover} lg:hidden transition-colors`}
                 >
-                  <RiCloseLine className={`w-5 h-5 ${currentTheme.text}`} />
+                  <X className={`w-5 h-5 ${currentTheme.text}`} />
                 </div>
                 <div
                   onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
@@ -340,7 +340,7 @@ const DashboardLayoutContent = () => {
                     isSidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"
                   }
                 >
-                  <RiArrowRightSLine
+                  <ChevronRight
                     className={`w-5 h-5 ${
                       currentTheme.text
                     } transition-transform duration-300 ${
@@ -362,8 +362,8 @@ const DashboardLayoutContent = () => {
               <div
                 className={`relative ${currentTheme.searchBg} rounded-lg ${currentTheme.border} focus-within:border-opacity-60 transition-all`}
               >
-                <RiSearchLine
-                  className={`absolute left-3 top-1/2 hidden lg:block transform -translate-y-1/2 w-4 h-4 ${currentTheme.textSecondary}`}
+                <Search
+                  className={`absolute left-3 top-1/2 hidden lg:block transform -translate-y-1/2 w-5 h-5 ${currentTheme.textSecondary}`}
                 />
                 <input
                   type="text"
@@ -401,7 +401,7 @@ const DashboardLayoutContent = () => {
                   title={isSidebarCollapsed ? item.label : undefined}
                 >
                   <Icon
-                    className={`w-6 h-6 flex-shrink-0 transition-colors ${
+                    className={`w-5 h-5 flex-shrink-0 transition-colors ${
                       isActive ? currentTheme.text : ""
                     }`}
                   />
@@ -439,7 +439,7 @@ const DashboardLayoutContent = () => {
               <div
                 className={`w-10 h-10 ${currentTheme.bg} rounded-full flex items-center justify-center flex-shrink-0`}
               >
-                <RiUserLine className={`w-5 h-5 ${currentTheme.text}`} />
+                <User className={`w-5 h-5 ${currentTheme.text}`} />
               </div>
               {!isSidebarCollapsed && (
                 <div className="flex-1 min-w-0">
@@ -473,7 +473,7 @@ const DashboardLayoutContent = () => {
                   : "w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 group"
               } ${currentTheme.textSecondary} ${currentTheme.hover}`}
             >
-              <RiLogoutBoxLine className="w-5 h-5 group-hover:scale-110 transition-transform" />
+              <LogOut className="w-5 h-5 group-hover:scale-110 transition-transform" />
               {!isSidebarCollapsed && (
                 <span className="font-medium text-sm">Sign Out</span>
               )}
@@ -514,7 +514,7 @@ const DashboardLayoutContent = () => {
                 <button
                   className={`p-2 ${currentTheme.hover} rounded-lg transition-colors relative`}
                 >
-                  <RiNotificationLine
+                  <Bell
                     className={`w-5 h-5 ${currentTheme.textSecondary}`}
                   />
                   <span className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full"></span>
