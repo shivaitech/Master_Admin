@@ -3456,10 +3456,11 @@ async function getClientIP() {
       }
     }
   }
-  function addMessage(role, text) {
+  function addMessage(role, text, options = {}) {
     console.log("🔍 addMessage called:", {
       role,
       text,
+      options,
       caller: new Error().stack.split("\n")[2],
     });
 
@@ -3477,11 +3478,103 @@ async function getClientIP() {
     const labelDiv = document.createElement("div");
     labelDiv.className = "message-label";
     labelDiv.textContent = role === "user" ? "You" : "AI Employee";
-    const textDiv = document.createElement("div");
-    textDiv.className = "message-text";
-    textDiv.textContent = text;
-    messageDiv.appendChild(labelDiv);
-    messageDiv.appendChild(textDiv);
+    
+    // Handle document/link messages
+    if (options.type === "document" || options.isLink) {
+      const docDiv = document.createElement("div");
+      docDiv.className = "message-document";
+      docDiv.style.cssText = `
+        background: #f0f0f0;
+        border-radius: 8px;
+        padding: 12px;
+        margin-top: 8px;
+        cursor: pointer;
+        transition: all 0.2s;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        max-width: 280px;
+        border: 1px solid #d1d5db;
+      `;
+      docDiv.onmouseover = () => {
+        docDiv.style.background = "#e8e8e8";
+      };
+      docDiv.onmouseout = () => {
+        docDiv.style.background = "#f0f0f0";
+      };
+      
+      // Extract filename and get file extension
+      let filename = options.title || "Document";
+      let fileExtension = "";
+      if (options.url) {
+        const urlObj = new URL(options.url);
+        const pathname = urlObj.pathname;
+        filename = pathname.substring(pathname.lastIndexOf('/') + 1) || filename;
+        filename = decodeURIComponent(filename);
+        fileExtension = filename.substring(filename.lastIndexOf('.') + 1).toUpperCase();
+      }
+      
+      // Content container
+      const contentDiv = document.createElement("div");
+      contentDiv.style.cssText = "color: #222; flex: 1; min-width: 0;";
+      
+      const filenameDiv = document.createElement("div");
+      filenameDiv.style.cssText = "font-weight: 600; font-size: 13px; word-break: break-word; line-height: 1.3;";
+      filenameDiv.textContent = filename;
+      
+      contentDiv.appendChild(filenameDiv);
+      
+      // File icon
+      const iconDiv = document.createElement("div");
+      iconDiv.style.cssText = "font-size: 24px; flex-shrink: 0;";
+      iconDiv.textContent = "📄";
+      
+      // View button
+      const viewBtn = document.createElement("button");
+      viewBtn.style.cssText = `
+        background: white;
+        border: 1px solid #d1d5db;
+        color: #1f2937;
+        padding: 6px 12px;
+        border-radius: 6px;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 12px;
+        font-weight: 500;
+        transition: all 0.2s;
+        flex-shrink: 0;
+      `;
+      viewBtn.textContent = "View";
+      viewBtn.title = "View";
+      viewBtn.onmouseover = () => {
+        viewBtn.style.background = "#f3f4f6";
+        viewBtn.style.borderColor = "#9ca3af";
+      };
+      viewBtn.onmouseout = () => {
+        viewBtn.style.background = "white";
+        viewBtn.style.borderColor = "#d1d5db";
+      };
+      viewBtn.onclick = (e) => {
+        e.stopPropagation();
+        window.open(options.url || text, "_blank");
+      };
+      
+      docDiv.appendChild(iconDiv);
+      docDiv.appendChild(contentDiv);
+      docDiv.appendChild(viewBtn);
+      
+      messageDiv.appendChild(labelDiv);
+      messageDiv.appendChild(docDiv);
+    } else {
+      const textDiv = document.createElement("div");
+      textDiv.className = "message-text";
+      textDiv.textContent = text;
+      messageDiv.appendChild(labelDiv);
+      messageDiv.appendChild(textDiv);
+    }
+    
     messagesDiv.appendChild(messageDiv);
     messagesDiv.scrollTop = messagesDiv.scrollHeight;
     if (clearBtn) {
@@ -4177,6 +4270,22 @@ async function getClientIP() {
               try {
                 const jsonData = JSON.parse(text);
                 console.log("📋 Parsed JSON data:", jsonData);
+
+                // 🎯 Handle special message types (documents, links, etc.)
+                if (jsonData.type === "link" && jsonData.url && jsonData.title) {
+                  console.log("📨 Document/Link detected:", {
+                    title: jsonData.title,
+                    url: jsonData.url,
+                    timestamp: jsonData.timestamp
+                  });
+                  addMessage("assistant", jsonData.url, {
+                    type: "document",
+                    isLink: true,
+                    url: jsonData.url,
+                    title: jsonData.title
+                  });
+                  return;
+                }
 
                 // Look for ANY text field that might contain transcript
                 const possibleTextFields = [

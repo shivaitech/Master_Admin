@@ -105,7 +105,7 @@ const industryOptions = [
   { value: "other", label: "Other" },
 ];
 
-// Agent configuration options from Step 3  
+// Agent configuration options from Step 3
 const agentTypeOptions = [
   { value: "sales", label: "Sales & Business Development" },
   { value: "support", label: "Customer Support & Service" },
@@ -208,8 +208,12 @@ const OnboardingDataTab = ({ client, currentTheme }) => {
   // Fetch onboarding data using the API
   useEffect(() => {
     const fetchOnboardingData = async () => {
-      const userId = client?.userData?._id || client?._id || client?.userData?.id || client?.id;
-      
+      const userId =
+        client?.userData?._id ||
+        client?._id ||
+        client?.userData?.id ||
+        client?.id;
+
       if (!userId) {
         console.warn("⚠️ No user ID found for fetching onboarding data");
         setLoading(false);
@@ -220,24 +224,28 @@ const OnboardingDataTab = ({ client, currentTheme }) => {
         setLoading(true);
         setError(null);
         console.log("🔍 Fetching onboarding data for user ID:", userId);
-        
+
         const response = await shivaiApiService.getOnboardingByUserId(userId);
         console.log("✅ Onboarding data fetched:", response);
-        
+
         // Handle different response structures
-        const data = response?.data?.onboarding || response?.onboarding || response?.data || response;
+        const data =
+          response?.data?.onboarding ||
+          response?.onboarding ||
+          response?.data ||
+          response;
         setOnboardingData(data);
       } catch (err) {
         console.error("❌ Error fetching onboarding data:", err);
         setError(err.message || "Failed to load onboarding data");
-        
+
         // Fallback to client data if API fails
-        const fallbackData = 
+        const fallbackData =
           client?.onboardingDetails?.onboarding ||
           client?.userData?.onboarding ||
           client?.onboarding ||
           {};
-        
+
         if (fallbackData && Object.keys(fallbackData).length > 0) {
           console.log("📋 Using fallback onboarding data from client prop");
           setOnboardingData(fallbackData);
@@ -255,8 +263,12 @@ const OnboardingDataTab = ({ client, currentTheme }) => {
     return (
       <div className="flex items-center justify-center py-12">
         <div className="text-center">
-          <div className={`inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mb-3`}></div>
-          <p className={`${currentTheme.textSecondary} text-sm`}>Loading onboarding data...</p>
+          <div
+            className={`inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mb-3`}
+          ></div>
+          <p className={`${currentTheme.textSecondary} text-sm`}>
+            Loading onboarding data...
+          </p>
         </div>
       </div>
     );
@@ -264,7 +276,9 @@ const OnboardingDataTab = ({ client, currentTheme }) => {
 
   if (error) {
     return (
-      <div className={`text-center py-8 rounded-lg border-2 border-dashed ${currentTheme.border} bg-red-50 dark:bg-red-900/10`}>
+      <div
+        className={`text-center py-8 rounded-lg border-2 border-dashed ${currentTheme.border} bg-red-50 dark:bg-red-900/10`}
+      >
         <X className={`w-5 h-5 mx-auto mb-3 text-red-500 opacity-50`} />
         <p className={`text-red-600 dark:text-red-400 font-medium mb-2`}>
           Error loading onboarding data
@@ -281,8 +295,9 @@ const OnboardingDataTab = ({ client, currentTheme }) => {
       <h3 className={`text-lg font-semibold ${currentTheme.text} mb-4`}>
         Onboarding Information
       </h3>
-{console.log("🔍 Onboarsssssssssssssding Data:", onboardingData)}
-      {!onboardingData || onboardingData?.onboarding === null || Object.keys(onboardingData).length === 0 ? (
+      {!onboardingData ||
+      onboardingData?.onboarding === null ||
+      Object.keys(onboardingData).length === 0 ? (
         <div
           className={`text-center py-8 rounded-lg border-2 border-dashed ${currentTheme.border}`}
         >
@@ -833,7 +848,10 @@ const OnboardingDataTab = ({ client, currentTheme }) => {
 const ClientDetailsTab = ({ client, currentTheme }) => {
   // Handle different data structures - client data can be nested in userData or directly on client
   const userData = client?.userData || client || {};
-  const companyBasics = client?.company_basics || client?.userData?.onboarding?.company_basics || {};
+  const companyBasics =
+    client?.company_basics ||
+    client?.userData?.onboarding?.company_basics ||
+    {};
 
   return (
     <div className="space-y-6">
@@ -961,7 +979,9 @@ const ClientDetailsTab = ({ client, currentTheme }) => {
             Created At
           </label>
           <p className={`${currentTheme.text} font-medium`}>
-            {userData?.createdAt ? new Date(userData.createdAt).toLocaleDateString() : "N/A"}
+            {userData?.createdAt
+              ? new Date(userData.createdAt).toLocaleDateString()
+              : "N/A"}
           </p>
         </div>
         <div>
@@ -971,7 +991,9 @@ const ClientDetailsTab = ({ client, currentTheme }) => {
             Last Login
           </label>
           <p className={`${currentTheme.text} font-medium`}>
-            {userData?.lastLoginAt ? new Date(userData.lastLoginAt).toLocaleDateString() : "N/A"}
+            {userData?.lastLoginAt
+              ? new Date(userData.lastLoginAt).toLocaleDateString()
+              : "N/A"}
           </p>
         </div>
       </div>
@@ -1009,49 +1031,58 @@ const AIEmployeesTab = ({ client, currentTheme, onViewAgent }) => {
       try {
         setLoading(true);
         setError(null);
-        
-        console.log("🔄 AIEmployeesTab mounted - fetching agents for client:", client?.id);
+
+        console.log(
+          "🔄 AIEmployeesTab mounted - fetching agents for client:",
+          client?.id
+        );
         console.log("📋 Client user ID:", client?.userData?.id);
         console.log("📋 Full client object:", client);
-        
+
         // Get the user ID from the correct location
         const userId = client?.userData?.id || client?.id || client?._id;
-        
+
         if (!userId) {
           console.error("❌ No user ID found in client object");
           setAiEmployees([]);
           setLoading(false);
           return;
         }
-        
+
         console.log("✅ Using user ID:", userId);
-        
+
         // Fetch all agents and filter by client
         const response = await shivaiApiService.getAgentsById(userId);
         console.log("🤖 AI Agents API Response:", response);
-        
+
         // Don't check response.success, just check if we have data
         let agentsData = response?.data || response;
-        
+
         console.log("📦 Raw agents data:", agentsData);
-        
+
         // Handle different response structures
         if (agentsData?.agents && Array.isArray(agentsData.agents)) {
           agentsData = agentsData.agents;
         }
-        
+
         if (Array.isArray(agentsData)) {
-          console.log("✅ Agents data is an array with length:", agentsData.length);
+          console.log(
+            "✅ Agents data is an array with length:",
+            agentsData.length
+          );
           if (agentsData.length > 0) {
             console.log("📊 Sample agent data:", agentsData[0]);
           }
           setAiEmployees(agentsData);
-        } else if (agentsData && typeof agentsData === 'object') {
+        } else if (agentsData && typeof agentsData === "object") {
           // If it's a single agent object, wrap it in an array
           console.log("📦 Single agent object, wrapping in array");
           setAiEmployees([agentsData]);
         } else {
-          console.log("📊 Response data is not an array or object:", typeof agentsData);
+          console.log(
+            "📊 Response data is not an array or object:",
+            typeof agentsData
+          );
           setAiEmployees([]);
         }
       } catch (error) {
@@ -1075,9 +1106,13 @@ const AIEmployeesTab = ({ client, currentTheme, onViewAgent }) => {
             AI Employees
           </h3>
         </div>
-        <div className={`text-center py-12 rounded-lg ${currentTheme.searchBg}`}>
+        <div
+          className={`text-center py-12 rounded-lg ${currentTheme.searchBg}`}
+        >
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className={`${currentTheme.textSecondary}`}>Loading AI Employees...</p>
+          <p className={`${currentTheme.textSecondary}`}>
+            Loading AI Employees...
+          </p>
         </div>
       </div>
     );
@@ -1091,7 +1126,9 @@ const AIEmployeesTab = ({ client, currentTheme, onViewAgent }) => {
             AI Employees
           </h3>
         </div>
-        <div className={`text-center py-12 rounded-lg ${currentTheme.searchBg}`}>
+        <div
+          className={`text-center py-12 rounded-lg ${currentTheme.searchBg}`}
+        >
           <div className={`w-5 h-5 mx-auto mb-3 text-red-500`}>
             <AlertCircle className="w-full h-full" />
           </div>
@@ -1099,7 +1136,7 @@ const AIEmployeesTab = ({ client, currentTheme, onViewAgent }) => {
             Error Loading Data
           </h4>
           <p className={`${currentTheme.textSecondary} mb-4`}>{error}</p>
-          <button 
+          <button
             onClick={() => window.location.reload()}
             className="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-colors"
           >
@@ -1214,7 +1251,9 @@ const AIEmployeesTab = ({ client, currentTheme, onViewAgent }) => {
                     Created
                   </label>
                   <p className={`${currentTheme.text} text-sm`}>
-                    {employee.created_at ? new Date(employee.created_at).toLocaleDateString() : "N/A"}
+                    {employee.created_at
+                      ? new Date(employee.created_at).toLocaleDateString()
+                      : "N/A"}
                   </p>
                 </div>
               </div>
@@ -1233,7 +1272,7 @@ const AgentDetailsView = ({ agent, onBack, currentTheme }) => {
     return (
       <div className="text-center py-8">
         <p className="text-gray-500">No agent data available</p>
-        <button 
+        <button
           onClick={onBack}
           className="mt-4 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
         >
@@ -1256,25 +1295,25 @@ const AgentDetailsView = ({ agent, onBack, currentTheme }) => {
   const [audioSettings, setAudioSettings] = useState({
     noiseSuppression: true,
     echoCancellation: true,
-    autoGainControl: true
+    autoGainControl: true,
   });
   const [room, setRoom] = useState(null);
-  
+
   // Analytics/Sessions state
   const [sessions, setSessions] = useState([]);
   const [loadingSessions, setLoadingSessions] = useState(false);
   const [selectedSession, setSelectedSession] = useState(null);
   const [transcripts, setTranscripts] = useState([]);
   const [loadingTranscripts, setLoadingTranscripts] = useState(false);
-  
+
   // Modal tab state
-  const [modalActiveTab, setModalActiveTab] = useState('transcripts');
-  
+  const [modalActiveTab, setModalActiveTab] = useState("transcripts");
+
   // Call summary state
   const [callSummary, setCallSummary] = useState(null);
   const [summaryLoading, setSummaryLoading] = useState(false);
   const [summaryError, setSummaryError] = useState(null);
-  
+
   // Audio player state
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
@@ -1286,22 +1325,25 @@ const AgentDetailsView = ({ agent, onBack, currentTheme }) => {
   const progressRef = useRef(null);
 
   // Memoize tabs array to prevent re-renders
-  const tabs = useMemo(() => [
-    { id: "overview", label: "Overview", icon: Info },
-    { id: "test", label: "Preview & Test", icon: MessageCircle },
-    { id: "analytics", label: "Analytics", icon: BarChart3 },
-    { id: "instructions", label: "Instructions", icon: FileText },
-  ], []);
+  const tabs = useMemo(
+    () => [
+      { id: "overview", label: "Overview", icon: Info },
+      { id: "test", label: "Preview & Test", icon: MessageCircle },
+      { id: "analytics", label: "Analytics", icon: BarChart3 },
+      { id: "instructions", label: "Instructions", icon: FileText },
+    ],
+    []
+  );
 
   // Fetch agent sessions when analytics tab is active
   useEffect(() => {
     const fetchAgentSessions = async () => {
       if (activeTab !== "analytics") return;
-      
+
       try {
         setLoadingSessions(true);
         const agentId = agent?.id || agent?._id;
-        
+
         if (!agentId) {
           console.error("No agent ID found");
           return;
@@ -1312,9 +1354,10 @@ const AgentDetailsView = ({ agent, onBack, currentTheme }) => {
         console.log("✅ Sessions response:", response);
 
         // Handle different response structures
-        const sessionsData = response?.sessions || response?.data?.sessions || response;
+        const sessionsData =
+          response?.sessions || response?.data?.sessions || response;
         const sessionsArray = Array.isArray(sessionsData) ? sessionsData : [];
-        
+
         setSessions(sessionsArray);
       } catch (error) {
         console.error("❌ Error fetching agent sessions:", error);
@@ -1333,15 +1376,20 @@ const AgentDetailsView = ({ agent, onBack, currentTheme }) => {
     try {
       setSummaryLoading(true);
       setSummaryError(null);
-      console.log('📊 Fetching call summary for agent:', agentId, 'callId:', callId);
-      
+      console.log(
+        "📊 Fetching call summary for agent:",
+        agentId,
+        "callId:",
+        callId
+      );
+
       const response = await shivaiApiService.getCallSummary(agentId);
-      console.log('✅ Call summary response:', response);
-      
+      console.log("✅ Call summary response:", response);
+
       setCallSummary(response);
     } catch (error) {
-      console.error('❌ Error fetching call summary:', error);
-      setSummaryError('Failed to load call summary');
+      console.error("❌ Error fetching call summary:", error);
+      setSummaryError("Failed to load call summary");
       setCallSummary(null);
     } finally {
       setSummaryLoading(false);
@@ -1352,8 +1400,8 @@ const AgentDetailsView = ({ agent, onBack, currentTheme }) => {
   const handleViewSession = useCallback(async (session) => {
     try {
       setSelectedSession(session);
-      setModalActiveTab('transcripts'); // Reset to transcripts tab
-      
+      setModalActiveTab("transcripts"); // Reset to transcripts tab
+
       // Reset audio player state
       setIsPlaying(false);
       setCurrentTime(0);
@@ -1363,7 +1411,10 @@ const AgentDetailsView = ({ agent, onBack, currentTheme }) => {
 
       // Check if transcripts are already in the session object
       if (session?.transcripts && Array.isArray(session.transcripts)) {
-        console.log("📜 Using transcripts from session object:", session.transcripts);
+        console.log(
+          "📜 Using transcripts from session object:",
+          session.transcripts
+        );
         setTranscripts(session.transcripts);
       } else {
         // Otherwise fetch from API
@@ -1371,16 +1422,20 @@ const AgentDetailsView = ({ agent, onBack, currentTheme }) => {
         const sessionId = session?.session_id || session?.id || session?._id;
         console.log("📜 Fetching transcripts for session:", sessionId);
 
-        const response = await shivaiApiService.getSessionTranscripts(sessionId);
+        const response =
+          await shivaiApiService.getSessionTranscripts(sessionId);
         console.log("✅ Transcripts response:", response);
 
-        const transcriptsData = response?.transcripts || response?.data || response;
-        const transcriptsArray = Array.isArray(transcriptsData) ? transcriptsData : [];
+        const transcriptsData =
+          response?.transcripts || response?.data || response;
+        const transcriptsArray = Array.isArray(transcriptsData)
+          ? transcriptsData
+          : [];
 
         setTranscripts(transcriptsArray);
         setLoadingTranscripts(false);
       }
-      
+
       // Fetch call summary
       const agentId = session?.agentId || session?.agent_id;
       const callId = session?.callId || session?.session_id || session?.id;
@@ -1400,14 +1455,14 @@ const AgentDetailsView = ({ agent, onBack, currentTheme }) => {
     setSelectedSession(null);
     setTranscripts([]);
     setCallSummary(null);
-    setModalActiveTab('transcripts');
+    setModalActiveTab("transcripts");
     setIsPlaying(false);
     if (audioRef.current) {
       audioRef.current.pause();
       audioRef.current.currentTime = 0;
     }
   }, []);
-  
+
   // Audio player handlers
   const togglePlayPause = () => {
     if (!audioRef.current) return;
@@ -1462,47 +1517,95 @@ const AgentDetailsView = ({ agent, onBack, currentTheme }) => {
 
   const skip = (seconds) => {
     if (!audioRef.current) return;
-    audioRef.current.currentTime = Math.max(0, Math.min(duration, currentTime + seconds));
+    audioRef.current.currentTime = Math.max(
+      0,
+      Math.min(duration, currentTime + seconds)
+    );
   };
 
   const formatTimeDisplay = (seconds) => {
     const mins = Math.floor(seconds / 60);
     const secs = Math.floor(seconds % 60);
-    return `${mins}:${secs.toString().padStart(2, '0')}`;
+    return `${mins}:${secs.toString().padStart(2, "0")}`;
   };
-  
+
   const formatTranscriptTimestamp = (timestamp) => {
-    if (!timestamp) return '';
+    if (!timestamp) return "";
     const date = new Date(timestamp);
-    return date.toLocaleTimeString('en-US', {
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: false
+    return date.toLocaleTimeString("en-US", {
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
     });
   };
-  
+
   const formatDate = (dateString) => {
-    if (!dateString) return 'N/A';
+    if (!dateString) return "N/A";
     const date = new Date(dateString);
-    return date.toLocaleString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: true
+    return date.toLocaleString("en-US", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: true,
     });
   };
+
+    async function getClientIP() {
+    try {
+      try {
+        const response = await fetch("https://ipapi.co/json/", {
+          method: "GET",
+        });
+        if (response.ok) {
+          const data = await response.json();
+          console.log("🌐 [IP] Retrieved via ipapi.co:", data.ip);
+          return data.ip;
+        }
+      } catch (e) {
+        console.warn("🌐 [IP] ipapi.co failed:", e.message);
+      }
+      try {
+        const response = await fetch("https://api.ipify.org?format=json", {
+          method: "GET",
+        });
+        if (response.ok) {
+          const data = await response.json();
+          console.log("🌐 [IP] Retrieved via ipify:", data.ip);
+          return data.ip;
+        }
+      } catch (e) {
+        console.warn("🌐 [IP] ipify failed:", e.message);
+      }
+      try {
+        const response = await fetch("https://ipinfo.io/json", {
+          method: "GET",
+        });
+        if (response.ok) {
+          const data = await response.json();
+          console.log("🌐 [IP] Retrieved via ipinfo.io:", data.ip);
+          return data.ip;
+        }
+      } catch (e) {
+        console.warn("🌐 [IP] ipinfo.io failed:", e.message);
+      }
+      return null;
+    } catch (error) {
+      console.error("🌐 [IP] All IP detection methods failed:", error);
+      return null;
+    }
+  }
 
   // Agent Testing Functions - based on widget.js LiveKit implementation
   const startAgentCall = useCallback(async () => {
     try {
       setIsConnecting(true);
-      setTestStatus('🎤 Requesting microphone access...');
-      
+      setTestStatus("🎤 Requesting microphone access...");
+
       // Check if in secure context (HTTPS required for microphone)
       if (!window.isSecureContext) {
-        throw new Error('HTTPS required for microphone access');
+        throw new Error("HTTPS required for microphone access");
       }
 
       // Request microphone permission first (same as widget.js)
@@ -1516,279 +1619,311 @@ const AgentDetailsView = ({ agent, onBack, currentTheme }) => {
             sampleRate: 48000,
             sampleSize: 16,
             volume: 0.6,
-            latency: 0.05
-          }
+            latency: 0.05,
+          },
         });
-        
+
         // Stop the stream - LiveKit will create its own
-        stream.getTracks().forEach(track => track.stop());
-        setTestStatus('✅ Microphone access granted');
+        stream.getTracks().forEach((track) => track.stop());
+        setTestStatus("✅ Microphone access granted");
       } catch (micError) {
         throw new Error(`Microphone access denied: ${micError.message}`);
       }
-      
+
       // Get agent ID from the agent data
       const agentId = agent?.id || agent?._id;
       if (!agentId) {
-        throw new Error('Agent ID not found');
+        throw new Error("Agent ID not found");
       }
-      
-      setTestStatus('🔗 Getting LiveKit token...');
-      
+
+      setTestStatus("🔗 Getting LiveKit token...");
+
       // Get LiveKit token from backend (exact same endpoint as widget)
       const callId = `admin_test_${Date.now()}`;
-      const response = await fetch('https://python.service.callshivai.com/token', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          agent_id: agentId,
-          language: language,
-          call_id: callId,
-          device: 'desktop',
-          user_agent: navigator.userAgent
-        })
-      });
-      
+      const response = await fetch(
+        "https://python.service.callshivai.com/token",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            agent_id: agentId,
+            language: language,
+            call_id: callId,
+            device: "desktop",
+            user_agent: navigator.userAgent,
+            ip: await getClientIP(),
+            
+          }),
+        }
+      );
+
       if (!response.ok) {
         throw new Error(`Failed to get LiveKit token: ${response.status}`);
       }
-      
+
       const tokenData = await response.json();
-      console.log('🎯 Token received for agent testing:', agentId, tokenData);
-      
-      setTestStatus('🔗 Connecting to LiveKit...');
-      
+      console.log("🎯 Token received for agent testing:", agentId, tokenData);
+
+      setTestStatus("🔗 Connecting to LiveKit...");
+
       // Load LiveKit SDK if not available
-      if (typeof window.LivekitClient === 'undefined') {
-        setTestStatus('📦 Loading LiveKit SDK...');
-        
-        const script = document.createElement('script');
-        script.src = 'https://unpkg.com/livekit-client@latest/dist/livekit-client.umd.js';
+      if (typeof window.LivekitClient === "undefined") {
+        setTestStatus("📦 Loading LiveKit SDK...");
+
+        const script = document.createElement("script");
+        script.src =
+          "https://unpkg.com/livekit-client@latest/dist/livekit-client.umd.js";
         script.onload = () => {
-          console.log('✅ LiveKit SDK loaded');
+          console.log("✅ LiveKit SDK loaded");
           connectToLiveKit(tokenData, agentId);
         };
         script.onerror = () => {
-          throw new Error('Failed to load LiveKit SDK');
+          throw new Error("Failed to load LiveKit SDK");
         };
         document.head.appendChild(script);
       } else {
         await connectToLiveKit(tokenData, agentId);
       }
-      
     } catch (error) {
-      console.error('Failed to start agent test call:', error);
+      console.error("Failed to start agent test call:", error);
       setTestStatus(`❌ Error: ${error.message}`);
       setIsConnecting(false);
       setIsConnected(false);
     }
   }, [agent]);
 
-  const connectToLiveKit = useCallback(async (tokenData, agentId) => {
-    try {
-      const LiveKit = window.LivekitClient;
-      
-      // Create LiveKit room with same config as widget.js
-      const liveKitRoom = new LiveKit.Room({
-        adaptiveStream: true,
-        dynacast: true,
-        audioCaptureDefaults: {
-          echoCancellation: true,
-          noiseSuppression: true,
-          autoGainControl: true,
-          suppressLocalAudioPlayback: true
-        },
-        publishDefaults: {
-          audioPreset: LiveKit.AudioPresets.speech,
-          dtx: true,
-          red: false,
-          simulcast: false
-        }
-      });
+  const connectToLiveKit = useCallback(
+    async (tokenData, agentId) => {
+      try {
+        const LiveKit = window.LivekitClient;
 
-      // Track remote audio (agent speaking) - same as widget.js
-      liveKitRoom.on(LiveKit.RoomEvent.TrackSubscribed, (track, publication, participant) => {
-        if (track.kind === LiveKit.Track.Kind.Audio) {
-          const audioElement = track.attach();
-          audioElement.volume = 0.4; // Same volume as widget for feedback prevention
-          audioElement.autoplay = true;
-          document.body.appendChild(audioElement);
-          
-          audioElement.play().catch(err => 
-            console.warn('Audio autoplay blocked:', err)
-          );
-        }
-      });
-
-      // Handle transcript from metadata - same as widget.js
-      liveKitRoom.on(LiveKit.RoomEvent.ParticipantMetadataChanged, (metadata, participant) => {
-        if (metadata) {
-          try {
-            const data = JSON.parse(metadata);
-            if (data.transcript || data.text) {
-              setChatMessages(prev => [...prev, {
-                role: 'agent',
-                text: data.transcript || data.text,
-                timestamp: new Date()
-              }]);
-            }
-          } catch (e) {
-            console.log('Metadata not JSON:', metadata);
-          }
-        }
-      });
-
-      // Handle room metadata - same as widget.js
-      liveKitRoom.on(LiveKit.RoomEvent.RoomMetadataChanged, (metadata) => {
-        if (metadata) {
-          try {
-            const data = JSON.parse(metadata);
-            if (data.transcript || data.text) {
-              setChatMessages(prev => [...prev, {
-                role: 'agent', 
-                text: data.transcript || data.text,
-                timestamp: new Date()
-              }]);
-            }
-          } catch (e) {
-            console.log('Room metadata not JSON:', metadata);
-          }
-        }
-      });
-
-      // Handle connection - same as widget.js
-      liveKitRoom.on(LiveKit.RoomEvent.Connected, async () => {
-        console.log('✅ Connected to LiveKit room for agent testing');
-        setIsConnected(true);
-        setIsConnecting(false);
-        setTestStatus('🟢 Connected! You can now speak with the agent.');
-        
-        // Enable microphone with same settings as widget.js
-        try {
-          await liveKitRoom.localParticipant.setMicrophoneEnabled(true, {
+        // Create LiveKit room with same config as widget.js
+        const liveKitRoom = new LiveKit.Room({
+          adaptiveStream: true,
+          dynacast: true,
+          audioCaptureDefaults: {
             echoCancellation: true,
             noiseSuppression: true,
-            autoGainControl: true
-          });
-          
-          // Add initial greeting
-          setChatMessages([{
-            role: 'agent',
-            text: agent?.greeting?.en || `Hello! I'm ${agent?.name || 'Agent'}, ready for testing. How can I help you?`,
-            timestamp: new Date()
-          }]);
-        } catch (err) {
-          console.error('Failed to enable microphone:', err);
-        }
-      });
+            autoGainControl: true,
+            suppressLocalAudioPlayback: true,
+          },
+          publishDefaults: {
+            audioPreset: LiveKit.AudioPresets.speech,
+            dtx: true,
+            red: false,
+            simulcast: false,
+          },
+        });
 
-      // Handle disconnection
-      liveKitRoom.on(LiveKit.RoomEvent.Disconnected, () => {
-        console.log('❌ Disconnected from LiveKit room');
+        // Track remote audio (agent speaking) - same as widget.js
+        liveKitRoom.on(
+          LiveKit.RoomEvent.TrackSubscribed,
+          (track, publication, participant) => {
+            if (track.kind === LiveKit.Track.Kind.Audio) {
+              const audioElement = track.attach();
+              audioElement.volume = 0.4; // Same volume as widget for feedback prevention
+              audioElement.autoplay = true;
+              document.body.appendChild(audioElement);
+
+              audioElement
+                .play()
+                .catch((err) => console.warn("Audio autoplay blocked:", err));
+            }
+          }
+        );
+
+        // Handle transcript from metadata - same as widget.js
+        liveKitRoom.on(
+          LiveKit.RoomEvent.ParticipantMetadataChanged,
+          (metadata, participant) => {
+            if (metadata) {
+              try {
+                const data = JSON.parse(metadata);
+                if (data.transcript || data.text) {
+                  setChatMessages((prev) => [
+                    ...prev,
+                    {
+                      role: "agent",
+                      text: data.transcript || data.text,
+                      timestamp: new Date(),
+                    },
+                  ]);
+                }
+              } catch (e) {
+                console.log("Metadata not JSON:", metadata);
+              }
+            }
+          }
+        );
+
+        // Handle room metadata - same as widget.js
+        liveKitRoom.on(LiveKit.RoomEvent.RoomMetadataChanged, (metadata) => {
+          if (metadata) {
+            try {
+              const data = JSON.parse(metadata);
+              if (data.transcript || data.text) {
+                setChatMessages((prev) => [
+                  ...prev,
+                  {
+                    role: "agent",
+                    text: data.transcript || data.text,
+                    timestamp: new Date(),
+                  },
+                ]);
+              }
+            } catch (e) {
+              console.log("Room metadata not JSON:", metadata);
+            }
+          }
+        });
+
+        // Handle connection - same as widget.js
+        liveKitRoom.on(LiveKit.RoomEvent.Connected, async () => {
+          console.log("✅ Connected to LiveKit room for agent testing");
+          setIsConnected(true);
+          setIsConnecting(false);
+          setTestStatus("🟢 Connected! You can now speak with the agent.");
+
+          // Enable microphone with same settings as widget.js
+          try {
+            await liveKitRoom.localParticipant.setMicrophoneEnabled(true, {
+              echoCancellation: true,
+              noiseSuppression: true,
+              autoGainControl: true,
+            });
+
+            // Add initial greeting
+            setChatMessages([
+              {
+                role: "agent",
+                text:
+                  agent?.greeting?.en ||
+                  `Hello! I'm ${agent?.name || "Agent"}, ready for testing. How can I help you?`,
+                timestamp: new Date(),
+              },
+            ]);
+          } catch (err) {
+            console.error("Failed to enable microphone:", err);
+          }
+        });
+
+        // Handle disconnection
+        liveKitRoom.on(LiveKit.RoomEvent.Disconnected, () => {
+          console.log("❌ Disconnected from LiveKit room");
+          setIsConnected(false);
+          setTestStatus("🔴 Disconnected");
+          setRoom(null);
+        });
+
+        // Connect to room using token data
+        await liveKitRoom.connect(tokenData.url, tokenData.token);
+        setRoom(liveKitRoom);
+      } catch (error) {
+        console.error("LiveKit connection failed:", error);
+        setTestStatus(`❌ Connection failed: ${error.message}`);
+        setIsConnecting(false);
         setIsConnected(false);
-        setTestStatus('🔴 Disconnected');
-        setRoom(null);
-      });
-
-      // Connect to room using token data
-      await liveKitRoom.connect(tokenData.url, tokenData.token);
-      setRoom(liveKitRoom);
-      
-    } catch (error) {
-      console.error('LiveKit connection failed:', error);
-      setTestStatus(`❌ Connection failed: ${error.message}`);
-      setIsConnecting(false);
-      setIsConnected(false);
-    }
-  }, [agent]);
+      }
+    },
+    [agent]
+  );
 
   const endAgentCall = useCallback(async () => {
     if (room) {
       try {
         await room.disconnect();
-        console.log('✅ Disconnected from LiveKit room');
+        console.log("✅ Disconnected from LiveKit room");
       } catch (error) {
-        console.error('Error disconnecting from room:', error);
+        console.error("Error disconnecting from room:", error);
       }
     }
-    
+
     setIsConnected(false);
     setIsConnecting(false);
-    setTestStatus('📞 Call ended');
+    setTestStatus("📞 Call ended");
     setRoom(null);
-    
+
     // Add disconnect message
-    setChatMessages(prev => [...prev, {
-      role: 'system', 
-      text: 'Call ended',
-      timestamp: new Date()
-    }]);
+    setChatMessages((prev) => [
+      ...prev,
+      {
+        role: "system",
+        text: "Call ended",
+        timestamp: new Date(),
+      },
+    ]);
   }, [room]);
 
   const sendChatMessage = useCallback(() => {
     if (!chatInput.trim() || !isConnected) return;
-    
+
     const userMessage = {
-      role: 'user',
+      role: "user",
       text: chatInput.trim(),
-      timestamp: new Date()
+      timestamp: new Date(),
     };
-    
-    setChatMessages(prev => [...prev, userMessage]);
-    setChatInput('');
-    
+
+    setChatMessages((prev) => [...prev, userMessage]);
+    setChatInput("");
+
     // Simulate agent response (in production, this would be via LiveKit data channel)
-    setTimeout(() => {
-      const responses = [
-        `I received your message: "${userMessage.text}". How can I help you with this?`,
-        `Thank you for your message. As ${agent?.name || 'Agent'}, I'm here to assist you.`,
-        `I understand you said: "${userMessage.text}". Let me help you with that.`,
-        `Got it! ${userMessage.text}. What would you like to know more about?`
-      ];
-      
-      const agentResponse = {
-        role: 'agent',
-        text: responses[Math.floor(Math.random() * responses.length)],
-        timestamp: Date.now()
-      };
-      setChatMessages(prev => [...prev, agentResponse]);
-    }, 1000 + Math.random() * 2000);
+    setTimeout(
+      () => {
+        const responses = [
+          `I received your message: "${userMessage.text}". How can I help you with this?`,
+          `Thank you for your message. As ${agent?.name || "Agent"}, I'm here to assist you.`,
+          `I understand you said: "${userMessage.text}". Let me help you with that.`,
+          `Got it! ${userMessage.text}. What would you like to know more about?`,
+        ];
+
+        const agentResponse = {
+          role: "agent",
+          text: responses[Math.floor(Math.random() * responses.length)],
+          timestamp: Date.now(),
+        };
+        setChatMessages((prev) => [...prev, agentResponse]);
+      },
+      1000 + Math.random() * 2000
+    );
   }, [chatInput, isConnected, agent]);
 
   // Handle test message sending
   const handleTestAgent = useCallback(() => {
     if (!testMessage.trim()) return;
-    
+
     setIsTestingAgent(true);
-    
+
     const userMessage = {
-      role: 'user',
+      role: "user",
       text: testMessage.trim(),
-      timestamp: new Date()
+      timestamp: new Date(),
     };
-    
-    setChatMessages(prev => [...prev, userMessage]);
-    setTestMessage('');
-    
-    // Simulate agent response 
-    setTimeout(() => {
-      const responses = [
-        `Thank you for testing! You said: "${userMessage.text}". I'm ${agent?.name || 'Agent'} and I'm working correctly.`,
-        `Test successful! As ${agent?.name || 'Agent'}, I received your message: "${userMessage.text}". How can I assist you further?`,
-        `Hello! This is ${agent?.name || 'Agent'}. I got your test message: "${userMessage.text}". The agent is responding as expected.`,
-        `Agent test complete! Your message: "${userMessage.text}" was processed successfully by ${agent?.name || 'Agent'}.`
-      ];
-      
-      const agentResponse = {
-        role: 'agent',
-        text: responses[Math.floor(Math.random() * responses.length)],
-        timestamp: new Date()
-      };
-      setChatMessages(prev => [...prev, agentResponse]);
-      setIsTestingAgent(false);
-    }, 1500 + Math.random() * 1000);
+
+    setChatMessages((prev) => [...prev, userMessage]);
+    setTestMessage("");
+
+    // Simulate agent response
+    setTimeout(
+      () => {
+        const responses = [
+          `Thank you for testing! You said: "${userMessage.text}". I'm ${agent?.name || "Agent"} and I'm working correctly.`,
+          `Test successful! As ${agent?.name || "Agent"}, I received your message: "${userMessage.text}". How can I assist you further?`,
+          `Hello! This is ${agent?.name || "Agent"}. I got your test message: "${userMessage.text}". The agent is responding as expected.`,
+          `Agent test complete! Your message: "${userMessage.text}" was processed successfully by ${agent?.name || "Agent"}.`,
+        ];
+
+        const agentResponse = {
+          role: "agent",
+          text: responses[Math.floor(Math.random() * responses.length)],
+          timestamp: new Date(),
+        };
+        setChatMessages((prev) => [...prev, agentResponse]);
+        setIsTestingAgent(false);
+      },
+      1500 + Math.random() * 1000
+    );
   }, [testMessage, agent]);
 
   return (
@@ -1852,60 +1987,106 @@ const AgentDetailsView = ({ agent, onBack, currentTheme }) => {
         <div className="space-y-6">
           {/* Quick Stats */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className={`${currentTheme.cardBg} rounded-lg p-4 border ${currentTheme.border}`}>
+            <div
+              className={`${currentTheme.cardBg} rounded-lg p-4 border ${currentTheme.border}`}
+            >
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-lg bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center">
                   <Bot className="w-5 h-5 text-blue-600 dark:text-blue-400" />
                 </div>
                 <div>
-                  <p className={`text-sm ${currentTheme.textSecondary}`}>Agent Type</p>
-                  <p className={`font-semibold ${currentTheme.text}`}>AI Assistant</p>
+                  <p className={`text-sm ${currentTheme.textSecondary}`}>
+                    Agent Type
+                  </p>
+                  <p className={`font-semibold ${currentTheme.text}`}>
+                    AI Assistant
+                  </p>
                 </div>
               </div>
             </div>
-            <div className={`${currentTheme.cardBg} rounded-lg p-4 border ${currentTheme.border}`}>
+            <div
+              className={`${currentTheme.cardBg} rounded-lg p-4 border ${currentTheme.border}`}
+            >
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-lg bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
                   <Mic className="w-5 h-5 text-green-600 dark:text-green-400" />
                 </div>
                 <div>
-                  <p className={`text-sm ${currentTheme.textSecondary}`}>Voice</p>
-                  <p className={`font-semibold ${currentTheme.text}`}>{agent?.voice || "Default"}</p>
+                  <p className={`text-sm ${currentTheme.textSecondary}`}>
+                    Voice
+                  </p>
+                  <p className={`font-semibold ${currentTheme.text}`}>
+                    {agent?.voice || "Default"}
+                  </p>
                 </div>
               </div>
             </div>
-            <div className={`${currentTheme.cardBg} rounded-lg p-4 border ${currentTheme.border}`}>
+            <div
+              className={`${currentTheme.cardBg} rounded-lg p-4 border ${currentTheme.border}`}
+            >
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-lg bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center">
                   <Globe className="w-5 h-5 text-purple-600 dark:text-purple-400" />
                 </div>
                 <div>
-                  <p className={`text-sm ${currentTheme.textSecondary}`}>Language</p>
-                  <p className={`font-semibold ${currentTheme.text}`}>{agent?.greeting?.language || "English"}</p>
+                  <p className={`text-sm ${currentTheme.textSecondary}`}>
+                    Language
+                  </p>
+                  <p className={`font-semibold ${currentTheme.text}`}>
+                    {agent?.greeting?.language || "English"}
+                  </p>
                 </div>
               </div>
             </div>
           </div>
 
           {/* Basic Information */}
-          <div className={`${currentTheme.cardBg} rounded-lg p-6 border ${currentTheme.border}`}>
-            <h3 className={`text-lg font-semibold ${currentTheme.text} mb-4`}>Basic Information</h3>
+          <div
+            className={`${currentTheme.cardBg} rounded-lg p-6 border ${currentTheme.border}`}
+          >
+            <h3 className={`text-lg font-semibold ${currentTheme.text} mb-4`}>
+              Basic Information
+            </h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
-                <label className={`text-sm ${currentTheme.textSecondary} block mb-2`}>Agent Name</label>
+                <label
+                  className={`text-sm ${currentTheme.textSecondary} block mb-2`}
+                >
+                  Agent Name
+                </label>
                 <p className={`${currentTheme.text}`}>{agent.name || "N/A"}</p>
               </div>
               <div>
-                <label className={`text-sm ${currentTheme.textSecondary} block mb-2`}>Created By</label>
-                <p className={`${currentTheme.text}`}>{agent.created_by || "N/A"}</p>
+                <label
+                  className={`text-sm ${currentTheme.textSecondary} block mb-2`}
+                >
+                  Created By
+                </label>
+                <p className={`${currentTheme.text}`}>
+                  {agent.created_by || "N/A"}
+                </p>
               </div>
               <div>
-                <label className={`text-sm ${currentTheme.textSecondary} block mb-2`}>Created Date</label>
-                <p className={`${currentTheme.text}`}>{agent.created_at ? new Date(agent.created_at).toLocaleString() : "N/A"}</p>
+                <label
+                  className={`text-sm ${currentTheme.textSecondary} block mb-2`}
+                >
+                  Created Date
+                </label>
+                <p className={`${currentTheme.text}`}>
+                  {agent.created_at
+                    ? new Date(agent.created_at).toLocaleString()
+                    : "N/A"}
+                </p>
               </div>
               <div>
-                <label className={`text-sm ${currentTheme.textSecondary} block mb-2`}>Knowledge Base URL</label>
-                <p className={`${currentTheme.text} break-all`}>{agent.knowledge_base_url || "N/A"}</p>
+                <label
+                  className={`text-sm ${currentTheme.textSecondary} block mb-2`}
+                >
+                  Knowledge Base URL
+                </label>
+                <p className={`${currentTheme.text} break-all`}>
+                  {agent.knowledge_base_url || "N/A"}
+                </p>
               </div>
             </div>
           </div>
@@ -1915,49 +2096,87 @@ const AgentDetailsView = ({ agent, onBack, currentTheme }) => {
       {activeTab === "test" && (
         <div className="space-y-6">
           {/* Agent Information Card */}
-          <div className={`${currentTheme.cardBg} rounded-lg p-6 border ${currentTheme.border}`}>
-            <h3 className={`text-lg font-semibold ${currentTheme.text} mb-4 flex items-center gap-2`}>
+          <div
+            className={`${currentTheme.cardBg} rounded-lg p-6 border ${currentTheme.border}`}
+          >
+            <h3
+              className={`text-lg font-semibold ${currentTheme.text} mb-4 flex items-center gap-2`}
+            >
               <Info className="w-5 h-5" />
               Agent Information
             </h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className={`text-sm ${currentTheme.textSecondary} block mb-2`}>Agent Name</label>
-                <p className={`${currentTheme.text} font-semibold`}>{agent?.name || "Unnamed Agent"}</p>
+                <label
+                  className={`text-sm ${currentTheme.textSecondary} block mb-2`}
+                >
+                  Agent Name
+                </label>
+                <p className={`${currentTheme.text} font-semibold`}>
+                  {agent?.name || "Unnamed Agent"}
+                </p>
               </div>
               <div>
-                <label className={`text-sm ${currentTheme.textSecondary} block mb-2`}>Agent ID</label>
-                <p className={`${currentTheme.text} font-mono text-sm bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded`}>{agent?.id || agent?._id || "N/A"}</p>
+                <label
+                  className={`text-sm ${currentTheme.textSecondary} block mb-2`}
+                >
+                  Agent ID
+                </label>
+                <p
+                  className={`${currentTheme.text} font-mono text-sm bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded`}
+                >
+                  {agent?.id || agent?._id || "N/A"}
+                </p>
               </div>
               <div>
-                <label className={`text-sm ${currentTheme.textSecondary} block mb-2`}>Status</label>
-                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                  agent.is_active
-                    ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400"
-                    : "bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-400"
-                }`}>
+                <label
+                  className={`text-sm ${currentTheme.textSecondary} block mb-2`}
+                >
+                  Status
+                </label>
+                <span
+                  className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                    agent.is_active
+                      ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400"
+                      : "bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-400"
+                  }`}
+                >
                   {agent.is_active ? "🟢 Active" : "🔴 Inactive"}
                 </span>
               </div>
               <div>
-                <label className={`text-sm ${currentTheme.textSecondary} block mb-2`}>Model</label>
-                <p className={`${currentTheme.text}`}>{agent.model || "gpt-4o-realtime-preview"}</p>
+                <label
+                  className={`text-sm ${currentTheme.textSecondary} block mb-2`}
+                >
+                  Model
+                </label>
+                <p className={`${currentTheme.text}`}>
+                  {agent.model || "gpt-4o-realtime-preview"}
+                </p>
               </div>
             </div>
           </div>
 
           {/* Voice Testing Interface */}
-          <div className={`${currentTheme.cardBg} rounded-lg p-6 border ${currentTheme.border}`}>
-            <h3 className={`text-lg font-semibold ${currentTheme.text} mb-4 flex items-center gap-2`}>
+          <div
+            className={`${currentTheme.cardBg} rounded-lg p-6 border ${currentTheme.border}`}
+          >
+            <h3
+              className={`text-lg font-semibold ${currentTheme.text} mb-4 flex items-center gap-2`}
+            >
               🎙️ Live Voice Testing
             </h3>
-            
+
             {/* Test Configuration */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
               <div>
-                <label className={`text-sm ${currentTheme.textSecondary} block mb-2`}>Language</label>
-                <select 
-                  value={language} 
+                <label
+                  className={`text-sm ${currentTheme.textSecondary} block mb-2`}
+                >
+                  Language
+                </label>
+                <select
+                  value={language}
                   onChange={(e) => setLanguage(e.target.value)}
                   className={`w-full px-3 py-2 rounded-lg border ${currentTheme.border} ${currentTheme.cardBg} ${currentTheme.text} focus:outline-none focus:ring-2 focus:ring-blue-500/20`}
                   disabled={isConnected}
@@ -1977,33 +2196,52 @@ const AgentDetailsView = ({ agent, onBack, currentTheme }) => {
                 </select>
               </div>
               <div>
-                <label className={`text-sm ${currentTheme.textSecondary} block mb-2`}>Audio Settings</label>
+                <label
+                  className={`text-sm ${currentTheme.textSecondary} block mb-2`}
+                >
+                  Audio Settings
+                </label>
                 <div className="flex flex-wrap gap-3">
                   <label className="flex items-center text-xs">
-                    <input 
-                      type="checkbox" 
+                    <input
+                      type="checkbox"
                       checked={audioSettings.noiseSuppression}
-                      onChange={(e) => setAudioSettings(prev => ({...prev, noiseSuppression: e.target.checked}))}
+                      onChange={(e) =>
+                        setAudioSettings((prev) => ({
+                          ...prev,
+                          noiseSuppression: e.target.checked,
+                        }))
+                      }
                       className="mr-1"
                       disabled={isConnected}
                     />
                     🎧 Noise Cancellation
                   </label>
                   <label className="flex items-center text-xs">
-                    <input 
-                      type="checkbox" 
+                    <input
+                      type="checkbox"
                       checked={audioSettings.echoCancellation}
-                      onChange={(e) => setAudioSettings(prev => ({...prev, echoCancellation: e.target.checked}))}
+                      onChange={(e) =>
+                        setAudioSettings((prev) => ({
+                          ...prev,
+                          echoCancellation: e.target.checked,
+                        }))
+                      }
                       className="mr-1"
                       disabled={isConnected}
                     />
                     🔊 Echo Cancellation
                   </label>
                   <label className="flex items-center text-xs">
-                    <input 
-                      type="checkbox" 
+                    <input
+                      type="checkbox"
                       checked={audioSettings.autoGainControl}
-                      onChange={(e) => setAudioSettings(prev => ({...prev, autoGainControl: e.target.checked}))}
+                      onChange={(e) =>
+                        setAudioSettings((prev) => ({
+                          ...prev,
+                          autoGainControl: e.target.checked,
+                        }))
+                      }
                       className="mr-1"
                       disabled={isConnected}
                     />
@@ -2020,8 +2258,8 @@ const AgentDetailsView = ({ agent, onBack, currentTheme }) => {
                 disabled={isConnecting || isConnected}
                 className={`px-4 py-2 rounded-lg font-medium transition-all duration-200 ${
                   isConnecting || isConnected
-                    ? 'bg-gray-400 text-white cursor-not-allowed'
-                    : 'bg-blue-500 hover:bg-blue-600 text-white'
+                    ? "bg-gray-400 text-white cursor-not-allowed"
+                    : "bg-blue-500 hover:bg-blue-600 text-white"
                 }`}
               >
                 {isConnecting ? (
@@ -2040,7 +2278,7 @@ const AgentDetailsView = ({ agent, onBack, currentTheme }) => {
                   </span>
                 )}
               </button>
-              
+
               {isConnected && (
                 <button
                   onClick={endAgentCall}
@@ -2053,28 +2291,35 @@ const AgentDetailsView = ({ agent, onBack, currentTheme }) => {
 
             {/* Status Display */}
             {testStatus && (
-              <div className={`p-3 rounded-lg mb-4 text-sm ${
-                testStatus.includes('Error') || testStatus.includes('Failed') 
-                  ? 'bg-red-50 text-red-700 dark:bg-red-900/20 dark:text-red-300'
-                  : testStatus.includes('Connected') || testStatus.includes('🟢')
-                  ? 'bg-green-50 text-green-700 dark:bg-green-900/20 dark:text-green-300'
-                  : 'bg-blue-50 text-blue-700 dark:bg-blue-900/20 dark:text-blue-300'
-              }`}>
+              <div
+                className={`p-3 rounded-lg mb-4 text-sm ${
+                  testStatus.includes("Error") || testStatus.includes("Failed")
+                    ? "bg-red-50 text-red-700 dark:bg-red-900/20 dark:text-red-300"
+                    : testStatus.includes("Connected") ||
+                        testStatus.includes("🟢")
+                      ? "bg-green-50 text-green-700 dark:bg-green-900/20 dark:text-green-300"
+                      : "bg-blue-50 text-blue-700 dark:bg-blue-900/20 dark:text-blue-300"
+                }`}
+              >
                 {testStatus}
               </div>
             )}
 
             {/* Live Chat Interface */}
             {isConnected && (
-              <div className={`border ${currentTheme.border} rounded-lg overflow-hidden`}>
+              <div
+                className={`border ${currentTheme.border} rounded-lg overflow-hidden`}
+              >
                 <div className="bg-gray-50 dark:bg-gray-800 px-4 py-2 border-b border-gray-200 dark:border-gray-700">
-                  <span className="text-sm font-medium">💬 Live Conversation with {agent.name}</span>
+                  <span className="text-sm font-medium">
+                    💬 Live Conversation with {agent.name}
+                  </span>
                 </div>
-                
+
                 {/* Chat Messages */}
-                <div 
+                <div
                   className="h-64 overflow-y-auto p-4 bg-gray-50 dark:bg-gray-900/50"
-                  style={{scrollBehavior: 'smooth'}}
+                  style={{ scrollBehavior: "smooth" }}
                 >
                   {chatMessages.length === 0 ? (
                     <div className="text-center text-gray-500 text-sm py-8">
@@ -2082,18 +2327,27 @@ const AgentDetailsView = ({ agent, onBack, currentTheme }) => {
                     </div>
                   ) : (
                     chatMessages.map((msg, index) => (
-                      <div key={index} className={`mb-3 flex ${
-                        msg.role === 'user' ? 'justify-end' : 'justify-start'
-                      }`}>
-                        <div className={`max-w-[80%] p-3 rounded-lg ${
-                          msg.role === 'user' 
-                            ? 'bg-blue-500 text-white rounded-br-sm'
-                            : msg.role === 'agent'
-                            ? 'bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 rounded-bl-sm border'
-                            : 'bg-yellow-100 dark:bg-yellow-900/20 text-yellow-800 dark:text-yellow-300 text-center rounded'
-                        }`}>
+                      <div
+                        key={index}
+                        className={`mb-3 flex ${
+                          msg.role === "user" ? "justify-end" : "justify-start"
+                        }`}
+                      >
+                        <div
+                          className={`max-w-[80%] p-3 rounded-lg ${
+                            msg.role === "user"
+                              ? "bg-blue-500 text-white rounded-br-sm"
+                              : msg.role === "agent"
+                                ? "bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 rounded-bl-sm border"
+                                : "bg-yellow-100 dark:bg-yellow-900/20 text-yellow-800 dark:text-yellow-300 text-center rounded"
+                          }`}
+                        >
                           <div className="text-xs opacity-70 mb-1">
-                            {msg.role === 'user' ? '👤 You' : msg.role === 'agent' ? '🤖 ' + agent.name : 'System'}
+                            {msg.role === "user"
+                              ? "👤 You"
+                              : msg.role === "agent"
+                                ? "🤖 " + agent.name
+                                : "System"}
                           </div>
                           <div className="text-sm">{msg.text}</div>
                           <div className="text-xs opacity-50 mt-1">
@@ -2104,7 +2358,7 @@ const AgentDetailsView = ({ agent, onBack, currentTheme }) => {
                     ))
                   )}
                 </div>
-                
+
                 {/* Chat Input */}
                 <div className="p-3 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700">
                   <div className="flex gap-2">
@@ -2112,7 +2366,7 @@ const AgentDetailsView = ({ agent, onBack, currentTheme }) => {
                       type="text"
                       value={chatInput}
                       onChange={(e) => setChatInput(e.target.value)}
-                      onKeyDown={(e) => e.key === 'Enter' && sendChatMessage()}
+                      onKeyDown={(e) => e.key === "Enter" && sendChatMessage()}
                       placeholder="Type a message to test text input..."
                       className={`flex-1 px-3 py-2 text-sm rounded-lg border ${currentTheme.border} focus:outline-none focus:ring-2 focus:ring-blue-500/20`}
                       disabled={!isConnected}
@@ -2126,7 +2380,8 @@ const AgentDetailsView = ({ agent, onBack, currentTheme }) => {
                     </button>
                   </div>
                   <div className="text-xs text-gray-500 mt-2">
-                    💡 You can type messages here or speak directly for voice testing
+                    💡 You can type messages here or speak directly for voice
+                    testing
                   </div>
                 </div>
               </div>
@@ -2143,7 +2398,7 @@ const AgentDetailsView = ({ agent, onBack, currentTheme }) => {
                       style={{
                         height: `${Math.random() * 20 + 10}px`,
                         animationDelay: `${i * 0.1}s`,
-                        animationDuration: '1s'
+                        animationDuration: "1s",
                       }}
                     />
                   ))}
@@ -2163,19 +2418,25 @@ const AgentDetailsView = ({ agent, onBack, currentTheme }) => {
                 className={`${currentTheme.cardBg} rounded-lg sm:rounded-xl w-full max-w-3xl  max-h-[95vh] sm:max-h-[90vh] overflow-hidden shadow-2xl my-auto flex flex-col`}
               >
                 {/* Header - Mobile Optimized */}
-                <div
-                  className={`p-3 sm:p-4 border-b ${currentTheme.border}`}
-                >
+                <div className={`p-3 sm:p-4 border-b ${currentTheme.border}`}>
                   <div className="flex items-start justify-between gap-2 mb-2 sm:mb-3">
                     <div className="flex items-center gap-2 flex-1 min-w-0">
-                      <div className={`w-7 h-7 sm:w-10 sm:h-10 ${currentTheme.activeBg} rounded-lg flex items-center justify-center flex-shrink-0`}>
-                        <MessageSquare className={`w-3.5 h-3.5 sm:w-5 sm:h-5 ${currentTheme.textSecondary}`} />
+                      <div
+                        className={`w-7 h-7 sm:w-10 sm:h-10 ${currentTheme.activeBg} rounded-lg flex items-center justify-center flex-shrink-0`}
+                      >
+                        <MessageSquare
+                          className={`w-3.5 h-3.5 sm:w-5 sm:h-5 ${currentTheme.textSecondary}`}
+                        />
                       </div>
                       <div className="flex-1 min-w-0">
-                        <h2 className={`text-sm sm:text-lg font-semibold ${currentTheme.text} truncate`}>
+                        <h2
+                          className={`text-sm sm:text-lg font-semibold ${currentTheme.text} truncate`}
+                        >
                           Session Transcript
                         </h2>
-                        <p className={`text-xs ${currentTheme.textSecondary} truncate font-mono`}>
+                        <p
+                          className={`text-xs ${currentTheme.textSecondary} truncate font-mono`}
+                        >
                           {selectedSession.session_id || selectedSession.id}
                         </p>
                       </div>
@@ -2190,43 +2451,80 @@ const AgentDetailsView = ({ agent, onBack, currentTheme }) => {
 
                   {/* Session Info */}
                   <div className="flex flex-wrap gap-1.5 sm:gap-2 mb-2 sm:mb-3">
-                    <div className={`flex items-center gap-1.5 min-w-0 flex-1 min-w-[calc(50%-0.375rem)] sm:min-w-0 ${currentTheme.searchBg} px-2 py-1.5 rounded-md`}>
-                      <Clock className={`w-5 h-5 ${currentTheme.textSecondary} flex-shrink-0`} />
+                    <div
+                      className={`flex items-center gap-1.5 min-w-0 flex-1 min-w-[calc(50%-0.375rem)] sm:min-w-0 ${currentTheme.searchBg} px-2 py-1.5 rounded-md`}
+                    >
+                      <Clock
+                        className={`w-5 h-5 ${currentTheme.textSecondary} flex-shrink-0`}
+                      />
                       <div className="min-w-0 flex-1">
-                        <p className={`text-xs ${currentTheme.textSecondary} hidden sm:block`}>Date & Time</p>
-                        <span className={`text-xs font-medium ${currentTheme.text} truncate block`}>
+                        <p
+                          className={`text-xs ${currentTheme.textSecondary} hidden sm:block`}
+                        >
+                          Date & Time
+                        </p>
+                        <span
+                          className={`text-xs font-medium ${currentTheme.text} truncate block`}
+                        >
                           {formatDate(selectedSession.start_time)}
                         </span>
                       </div>
                     </div>
-                    
-                    <div className={`flex items-center gap-1.5 min-w-0 flex-1 min-w-[calc(50%-0.375rem)] sm:min-w-0 ${currentTheme.searchBg} px-2 py-1.5 rounded-md`}>
-                      <MapPin className={`w-5 h-5 ${currentTheme.textSecondary} flex-shrink-0`} />
+
+                    <div
+                      className={`flex items-center gap-1.5 min-w-0 flex-1 min-w-[calc(50%-0.375rem)] sm:min-w-0 ${currentTheme.searchBg} px-2 py-1.5 rounded-md`}
+                    >
+                      <MapPin
+                        className={`w-5 h-5 ${currentTheme.textSecondary} flex-shrink-0`}
+                      />
                       <div className="min-w-0 flex-1">
-                        <p className={`text-xs ${currentTheme.textSecondary} hidden sm:block`}>IP Address</p>
-                        <span className={`text-xs font-medium ${currentTheme.text} truncate block`}>
-                          {selectedSession.ipAddress || selectedSession.ip_address || 'unknown'}
+                        <p
+                          className={`text-xs ${currentTheme.textSecondary} hidden sm:block`}
+                        >
+                          IP Address
+                        </p>
+                        <span
+                          className={`text-xs font-medium ${currentTheme.text} truncate block`}
+                        >
+                          {selectedSession.ipAddress ||
+                            selectedSession.ip_address ||
+                            "unknown"}
                         </span>
                       </div>
                     </div>
-                    
-                    <div className={`flex items-center gap-1.5 min-w-0 flex-1 min-w-[calc(50%-0.375rem)] sm:min-w-0 ${currentTheme.searchBg} px-2 py-1.5 rounded-md`}>
-                      <Phone className={`w-5 h-5 ${currentTheme.textSecondary} flex-shrink-0`} />
+
+                    <div
+                      className={`flex items-center gap-1.5 min-w-0 flex-1 min-w-[calc(50%-0.375rem)] sm:min-w-0 ${currentTheme.searchBg} px-2 py-1.5 rounded-md`}
+                    >
+                      <Phone
+                        className={`w-5 h-5 ${currentTheme.textSecondary} flex-shrink-0`}
+                      />
                       <div className="min-w-0 flex-1">
-                        <p className={`text-xs ${currentTheme.textSecondary} hidden sm:block`}>Device • Duration</p>
-                        <span className={`text-xs font-medium ${currentTheme.text} truncate block`}>
-                          {selectedSession.device?.deviceType || selectedSession.device?.device_type || 'Unknown'} • {selectedSession.duration}
+                        <p
+                          className={`text-xs ${currentTheme.textSecondary} hidden sm:block`}
+                        >
+                          Device • Duration
+                        </p>
+                        <span
+                          className={`text-xs font-medium ${currentTheme.text} truncate block`}
+                        >
+                          {selectedSession.device?.deviceType ||
+                            selectedSession.device?.device_type ||
+                            "Unknown"}{" "}
+                          • {selectedSession.duration}
                         </span>
                       </div>
                     </div>
                   </div>
 
                   {/* Tabs */}
-                  <div className={`flex gap-1 p-1 ${currentTheme.searchBg} rounded-lg`}>
+                  <div
+                    className={`flex gap-1 p-1 ${currentTheme.searchBg} rounded-lg`}
+                  >
                     <button
-                      onClick={() => setModalActiveTab('transcripts')}
+                      onClick={() => setModalActiveTab("transcripts")}
                       className={`flex-1 px-3 py-2 text-xs sm:text-sm font-medium rounded-md transition-all duration-200 ${
-                        modalActiveTab === 'transcripts'
+                        modalActiveTab === "transcripts"
                           ? `${currentTheme.cardBg} ${currentTheme.text} shadow-sm`
                           : `${currentTheme.textSecondary} hover:${currentTheme.text}`
                       }`}
@@ -2235,9 +2533,9 @@ const AgentDetailsView = ({ agent, onBack, currentTheme }) => {
                       Call Transcripts
                     </button>
                     <button
-                      onClick={() => setModalActiveTab('summary')}
+                      onClick={() => setModalActiveTab("summary")}
                       className={`flex-1 px-3 py-2 text-xs sm:text-sm font-medium rounded-md transition-all duration-200 ${
-                        modalActiveTab === 'summary'
+                        modalActiveTab === "summary"
                           ? `${currentTheme.cardBg} ${currentTheme.text} shadow-sm`
                           : `${currentTheme.textSecondary} hover:${currentTheme.text}`
                       }`}
@@ -2251,34 +2549,95 @@ const AgentDetailsView = ({ agent, onBack, currentTheme }) => {
                 {/* Modal Content */}
                 <div className="flex-1 overflow-y-auto p-3 sm:p-4">
                   {/* Tab Content: Call Transcripts */}
-                  {modalActiveTab === 'transcripts' && (
+                  {modalActiveTab === "transcripts" && (
                     <>
                       {/* Token Usage - Mobile Optimized */}
-                      {(selectedSession.token_usage || selectedSession.tokenUsage) && (
-                        <div className={`px-3 sm:px-4 py-3 mb-3 ${currentTheme.searchBg} rounded-lg`}>
+                      {(selectedSession.token_usage ||
+                        selectedSession.tokenUsage) && (
+                        <div
+                          className={`px-3 sm:px-4 py-3 mb-3 ${currentTheme.searchBg} rounded-lg`}
+                        >
                           <div className="flex items-center gap-2 mb-2">
-                            <Activity className={`w-5 h-5 ${currentTheme.text}`} />
-                            <h4 className={`text-sm sm:text-base font-semibold ${currentTheme.text}`}>
+                            <Activity
+                              className={`w-5 h-5 ${currentTheme.text}`}
+                            />
+                            <h4
+                              className={`text-sm sm:text-base font-semibold ${currentTheme.text}`}
+                            >
                               Token Usage
                             </h4>
                           </div>
                           <div className="grid grid-cols-3 gap-2 sm:gap-4">
-                            <div className={`${currentTheme.cardBg} rounded-lg p-2 sm:p-3 border ${currentTheme.border}`}>
-                              <p className={`text-xs ${currentTheme.textSecondary} mb-1`}>Input</p>
-                              <p className={`text-lg sm:text-xl font-bold ${currentTheme.text}`}>
-                                {((selectedSession.token_usage || selectedSession.tokenUsage)?.input_tokens || (selectedSession.token_usage || selectedSession.tokenUsage)?.inputTokens || 0).toLocaleString()}
+                            <div
+                              className={`${currentTheme.cardBg} rounded-lg p-2 sm:p-3 border ${currentTheme.border}`}
+                            >
+                              <p
+                                className={`text-xs ${currentTheme.textSecondary} mb-1`}
+                              >
+                                Input
+                              </p>
+                              <p
+                                className={`text-lg sm:text-xl font-bold ${currentTheme.text}`}
+                              >
+                                {(
+                                  (
+                                    selectedSession.token_usage ||
+                                    selectedSession.tokenUsage
+                                  )?.input_tokens ||
+                                  (
+                                    selectedSession.token_usage ||
+                                    selectedSession.tokenUsage
+                                  )?.inputTokens ||
+                                  0
+                                ).toLocaleString()}
                               </p>
                             </div>
-                            <div className={`${currentTheme.cardBg} rounded-lg p-2 sm:p-3 border ${currentTheme.border}`}>
-                              <p className={`text-xs ${currentTheme.textSecondary} mb-1`}>Output</p>
-                              <p className={`text-lg sm:text-xl font-bold ${currentTheme.text}`}>
-                                {((selectedSession.token_usage || selectedSession.tokenUsage)?.output_tokens || (selectedSession.token_usage || selectedSession.tokenUsage)?.outputTokens || 0).toLocaleString()}
+                            <div
+                              className={`${currentTheme.cardBg} rounded-lg p-2 sm:p-3 border ${currentTheme.border}`}
+                            >
+                              <p
+                                className={`text-xs ${currentTheme.textSecondary} mb-1`}
+                              >
+                                Output
+                              </p>
+                              <p
+                                className={`text-lg sm:text-xl font-bold ${currentTheme.text}`}
+                              >
+                                {(
+                                  (
+                                    selectedSession.token_usage ||
+                                    selectedSession.tokenUsage
+                                  )?.output_tokens ||
+                                  (
+                                    selectedSession.token_usage ||
+                                    selectedSession.tokenUsage
+                                  )?.outputTokens ||
+                                  0
+                                ).toLocaleString()}
                               </p>
                             </div>
-                            <div className={`${currentTheme.cardBg} rounded-lg p-2 sm:p-3 border ${currentTheme.border}`}>
-                              <p className={`text-xs ${currentTheme.textSecondary} mb-1`}>Total</p>
-                              <p className={`text-lg sm:text-xl font-bold text-blue-600`}>
-                                {((selectedSession.token_usage || selectedSession.tokenUsage)?.total_tokens || (selectedSession.token_usage || selectedSession.tokenUsage)?.totalTokens || 0).toLocaleString()}
+                            <div
+                              className={`${currentTheme.cardBg} rounded-lg p-2 sm:p-3 border ${currentTheme.border}`}
+                            >
+                              <p
+                                className={`text-xs ${currentTheme.textSecondary} mb-1`}
+                              >
+                                Total
+                              </p>
+                              <p
+                                className={`text-lg sm:text-xl font-bold text-blue-600`}
+                              >
+                                {(
+                                  (
+                                    selectedSession.token_usage ||
+                                    selectedSession.tokenUsage
+                                  )?.total_tokens ||
+                                  (
+                                    selectedSession.token_usage ||
+                                    selectedSession.tokenUsage
+                                  )?.totalTokens ||
+                                  0
+                                ).toLocaleString()}
                               </p>
                             </div>
                           </div>
@@ -2286,63 +2645,103 @@ const AgentDetailsView = ({ agent, onBack, currentTheme }) => {
                       )}
 
                       {/* Transcript Messages */}
-                      <div className={`${currentTheme.searchBg} p-3 sm:p-4 rounded-lg`}>
-                        <h3 className={`text-sm sm:text-base font-semibold ${currentTheme.text} mb-3`}>
+                      <div
+                        className={`${currentTheme.searchBg} p-3 sm:p-4 rounded-lg`}
+                      >
+                        <h3
+                          className={`text-sm sm:text-base font-semibold ${currentTheme.text} mb-3`}
+                        >
                           Conversation Transcript
                         </h3>
                         <div className="space-y-1 max-h-[250px] sm:max-h-[400px] overflow-y-auto">
-                          {selectedSession.transcripts && selectedSession.transcripts.length > 0 ? (
+                          {selectedSession.transcripts &&
+                          selectedSession.transcripts.length > 0 ? (
                             <>
-                              <p className={`text-xs sm:text-sm ${currentTheme.textSecondary} mb-2`}>
-                                Conversation started at {formatDate(selectedSession.start_time)}
+                              <p
+                                className={`text-xs sm:text-sm ${currentTheme.textSecondary} mb-2`}
+                              >
+                                Conversation started at{" "}
+                                {formatDate(selectedSession.start_time)}
                               </p>
-                              
-                              {selectedSession.transcripts.map((message, index) => (
-                                <div key={index} className="flex flex-col gap-1.5 py-1.5 sm:py-2">
-                                  {message.speaker === "ai" || message.role === 'agent' ? (
-                                    <>
-                                      <div className="flex justify-start mb-1">
-                                        <span className={`text-xs ${currentTheme.textSecondary}`}>
-                                          SHIVAI ASSISTANT • {formatTranscriptTimestamp(message.timestamp)}
-                                        </span>
-                                      </div>
-                                      <div className="flex items-start gap-1.5 sm:gap-2">
-                                        <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center flex-shrink-0">
-                                          <Bot className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-white" />
+
+                              {selectedSession.transcripts.map(
+                                (message, index) => (
+                                  <div
+                                    key={index}
+                                    className="flex flex-col gap-1.5 py-1.5 sm:py-2"
+                                  >
+                                    {message.speaker === "ai" ||
+                                    message.role === "agent" ? (
+                                      <>
+                                        <div className="flex justify-start mb-1">
+                                          <span
+                                            className={`text-xs ${currentTheme.textSecondary}`}
+                                          >
+                                            SHIVAI ASSISTANT •{" "}
+                                            {formatTranscriptTimestamp(
+                                              message.timestamp
+                                            )}
+                                          </span>
                                         </div>
-                                        <div className={`max-w-[80%] ${currentTheme.cardBg} rounded-2xl rounded-tl-sm px-3 py-2 sm:px-4 sm:py-3 border ${currentTheme.border}`}>
-                                          <p className={`text-xs sm:text-sm ${currentTheme.text}`}>{message.message || message.text}</p>
-                                        </div>
-                                      </div>
-                                    </>
-                                  ) : (
-                                    <>
-                                      <div className="flex justify-end mb-1">
-                                        <span className={`text-xs ${currentTheme.textSecondary}`}>
-                                          CUSTOMER • {formatTranscriptTimestamp(message.timestamp)}
-                                        </span>
-                                      </div>
-                                      <div className="flex justify-end">
-                                        <div className="flex flex-col items-end max-w-[80%]">
-                                          <div className="rounded-2xl rounded-tr-sm px-3 py-2 sm:px-4 sm:py-3 bg-gradient-to-br from-blue-500 to-blue-600">
-                                            <p className="text-xs sm:text-sm text-white">{message.message || message.text}</p>
+                                        <div className="flex items-start gap-1.5 sm:gap-2">
+                                          <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center flex-shrink-0">
+                                            <Bot className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-white" />
+                                          </div>
+                                          <div
+                                            className={`max-w-[80%] ${currentTheme.cardBg} rounded-2xl rounded-tl-sm px-3 py-2 sm:px-4 sm:py-3 border ${currentTheme.border}`}
+                                          >
+                                            <p
+                                              className={`text-xs sm:text-sm ${currentTheme.text}`}
+                                            >
+                                              {message.message || message.text}
+                                            </p>
                                           </div>
                                         </div>
-                                      </div>
-                                    </>
-                                  )}
-                                </div>
-                              ))}
+                                      </>
+                                    ) : (
+                                      <>
+                                        <div className="flex justify-end mb-1">
+                                          <span
+                                            className={`text-xs ${currentTheme.textSecondary}`}
+                                          >
+                                            CUSTOMER •{" "}
+                                            {formatTranscriptTimestamp(
+                                              message.timestamp
+                                            )}
+                                          </span>
+                                        </div>
+                                        <div className="flex justify-end">
+                                          <div className="flex flex-col items-end max-w-[80%]">
+                                            <div className="rounded-2xl rounded-tr-sm px-3 py-2 sm:px-4 sm:py-3 bg-gradient-to-br from-blue-500 to-blue-600">
+                                              <p className="text-xs sm:text-sm text-white">
+                                                {message.message ||
+                                                  message.text}
+                                              </p>
+                                            </div>
+                                          </div>
+                                        </div>
+                                      </>
+                                    )}
+                                  </div>
+                                )
+                              )}
 
-                              <p className={`text-xs ${currentTheme.textSecondary} mt-3 flex items-center gap-1`}>
+                              <p
+                                className={`text-xs ${currentTheme.textSecondary} mt-3 flex items-center gap-1`}
+                              >
                                 <Clock className="w-5 h-5" />
-                                Session ended • Resolution: {selectedSession.resolution}
+                                Session ended • Resolution:{" "}
+                                {selectedSession.resolution}
                               </p>
                             </>
                           ) : (
                             <div className="text-center py-8">
-                              <FileText className={`w-10 h-10 sm:w-12 sm:h-12 ${currentTheme.textSecondary} mx-auto mb-3`} />
-                              <p className={`text-xs sm:text-sm ${currentTheme.textSecondary}`}>
+                              <FileText
+                                className={`w-10 h-10 sm:w-12 sm:h-12 ${currentTheme.textSecondary} mx-auto mb-3`}
+                              />
+                              <p
+                                className={`text-xs sm:text-sm ${currentTheme.textSecondary}`}
+                              >
                                 No transcripts available for this session
                               </p>
                             </div>
@@ -2353,45 +2752,62 @@ const AgentDetailsView = ({ agent, onBack, currentTheme }) => {
                   )}
 
                   {/* Tab Content: Summary */}
-                  {modalActiveTab === 'summary' && (
+                  {modalActiveTab === "summary" && (
                     <div className="space-y-3 sm:space-y-4">
                       {/* Call Recording Section */}
-                      <div className={`${currentTheme.searchBg} p-3 sm:p-4 rounded-lg`}>
-                        <h3 className={`text-sm sm:text-base font-semibold ${currentTheme.text} mb-3 flex items-center gap-2`}>
-                          <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="currentColor" viewBox="0 0 20 20">
-                            <path d="M18 3a1 1 0 00-1.196-.98l-10 2A1 1 0 006 5v9.114A4.369 4.369 0 005 14c-1.657 0-3 .895-3 2s1.343 2 3 2 3-.895 3-2V7.82l8-1.6v5.894A4.37 4.37 0 0015 12c-1.657 0-3 .895-3 2s1.343 2 3 2 3-.895 3-2V3z"/>
+                      <div
+                        className={`${currentTheme.searchBg} p-3 sm:p-4 rounded-lg`}
+                      >
+                        <h3
+                          className={`text-sm sm:text-base font-semibold ${currentTheme.text} mb-3 flex items-center gap-2`}
+                        >
+                          <svg
+                            className="w-4 h-4 sm:w-5 sm:h-5"
+                            fill="currentColor"
+                            viewBox="0 0 20 20"
+                          >
+                            <path d="M18 3a1 1 0 00-1.196-.98l-10 2A1 1 0 006 5v9.114A4.369 4.369 0 005 14c-1.657 0-3 .895-3 2s1.343 2 3 2 3-.895 3-2V7.82l8-1.6v5.894A4.37 4.37 0 0015 12c-1.657 0-3 .895-3 2s1.343 2 3 2 3-.895 3-2V3z" />
                           </svg>
                           Call Recording
                         </h3>
-                        
+
                         {/* Audio Player */}
-                        <div className={`${currentTheme.cardBg} p-4 rounded-xl border ${currentTheme.border}`}>
+                        <div
+                          className={`${currentTheme.cardBg} p-4 rounded-xl border ${currentTheme.border}`}
+                        >
                           {/* Hidden audio element */}
                           <audio
                             ref={audioRef}
                             onTimeUpdate={handleTimeUpdate}
                             onLoadedMetadata={handleLoadedMetadata}
                             onEnded={() => setIsPlaying(false)}
-                            src={selectedSession.recordingUrl || '#'}
+                            src={selectedSession.recordingUrl || "#"}
                           />
-                          
+
                           {/* Progress bar */}
                           <div
                             ref={progressRef}
                             onClick={handleProgressClick}
                             className={`relative h-1 ${currentTheme.border} rounded-full cursor-pointer mb-2`}
-                            style={{ backgroundColor: currentTheme === 'dark' ? '#334155' : '#cbd5e1' }}
+                            style={{
+                              backgroundColor:
+                                currentTheme === "dark" ? "#334155" : "#cbd5e1",
+                            }}
                           >
                             <div
                               className="absolute top-0 left-0 h-full bg-blue-600 rounded-full transition-all"
-                              style={{ width: `${duration > 0 ? (currentTime / duration) * 100 : 0}%` }}
+                              style={{
+                                width: `${duration > 0 ? (currentTime / duration) * 100 : 0}%`,
+                              }}
                             />
                           </div>
 
                           {/* Controls */}
                           <div className="flex items-center justify-between gap-3">
                             {/* Time display */}
-                            <span className={`text-xs ${currentTheme.textSecondary} w-10`}>
+                            <span
+                              className={`text-xs ${currentTheme.textSecondary} w-10`}
+                            >
                               {formatTimeDisplay(currentTime)}
                             </span>
 
@@ -2402,27 +2818,37 @@ const AgentDetailsView = ({ agent, onBack, currentTheme }) => {
                                 className={`p-1.5 hover:${currentTheme.searchBg} rounded transition-colors`}
                                 title="Rewind 10s"
                               >
-                                <SkipBack className={`w-5 h-5 ${currentTheme.textSecondary}`} />
+                                <SkipBack
+                                  className={`w-5 h-5 ${currentTheme.textSecondary}`}
+                                />
                               </button>
-                              
+
                               <button
                                 onClick={togglePlayPause}
                                 className="p-2 bg-blue-600 hover:bg-blue-700 text-white rounded-full transition-colors"
-                                title={isPlaying ? 'Pause' : 'Play'}
+                                title={isPlaying ? "Pause" : "Play"}
                               >
                                 {isPlaying ? (
-                                  <Pause className="w-5 h-5" fill="currentColor" />
+                                  <Pause
+                                    className="w-5 h-5"
+                                    fill="currentColor"
+                                  />
                                 ) : (
-                                  <Play className="w-4 h-4 ml-0.5" fill="currentColor" />
+                                  <Play
+                                    className="w-4 h-4 ml-0.5"
+                                    fill="currentColor"
+                                  />
                                 )}
                               </button>
-                              
+
                               <button
                                 onClick={() => skip(10)}
                                 className={`p-1.5 hover:${currentTheme.searchBg} rounded transition-colors`}
                                 title="Forward 10s"
                               >
-                                <SkipForward className={`w-5 h-5 ${currentTheme.textSecondary}`} />
+                                <SkipForward
+                                  className={`w-5 h-5 ${currentTheme.textSecondary}`}
+                                />
                               </button>
 
                               <button
@@ -2436,236 +2862,387 @@ const AgentDetailsView = ({ agent, onBack, currentTheme }) => {
                               <button
                                 onClick={toggleMute}
                                 className={`p-1.5 hover:${currentTheme.searchBg} rounded transition-colors`}
-                                title={isMuted ? 'Unmute' : 'Mute'}
+                                title={isMuted ? "Unmute" : "Mute"}
                               >
                                 {isMuted ? (
-                                  <VolumeX className={`w-5 h-5 ${currentTheme.textSecondary}`} />
+                                  <VolumeX
+                                    className={`w-5 h-5 ${currentTheme.textSecondary}`}
+                                  />
                                 ) : (
-                                  <Volume2 className={`w-5 h-5 ${currentTheme.textSecondary}`} />
+                                  <Volume2
+                                    className={`w-5 h-5 ${currentTheme.textSecondary}`}
+                                  />
                                 )}
                               </button>
-                              
+
                               <button
                                 className={`p-1.5 hover:${currentTheme.searchBg} rounded transition-colors`}
                                 title="Download recording"
                               >
-                                <Download className={`w-5 h-5 ${currentTheme.textSecondary}`} />
+                                <Download
+                                  className={`w-5 h-5 ${currentTheme.textSecondary}`}
+                                />
                               </button>
                             </div>
 
                             {/* Duration */}
-                            <span className={`text-xs ${currentTheme.textSecondary} w-10 text-right`}>
-                              {formatTimeDisplay(duration || selectedSession.duration || 0)}
+                            <span
+                              className={`text-xs ${currentTheme.textSecondary} w-10 text-right`}
+                            >
+                              {formatTimeDisplay(
+                                duration || selectedSession.duration || 0
+                              )}
                             </span>
                           </div>
                         </div>
                       </div>
 
                       {/* Call Summary Section */}
-                      <div className={`${currentTheme.searchBg} p-3 sm:p-4 rounded-lg`}>
-                        <h3 className={`text-sm sm:text-base font-semibold ${currentTheme.text} mb-3 flex items-center gap-2`}>
+                      <div
+                        className={`${currentTheme.searchBg} p-3 sm:p-4 rounded-lg`}
+                      >
+                        <h3
+                          className={`text-sm sm:text-base font-semibold ${currentTheme.text} mb-3 flex items-center gap-2`}
+                        >
                           <FileText className="w-4 h-4 sm:w-5 sm:h-5" />
                           Call Summary
                         </h3>
-                        
+
                         {summaryLoading ? (
                           <div className="flex items-center justify-center py-8">
                             <Loader2 className="w-6 h-6 text-blue-500 animate-spin" />
                           </div>
                         ) : summaryError ? (
                           <div className="text-center py-6">
-                            <XCircle className={`w-10 h-10 ${currentTheme.textSecondary} mx-auto mb-2`} />
-                            <p className={`text-xs sm:text-sm ${currentTheme.textSecondary}`}>
+                            <XCircle
+                              className={`w-10 h-10 ${currentTheme.textSecondary} mx-auto mb-2`}
+                            />
+                            <p
+                              className={`text-xs sm:text-sm ${currentTheme.textSecondary}`}
+                            >
                               {summaryError}
                             </p>
                           </div>
-                        ) : callSummary?.data?.leads && callSummary.data.leads.length > 0 ? (
+                        ) : callSummary?.data?.leads &&
+                          callSummary.data.leads.length > 0 ? (
                           (() => {
-                            const filteredLeads = callSummary.data.leads.filter(lead => 
-                              lead.callId === (selectedSession.callId || selectedSession.session_id || selectedSession.id)
+                            const filteredLeads = callSummary.data.leads.filter(
+                              (lead) =>
+                                lead.callId ===
+                                (selectedSession.callId ||
+                                  selectedSession.session_id ||
+                                  selectedSession.id)
                             );
-                            
-                            console.log('🔍 Filtering leads. Looking for callId:', selectedSession.callId || selectedSession.session_id || selectedSession.id);
-                            console.log('🔍 Available callIds:', callSummary.data.leads.map(l => l.callId));
-                            console.log('🔍 Filtered leads:', filteredLeads);
-                            
+
+                            console.log(
+                              "🔍 Filtering leads. Looking for callId:",
+                              selectedSession.callId ||
+                                selectedSession.session_id ||
+                                selectedSession.id
+                            );
+                            console.log(
+                              "🔍 Available callIds:",
+                              callSummary.data.leads.map((l) => l.callId)
+                            );
+                            console.log("🔍 Filtered leads:", filteredLeads);
+
                             return filteredLeads.length > 0 ? (
                               <div className="space-y-4">
                                 {filteredLeads.map((lead, leadIndex) => (
-                              <div key={lead.id || leadIndex} className={`border ${currentTheme.border} rounded-lg p-3 sm:p-4 space-y-3`}>
-                                {/* Call ID and Date */}
-                                <div className={`flex items-center justify-between pb-2 border-b ${currentTheme.border}`}>
-                                  <div className="flex items-center gap-2">
-                                    <Phone className="w-3.5 h-3.5 text-blue-500" />
-                                    <span className={`text-xs font-mono ${currentTheme.textSecondary}`}>
-                                      {lead.callId || 'N/A'}
-                                    </span> 
-                                  </div>
-                                  {lead.createdAt && (
-                                    <span className={`text-xs ${currentTheme.textSecondary}`}>
-                                      {new Date(lead.createdAt).toLocaleString('en-US', {
-                                        month: 'short',
-                                        day: 'numeric',
-                                        hour: '2-digit',
-                                        minute: '2-digit'
-                                      })}
-                                    </span>
-                                  )}
-                                </div>
-
-                                {/* Intent Details */}
-                                {lead.intent && (
-                                  <div className="space-y-2">
-                                    {lead.intent.primary && (
-                                      <div className={`bg-blue-50 dark:bg-blue-900/20 p-3 rounded-lg border border-blue-200 dark:border-blue-700`}>
-                                        <p className={`text-xs font-medium text-blue-700 dark:text-blue-300 mb-1`}>Primary Intent</p>
-                                        <p className={`text-xs sm:text-sm ${currentTheme.text} leading-relaxed`}>
-                                          {lead.intent.primary}
-                                        </p>
-                                      </div>
-                                    )}
-
-                                    {lead.intent.details && (
-                                      <div className={`${currentTheme.cardBg} p-3 rounded-lg border ${currentTheme.border}`}>
-                                        <p className={`text-xs font-medium ${currentTheme.textSecondary} mb-1`}>Details</p>
-                                        <p className={`text-xs sm:text-sm ${currentTheme.text} leading-relaxed`}>
-                                          {lead.intent.details}
-                                        </p>
-                                      </div>
-                                    )}
-
-                                    {/* Urgency */}
-                                    {lead.urgency && (
+                                  <div
+                                    key={lead.id || leadIndex}
+                                    className={`border ${currentTheme.border} rounded-lg p-3 sm:p-4 space-y-3`}
+                                  >
+                                    {/* Call ID and Date */}
+                                    <div
+                                      className={`flex items-center justify-between pb-2 border-b ${currentTheme.border}`}
+                                    >
                                       <div className="flex items-center gap-2">
-                                        <span className={`text-xs ${currentTheme.textSecondary}`}>Urgency:</span>
-                                        <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${
-                                          lead.urgency === 'high' 
-                                            ? 'bg-red-100 text-red-700 dark:bg-red-900/20 dark:text-red-400'
-                                            : lead.urgency === 'medium'
-                                            ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/20 dark:text-yellow-400'
-                                            : 'bg-green-100 text-green-700 dark:bg-green-900/20 dark:text-green-400'
-                                        }`}>
-                                          {lead.urgency}
+                                        <Phone className="w-3.5 h-3.5 text-blue-500" />
+                                        <span
+                                          className={`text-xs font-mono ${currentTheme.textSecondary}`}
+                                        >
+                                          {lead.callId || "N/A"}
                                         </span>
                                       </div>
+                                      {lead.createdAt && (
+                                        <span
+                                          className={`text-xs ${currentTheme.textSecondary}`}
+                                        >
+                                          {new Date(
+                                            lead.createdAt
+                                          ).toLocaleString("en-US", {
+                                            month: "short",
+                                            day: "numeric",
+                                            hour: "2-digit",
+                                            minute: "2-digit",
+                                          })}
+                                        </span>
+                                      )}
+                                    </div>
+
+                                    {/* Intent Details */}
+                                    {lead.intent && (
+                                      <div className="space-y-2">
+                                        {lead.intent.primary && (
+                                          <div
+                                            className={`bg-blue-50 dark:bg-blue-900/20 p-3 rounded-lg border border-blue-200 dark:border-blue-700`}
+                                          >
+                                            <p
+                                              className={`text-xs font-medium text-blue-700 dark:text-blue-300 mb-1`}
+                                            >
+                                              Primary Intent
+                                            </p>
+                                            <p
+                                              className={`text-xs sm:text-sm ${currentTheme.text} leading-relaxed`}
+                                            >
+                                              {lead.intent.primary}
+                                            </p>
+                                          </div>
+                                        )}
+
+                                        {lead.intent.details && (
+                                          <div
+                                            className={`${currentTheme.cardBg} p-3 rounded-lg border ${currentTheme.border}`}
+                                          >
+                                            <p
+                                              className={`text-xs font-medium ${currentTheme.textSecondary} mb-1`}
+                                            >
+                                              Details
+                                            </p>
+                                            <p
+                                              className={`text-xs sm:text-sm ${currentTheme.text} leading-relaxed`}
+                                            >
+                                              {lead.intent.details}
+                                            </p>
+                                          </div>
+                                        )}
+
+                                        {/* Urgency */}
+                                        {lead.urgency && (
+                                          <div className="flex items-center gap-2">
+                                            <span
+                                              className={`text-xs ${currentTheme.textSecondary}`}
+                                            >
+                                              Urgency:
+                                            </span>
+                                            <span
+                                              className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${
+                                                lead.urgency === "high"
+                                                  ? "bg-red-100 text-red-700 dark:bg-red-900/20 dark:text-red-400"
+                                                  : lead.urgency === "medium"
+                                                    ? "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/20 dark:text-yellow-400"
+                                                    : "bg-green-100 text-green-700 dark:bg-green-900/20 dark:text-green-400"
+                                              }`}
+                                            >
+                                              {lead.urgency}
+                                            </span>
+                                          </div>
+                                        )}
+
+                                        {/* Tags */}
+                                        {lead.tags && lead.tags.length > 0 && (
+                                          <div>
+                                            <p
+                                              className={`text-xs font-medium ${currentTheme.textSecondary} mb-2`}
+                                            >
+                                              Tags
+                                            </p>
+                                            <div className="flex flex-wrap gap-1.5">
+                                              {lead.tags.map(
+                                                (tag, tagIndex) => (
+                                                  <span
+                                                    key={tagIndex}
+                                                    className={`px-2 py-0.5 ${currentTheme.cardBg} ${currentTheme.text} rounded-full text-xs border ${currentTheme.border}`}
+                                                  >
+                                                    {tag}
+                                                  </span>
+                                                )
+                                              )}
+                                            </div>
+                                          </div>
+                                        )}
+                                      </div>
                                     )}
 
-                                    {/* Tags */}
-                                    {lead.tags && lead.tags.length > 0 && (
+                                    {/* Lead Contact Information */}
+                                    {lead.leadData && (
                                       <div>
-                                        <p className={`text-xs font-medium ${currentTheme.textSecondary} mb-2`}>Tags</p>
-                                        <div className="flex flex-wrap gap-1.5">
-                                          {lead.tags.map((tag, tagIndex) => (
-                                            <span
-                                              key={tagIndex}
-                                              className={`px-2 py-0.5 ${currentTheme.cardBg} ${currentTheme.text} rounded-full text-xs border ${currentTheme.border}`}
-                                            >
-                                              {tag}
-                                            </span>
-                                          ))}
+                                        <p
+                                          className={`text-xs font-medium ${currentTheme.textSecondary} mb-2`}
+                                        >
+                                          Lead Information
+                                        </p>
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                          {lead.leadData.name && (
+                                            <div className="flex items-start gap-2">
+                                              <Users
+                                                className={`w-5 h-5 ${currentTheme.textSecondary} mt-0.5 flex-shrink-0`}
+                                              />
+                                              <div className="min-w-0">
+                                                <p
+                                                  className={`text-xs ${currentTheme.textSecondary}`}
+                                                >
+                                                  Name
+                                                </p>
+                                                <p
+                                                  className={`text-sm font-medium ${currentTheme.text} truncate`}
+                                                >
+                                                  {lead.leadData.name}
+                                                </p>
+                                              </div>
+                                            </div>
+                                          )}
+
+                                          {lead.leadData.email && (
+                                            <div className="flex items-start gap-2">
+                                              <Mail
+                                                className={`w-5 h-5 ${currentTheme.textSecondary} mt-0.5 flex-shrink-0`}
+                                              />
+                                              <div className="min-w-0">
+                                                <p
+                                                  className={`text-xs ${currentTheme.textSecondary}`}
+                                                >
+                                                  Email
+                                                </p>
+                                                <p
+                                                  className={`text-sm font-medium ${currentTheme.text} truncate`}
+                                                >
+                                                  {lead.leadData.email}
+                                                </p>
+                                              </div>
+                                            </div>
+                                          )}
+
+                                          {lead.leadData.phone && (
+                                            <div className="flex items-start gap-2">
+                                              <Phone
+                                                className={`w-5 h-5 ${currentTheme.textSecondary} mt-0.5 flex-shrink-0`}
+                                              />
+                                              <div className="min-w-0">
+                                                <p
+                                                  className={`text-xs ${currentTheme.textSecondary}`}
+                                                >
+                                                  Phone
+                                                </p>
+                                                <p
+                                                  className={`text-sm font-medium ${currentTheme.text}`}
+                                                >
+                                                  {lead.leadData.phone}
+                                                </p>
+                                              </div>
+                                            </div>
+                                          )}
+
+                                          {lead.leadData.status && (
+                                            <div className="flex items-start gap-2">
+                                              <TrendingUp
+                                                className={`w-5 h-5 ${currentTheme.textSecondary} mt-0.5 flex-shrink-0`}
+                                              />
+                                              <div>
+                                                <p
+                                                  className={`text-xs ${currentTheme.textSecondary}`}
+                                                >
+                                                  Status
+                                                </p>
+                                                <span
+                                                  className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${
+                                                    lead.leadData.status ===
+                                                    "qualified"
+                                                      ? "bg-green-100 text-green-700 dark:bg-green-900/20 dark:text-green-400"
+                                                      : lead.leadData.status ===
+                                                          "interested"
+                                                        ? "bg-blue-100 text-blue-700 dark:bg-blue-900/20 dark:text-blue-400"
+                                                        : lead.leadData
+                                                              .status === "new"
+                                                          ? "bg-purple-100 text-purple-700 dark:bg-purple-900/20 dark:text-purple-400"
+                                                          : `${currentTheme.cardBg} ${currentTheme.text}`
+                                                  }`}
+                                                >
+                                                  {lead.leadData.status ===
+                                                    "qualified" && (
+                                                    <CheckCircle className="w-5 h-5" />
+                                                  )}
+                                                  {lead.leadData.status}
+                                                </span>
+                                              </div>
+                                            </div>
+                                          )}
+
+                                          {lead.leadData.group_size && (
+                                            <div className="flex items-start gap-2">
+                                              <Users
+                                                className={`w-5 h-5 ${currentTheme.textSecondary} mt-0.5 flex-shrink-0`}
+                                              />
+                                              <div>
+                                                <p
+                                                  className={`text-xs ${currentTheme.textSecondary}`}
+                                                >
+                                                  Group Size
+                                                </p>
+                                                <p
+                                                  className={`text-sm font-medium ${currentTheme.text}`}
+                                                >
+                                                  {lead.leadData.group_size}
+                                                </p>
+                                              </div>
+                                            </div>
+                                          )}
+
+                                          {lead.leadData.dates && (
+                                            <div className="flex items-start gap-2">
+                                              <Calendar
+                                                className={`w-5 h-5 ${currentTheme.textSecondary} mt-0.5 flex-shrink-0`}
+                                              />
+                                              <div>
+                                                <p
+                                                  className={`text-xs ${currentTheme.textSecondary}`}
+                                                >
+                                                  Travel Dates
+                                                </p>
+                                                <p
+                                                  className={`text-sm font-medium ${currentTheme.text}`}
+                                                >
+                                                  {lead.leadData.dates}
+                                                </p>
+                                              </div>
+                                            </div>
+                                          )}
                                         </div>
                                       </div>
                                     )}
                                   </div>
-                                )}
-
-                                {/* Lead Contact Information */}
-                                {lead.leadData && (
-                                  <div>
-                                    <p className={`text-xs font-medium ${currentTheme.textSecondary} mb-2`}>Lead Information</p>
-                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                      {lead.leadData.name && (
-                                        <div className="flex items-start gap-2">
-                                          <Users className={`w-5 h-5 ${currentTheme.textSecondary} mt-0.5 flex-shrink-0`} />
-                                          <div className="min-w-0">
-                                            <p className={`text-xs ${currentTheme.textSecondary}`}>Name</p>
-                                            <p className={`text-sm font-medium ${currentTheme.text} truncate`}>{lead.leadData.name}</p>
-                                          </div>
-                                        </div>
-                                      )}
-                                      
-                                      {lead.leadData.email && (
-                                        <div className="flex items-start gap-2">
-                                          <Mail className={`w-5 h-5 ${currentTheme.textSecondary} mt-0.5 flex-shrink-0`} />
-                                          <div className="min-w-0">
-                                            <p className={`text-xs ${currentTheme.textSecondary}`}>Email</p>
-                                            <p className={`text-sm font-medium ${currentTheme.text} truncate`}>{lead.leadData.email}</p>
-                                          </div>
-                                        </div>
-                                      )}
-                                      
-                                      {lead.leadData.phone && (
-                                        <div className="flex items-start gap-2">
-                                          <Phone className={`w-5 h-5 ${currentTheme.textSecondary} mt-0.5 flex-shrink-0`} />
-                                          <div className="min-w-0">
-                                            <p className={`text-xs ${currentTheme.textSecondary}`}>Phone</p>
-                                            <p className={`text-sm font-medium ${currentTheme.text}`}>{lead.leadData.phone}</p>
-                                          </div>
-                                        </div>
-                                      )}
-
-                                      {lead.leadData.status && (
-                                        <div className="flex items-start gap-2">
-                                          <TrendingUp className={`w-5 h-5 ${currentTheme.textSecondary} mt-0.5 flex-shrink-0`} />
-                                          <div>
-                                            <p className={`text-xs ${currentTheme.textSecondary}`}>Status</p>
-                                            <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${
-                                              lead.leadData.status === 'qualified' 
-                                                ? 'bg-green-100 text-green-700 dark:bg-green-900/20 dark:text-green-400'
-                                                : lead.leadData.status === 'interested'
-                                                ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/20 dark:text-blue-400'
-                                                : lead.leadData.status === 'new'
-                                                ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/20 dark:text-purple-400'
-                                                : `${currentTheme.cardBg} ${currentTheme.text}`
-                                            }`}>
-                                              {lead.leadData.status === 'qualified' && <CheckCircle className="w-5 h-5" />}
-                                              {lead.leadData.status}
-                                            </span>
-                                          </div>
-                                        </div>
-                                      )}
-
-                                      {lead.leadData.group_size && (
-                                        <div className="flex items-start gap-2">
-                                          <Users className={`w-5 h-5 ${currentTheme.textSecondary} mt-0.5 flex-shrink-0`} />
-                                          <div>
-                                            <p className={`text-xs ${currentTheme.textSecondary}`}>Group Size</p>
-                                            <p className={`text-sm font-medium ${currentTheme.text}`}>{lead.leadData.group_size}</p>
-                                          </div>
-                                        </div>
-                                      )}
-
-                                      {lead.leadData.dates && (
-                                        <div className="flex items-start gap-2">
-                                          <Calendar className={`w-5 h-5 ${currentTheme.textSecondary} mt-0.5 flex-shrink-0`} />
-                                          <div>
-                                            <p className={`text-xs ${currentTheme.textSecondary}`}>Travel Dates</p>
-                                            <p className={`text-sm font-medium ${currentTheme.text}`}>{lead.leadData.dates}</p>
-                                          </div>
-                                        </div>
-                                      )}
-                                    </div>
-                                  </div>
-                                )}
+                                ))}
                               </div>
-                            ))}
-                          </div>
                             ) : (
                               <div className="text-center py-6">
-                                <FileText className={`w-10 h-10 ${currentTheme.textSecondary} mx-auto mb-2`} />
-                                <p className={`text-xs sm:text-sm ${currentTheme.textSecondary}`}>
+                                <FileText
+                                  className={`w-10 h-10 ${currentTheme.textSecondary} mx-auto mb-2`}
+                                />
+                                <p
+                                  className={`text-xs sm:text-sm ${currentTheme.textSecondary}`}
+                                >
                                   No matching summary for this call
                                 </p>
-                                <p className={`text-xs ${currentTheme.textSecondary} mt-1`}>
-                                  Call ID: {selectedSession.callId || selectedSession.session_id || selectedSession.id}
+                                <p
+                                  className={`text-xs ${currentTheme.textSecondary} mt-1`}
+                                >
+                                  Call ID:{" "}
+                                  {selectedSession.callId ||
+                                    selectedSession.session_id ||
+                                    selectedSession.id}
                                 </p>
                               </div>
                             );
                           })()
                         ) : (
                           <div className="text-center py-6">
-                            <FileText className={`w-10 h-10 ${currentTheme.textSecondary} mx-auto mb-2`} />
-                            <p className={`text-xs sm:text-sm ${currentTheme.textSecondary}`}>
+                            <FileText
+                              className={`w-10 h-10 ${currentTheme.textSecondary} mx-auto mb-2`}
+                            />
+                            <p
+                              className={`text-xs sm:text-sm ${currentTheme.textSecondary}`}
+                            >
                               No call summary available
                             </p>
                           </div>
@@ -2690,14 +3267,24 @@ const AgentDetailsView = ({ agent, onBack, currentTheme }) => {
             </div>
 
             {loadingSessions ? (
-              <div className={`text-center py-12 rounded-lg ${currentTheme.searchBg}`}>
+              <div
+                className={`text-center py-12 rounded-lg ${currentTheme.searchBg}`}
+              >
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
-                <p className={`${currentTheme.textSecondary}`}>Loading sessions...</p>
+                <p className={`${currentTheme.textSecondary}`}>
+                  Loading sessions...
+                </p>
               </div>
             ) : sessions.length === 0 ? (
-              <div className={`text-center py-12 rounded-lg ${currentTheme.searchBg}`}>
-                <Phone className={`w-5 h-5 mx-auto mb-3 ${currentTheme.textSecondary}`} />
-                <h4 className={`text-lg font-semibold ${currentTheme.text} mb-2`}>
+              <div
+                className={`text-center py-12 rounded-lg ${currentTheme.searchBg}`}
+              >
+                <Phone
+                  className={`w-5 h-5 mx-auto mb-3 ${currentTheme.textSecondary}`}
+                />
+                <h4
+                  className={`text-lg font-semibold ${currentTheme.text} mb-2`}
+                >
                   No Sessions Yet
                 </h4>
                 <p className={`${currentTheme.textSecondary}`}>
@@ -2707,12 +3294,16 @@ const AgentDetailsView = ({ agent, onBack, currentTheme }) => {
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                 {sessions.map((session, index) => {
-                  const sessionId = session?.session_id || session?.id || `#${String(1000 + index).padStart(4, '0')}`;
-                  const status = session?.status || 'Completed';
+                  const sessionId =
+                    session?.session_id ||
+                    session?.id ||
+                    `#${String(1000 + index).padStart(4, "0")}`;
+                  const status = session?.status || "Completed";
                   const durationSeconds = session?.duration_seconds || 0;
-                  const duration = durationSeconds > 0 
-                    ? `${Math.floor(durationSeconds / 60)}m ${Math.floor(durationSeconds % 60)}s`
-                    : '0s';
+                  const duration =
+                    durationSeconds > 0
+                      ? `${Math.floor(durationSeconds / 60)}m ${Math.floor(durationSeconds % 60)}s`
+                      : "0s";
                   const messageCount = session?.total_messages || 0;
                   const startTime = session?.start_time || new Date();
                   const location = session?.location || {};
@@ -2726,8 +3317,12 @@ const AgentDetailsView = ({ agent, onBack, currentTheme }) => {
                       {/* Session ID and View Button */}
                       <div className="flex items-center justify-between mb-3">
                         <div className="flex items-center gap-2 flex-1 min-w-0">
-                          <Phone className={`w-5 h-5 ${currentTheme.textSecondary} flex-shrink-0`} />
-                          <h4 className={`font-semibold ${currentTheme.text} text-sm truncate`}>
+                          <Phone
+                            className={`w-5 h-5 ${currentTheme.textSecondary} flex-shrink-0`}
+                          />
+                          <h4
+                            className={`font-semibold ${currentTheme.text} text-sm truncate`}
+                          >
                             {sessionId}
                           </h4>
                         </div>
@@ -2736,7 +3331,8 @@ const AgentDetailsView = ({ agent, onBack, currentTheme }) => {
                           className={`p-1.5 ${currentTheme.textSecondary} rounded-lg ${currentTheme.activeBg} ${currentTheme.hover} transition-all duration-200 hover:shadow-lg flex-shrink-0`}
                           title="View Session"
                         >
-                          {loadingTranscripts && selectedSession?.id === session?.id ? (
+                          {loadingTranscripts &&
+                          selectedSession?.id === session?.id ? (
                             <div className="w-3 h-3 border border-gray-600 border-t-transparent rounded-full animate-spin"></div>
                           ) : (
                             <Eye className="w-5 h-5" />
@@ -2748,11 +3344,11 @@ const AgentDetailsView = ({ agent, onBack, currentTheme }) => {
                       <div className="flex flex-wrap gap-1 mb-3">
                         <span
                           className={`px-2 py-1 text-xs rounded-full font-medium ${
-                            status === 'Completed'
-                              ? 'bg-green-500/10 text-green-600 border border-green-500/20'
-                              : status === 'In Progress'
-                              ? 'bg-blue-500/10 text-blue-600 border border-blue-500/20'
-                              : 'bg-gray-500/10 text-gray-600 border border-gray-500/20'
+                            status === "Completed"
+                              ? "bg-green-500/10 text-green-600 border border-green-500/20"
+                              : status === "In Progress"
+                                ? "bg-blue-500/10 text-blue-600 border border-blue-500/20"
+                                : "bg-gray-500/10 text-gray-600 border border-gray-500/20"
                           }`}
                         >
                           {status}
@@ -2761,20 +3357,24 @@ const AgentDetailsView = ({ agent, onBack, currentTheme }) => {
 
                       {/* Date & Time */}
                       <div className="mb-3">
-                        <p className={`text-xs font-medium ${currentTheme.textSecondary} mb-1`}>
+                        <p
+                          className={`text-xs font-medium ${currentTheme.textSecondary} mb-1`}
+                        >
                           Date & Time
                         </p>
-                        <p className={`${currentTheme.text} text-sm font-medium`}>
-                          {new Date(startTime).toLocaleDateString('en-US', {
-                            month: 'short',
-                            day: 'numeric',
-                            year: 'numeric',
+                        <p
+                          className={`${currentTheme.text} text-sm font-medium`}
+                        >
+                          {new Date(startTime).toLocaleDateString("en-US", {
+                            month: "short",
+                            day: "numeric",
+                            year: "numeric",
                           })}
                         </p>
                         <p className={`text-xs ${currentTheme.textSecondary}`}>
-                          {new Date(startTime).toLocaleTimeString('en-US', {
-                            hour: '2-digit',
-                            minute: '2-digit',
+                          {new Date(startTime).toLocaleTimeString("en-US", {
+                            hour: "2-digit",
+                            minute: "2-digit",
                             hour12: true,
                           })}
                         </p>
@@ -2782,63 +3382,116 @@ const AgentDetailsView = ({ agent, onBack, currentTheme }) => {
 
                       {/* Location */}
                       <div className="mb-3">
-                        <p className={`text-xs font-medium ${currentTheme.textSecondary} mb-1`}>
+                        <p
+                          className={`text-xs font-medium ${currentTheme.textSecondary} mb-1`}
+                        >
                           Location
                         </p>
-                        <p className={`${currentTheme.text} text-sm font-medium truncate`}>
-                          {[location?.city, location?.country].filter(v => v && v !== 'unknown').join(', ') || 'Unknown'}
+                        <p
+                          className={`${currentTheme.text} text-sm font-medium truncate`}
+                        >
+                          {[location?.city, location?.country]
+                            .filter((v) => v && v !== "unknown")
+                            .join(", ") || "Unknown"}
                         </p>
                       </div>
 
                       {/* Stats Grid */}
                       <div className="grid grid-cols-2 gap-3 mb-3">
                         <div>
-                          <p className={`text-xs ${currentTheme.textSecondary}`}>Device</p>
-                          <p className={`${currentTheme.text} text-sm font-medium truncate`}>
-                            {session?.device?.device_type && session.device.device_type !== 'unknown' 
-                              ? session.device.device_type 
-                              : 'Unknown'}
+                          <p
+                            className={`text-xs ${currentTheme.textSecondary}`}
+                          >
+                            Device
+                          </p>
+                          <p
+                            className={`${currentTheme.text} text-sm font-medium truncate`}
+                          >
+                            {session?.device?.device_type &&
+                            session.device.device_type !== "unknown"
+                              ? session.device.device_type
+                              : "Unknown"}
                           </p>
                         </div>
                         <div>
-                          <p className={`text-xs ${currentTheme.textSecondary}`}>Duration</p>
-                          <p className={`${currentTheme.text} text-sm font-medium`}>
+                          <p
+                            className={`text-xs ${currentTheme.textSecondary}`}
+                          >
+                            Duration
+                          </p>
+                          <p
+                            className={`${currentTheme.text} text-sm font-medium`}
+                          >
                             {duration}
                           </p>
                         </div>
                         <div>
-                          <p className={`text-xs ${currentTheme.textSecondary}`}>Messages</p>
-                          <p className={`${currentTheme.text} text-sm font-medium`}>
+                          <p
+                            className={`text-xs ${currentTheme.textSecondary}`}
+                          >
+                            Messages
+                          </p>
+                          <p
+                            className={`${currentTheme.text} text-sm font-medium`}
+                          >
                             {messageCount}
                           </p>
                         </div>
                         <div>
-                          <p className={`text-xs ${currentTheme.textSecondary}`}>Language</p>
-                          <p className={`${currentTheme.text} text-sm font-medium uppercase`}>
-                            {session?.language || 'EN'}
+                          <p
+                            className={`text-xs ${currentTheme.textSecondary}`}
+                          >
+                            Language
+                          </p>
+                          <p
+                            className={`${currentTheme.text} text-sm font-medium uppercase`}
+                          >
+                            {session?.language || "EN"}
                           </p>
                         </div>
                       </div>
 
                       {/* Token Usage */}
                       <div className={`pt-2 border-t ${currentTheme.border}`}>
-                        <p className={`text-xs ${currentTheme.textSecondary} mb-1`}>Token Usage</p>
+                        <p
+                          className={`text-xs ${currentTheme.textSecondary} mb-1`}
+                        >
+                          Token Usage
+                        </p>
                         <div className="grid grid-cols-3 gap-2 text-center">
                           <div>
-                            <p className={`text-xs ${currentTheme.textSecondary}`}>In</p>
-                            <p className={`${currentTheme.text} text-sm font-semibold`}>
+                            <p
+                              className={`text-xs ${currentTheme.textSecondary}`}
+                            >
+                              In
+                            </p>
+                            <p
+                              className={`${currentTheme.text} text-sm font-semibold`}
+                            >
                               {tokenUsage?.input_tokens?.toLocaleString() || 0}
                             </p>
                           </div>
                           <div>
-                            <p className={`text-xs ${currentTheme.textSecondary}`}>Out</p>
-                            <p className={`${currentTheme.text} text-sm font-semibold`}>
+                            <p
+                              className={`text-xs ${currentTheme.textSecondary}`}
+                            >
+                              Out
+                            </p>
+                            <p
+                              className={`${currentTheme.text} text-sm font-semibold`}
+                            >
                               {tokenUsage?.output_tokens?.toLocaleString() || 0}
                             </p>
                           </div>
                           <div>
-                            <p className={`text-xs ${currentTheme.textSecondary}`}>Total</p>
-                            <p className={`${currentTheme.text} text-sm font-semibold`}>
+                            <p
+                              className={`text-xs ${currentTheme.textSecondary}`}
+                            >
+                              Total
+                            </p>
+                            <p
+                              className={`${currentTheme.text} text-sm font-semibold`}
+                            >
                               {tokenUsage?.total_tokens?.toLocaleString() || 0}
                             </p>
                           </div>
@@ -2857,13 +3510,23 @@ const AgentDetailsView = ({ agent, onBack, currentTheme }) => {
         <div className="space-y-6">
           {/* Greeting Instructions */}
           {agent.greeting && (
-            <div className={`${currentTheme.cardBg} rounded-lg p-6 border ${currentTheme.border}`}>
-              <h3 className={`text-lg font-semibold ${currentTheme.text} mb-4`}>Greeting Messages</h3>
+            <div
+              className={`${currentTheme.cardBg} rounded-lg p-6 border ${currentTheme.border}`}
+            >
+              <h3 className={`text-lg font-semibold ${currentTheme.text} mb-4`}>
+                Greeting Messages
+              </h3>
               <div className="space-y-4">
                 {Object.entries(agent.greeting).map(([lang, message]) => (
                   <div key={lang}>
-                    <label className={`text-sm ${currentTheme.textSecondary} block mb-2 uppercase`}>{lang}</label>
-                    <div className={`p-3 rounded-lg ${currentTheme.searchBg} ${currentTheme.text}`}>
+                    <label
+                      className={`text-sm ${currentTheme.textSecondary} block mb-2 uppercase`}
+                    >
+                      {lang}
+                    </label>
+                    <div
+                      className={`p-3 rounded-lg ${currentTheme.searchBg} ${currentTheme.text}`}
+                    >
                       {message}
                     </div>
                   </div>
@@ -2874,9 +3537,15 @@ const AgentDetailsView = ({ agent, onBack, currentTheme }) => {
 
           {/* Custom Instructions */}
           {agent.custom_instructions && (
-            <div className={`${currentTheme.cardBg} rounded-lg p-6 border ${currentTheme.border}`}>
-              <h3 className={`text-lg font-semibold ${currentTheme.text} mb-4`}>Custom Instructions</h3>
-              <div className={`p-4 rounded-lg ${currentTheme.searchBg} ${currentTheme.text} whitespace-pre-wrap`}>
+            <div
+              className={`${currentTheme.cardBg} rounded-lg p-6 border ${currentTheme.border}`}
+            >
+              <h3 className={`text-lg font-semibold ${currentTheme.text} mb-4`}>
+                Custom Instructions
+              </h3>
+              <div
+                className={`p-4 rounded-lg ${currentTheme.searchBg} ${currentTheme.text} whitespace-pre-wrap`}
+              >
                 {agent.custom_instructions}
               </div>
             </div>
@@ -2887,43 +3556,91 @@ const AgentDetailsView = ({ agent, onBack, currentTheme }) => {
       {activeTab === "preview" && (
         <div className="space-y-6">
           {/* Agent Preview Information */}
-          <div className={`${currentTheme.cardBg} rounded-lg p-6 border ${currentTheme.border}`}>
-            <h3 className={`text-lg font-semibold ${currentTheme.text} mb-4`}>Agent Configuration Preview</h3>
-            
+          <div
+            className={`${currentTheme.cardBg} rounded-lg p-6 border ${currentTheme.border}`}
+          >
+            <h3 className={`text-lg font-semibold ${currentTheme.text} mb-4`}>
+              Agent Configuration Preview
+            </h3>
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
-                <h4 className={`text-md font-semibold ${currentTheme.text} mb-3`}>Basic Settings</h4>
+                <h4
+                  className={`text-md font-semibold ${currentTheme.text} mb-3`}
+                >
+                  Basic Settings
+                </h4>
                 <div className="space-y-3">
                   <div>
-                    <label className={`text-sm ${currentTheme.textSecondary} block mb-1`}>Model</label>
-                    <p className={`${currentTheme.text} font-mono text-sm`}>{agent.model || "N/A"}</p>
+                    <label
+                      className={`text-sm ${currentTheme.textSecondary} block mb-1`}
+                    >
+                      Model
+                    </label>
+                    <p className={`${currentTheme.text} font-mono text-sm`}>
+                      {agent.model || "N/A"}
+                    </p>
                   </div>
                   <div>
-                    <label className={`text-sm ${currentTheme.textSecondary} block mb-1`}>Voice</label>
-                    <p className={`${currentTheme.text}`}>{agent.voice || "Default"}</p>
+                    <label
+                      className={`text-sm ${currentTheme.textSecondary} block mb-1`}
+                    >
+                      Voice
+                    </label>
+                    <p className={`${currentTheme.text}`}>
+                      {agent.voice || "Default"}
+                    </p>
                   </div>
                   <div>
-                    <label className={`text-sm ${currentTheme.textSecondary} block mb-1`}>Temperature</label>
-                    <p className={`${currentTheme.text}`}>{agent.temperature || "0.7"}</p>
+                    <label
+                      className={`text-sm ${currentTheme.textSecondary} block mb-1`}
+                    >
+                      Temperature
+                    </label>
+                    <p className={`${currentTheme.text}`}>
+                      {agent.temperature || "0.7"}
+                    </p>
                   </div>
                 </div>
               </div>
-              
+
               <div>
-                <h4 className={`text-md font-semibold ${currentTheme.text} mb-3`}>Voice Detection</h4>
+                <h4
+                  className={`text-md font-semibold ${currentTheme.text} mb-3`}
+                >
+                  Voice Detection
+                </h4>
                 {agent.turn_detection && (
                   <div className="space-y-3">
                     <div>
-                      <label className={`text-sm ${currentTheme.textSecondary} block mb-1`}>Type</label>
-                      <p className={`${currentTheme.text}`}>{agent.turn_detection.type}</p>
+                      <label
+                        className={`text-sm ${currentTheme.textSecondary} block mb-1`}
+                      >
+                        Type
+                      </label>
+                      <p className={`${currentTheme.text}`}>
+                        {agent.turn_detection.type}
+                      </p>
                     </div>
                     <div>
-                      <label className={`text-sm ${currentTheme.textSecondary} block mb-1`}>Threshold</label>
-                      <p className={`${currentTheme.text}`}>{agent.turn_detection.threshold}</p>
+                      <label
+                        className={`text-sm ${currentTheme.textSecondary} block mb-1`}
+                      >
+                        Threshold
+                      </label>
+                      <p className={`${currentTheme.text}`}>
+                        {agent.turn_detection.threshold}
+                      </p>
                     </div>
                     <div>
-                      <label className={`text-sm ${currentTheme.textSecondary} block mb-1`}>Silence Duration</label>
-                      <p className={`${currentTheme.text}`}>{agent.turn_detection.silence_duration_ms}ms</p>
+                      <label
+                        className={`text-sm ${currentTheme.textSecondary} block mb-1`}
+                      >
+                        Silence Duration
+                      </label>
+                      <p className={`${currentTheme.text}`}>
+                        {agent.turn_detection.silence_duration_ms}ms
+                      </p>
                     </div>
                   </div>
                 )}
@@ -2933,13 +3650,23 @@ const AgentDetailsView = ({ agent, onBack, currentTheme }) => {
 
           {/* Greeting Messages Preview */}
           {agent.greeting && (
-            <div className={`${currentTheme.cardBg} rounded-lg p-6 border ${currentTheme.border}`}>
-              <h3 className={`text-lg font-semibold ${currentTheme.text} mb-4`}>Greeting Messages</h3>
+            <div
+              className={`${currentTheme.cardBg} rounded-lg p-6 border ${currentTheme.border}`}
+            >
+              <h3 className={`text-lg font-semibold ${currentTheme.text} mb-4`}>
+                Greeting Messages
+              </h3>
               <div className="space-y-4">
                 {Object.entries(agent.greeting).map(([lang, message]) => (
                   <div key={lang}>
-                    <label className={`text-sm ${currentTheme.textSecondary} block mb-2 uppercase`}>{lang}</label>
-                    <div className={`p-3 rounded-lg ${currentTheme.searchBg} ${currentTheme.text}`}>
+                    <label
+                      className={`text-sm ${currentTheme.textSecondary} block mb-2 uppercase`}
+                    >
+                      {lang}
+                    </label>
+                    <div
+                      className={`p-3 rounded-lg ${currentTheme.searchBg} ${currentTheme.text}`}
+                    >
                       {message}
                     </div>
                   </div>
@@ -2949,39 +3676,57 @@ const AgentDetailsView = ({ agent, onBack, currentTheme }) => {
           )}
 
           {/* Test Interface */}
-          <div className={`${currentTheme.cardBg} rounded-lg p-6 border ${currentTheme.border}`}>
-            <h3 className={`text-lg font-semibold ${currentTheme.text} mb-4`}>Test Agent Interface</h3>
-            
+          <div
+            className={`${currentTheme.cardBg} rounded-lg p-6 border ${currentTheme.border}`}
+          >
+            <h3 className={`text-lg font-semibold ${currentTheme.text} mb-4`}>
+              Test Agent Interface
+            </h3>
+
             {/* Chat History */}
             <div className="space-y-4 mb-6">
-              <div className={`h-96 overflow-y-auto p-4 rounded-lg ${currentTheme.searchBg} border ${currentTheme.border}`}>
+              <div
+                className={`h-96 overflow-y-auto p-4 rounded-lg ${currentTheme.searchBg} border ${currentTheme.border}`}
+              >
                 {chatMessages.length === 0 ? (
-                  <div className={`text-center py-8 ${currentTheme.textSecondary}`}>
+                  <div
+                    className={`text-center py-8 ${currentTheme.textSecondary}`}
+                  >
                     <MessageCircle className="w-5 h-5 mx-auto mb-2 opacity-50" />
                     <p>Start a conversation to test the agent</p>
                   </div>
                 ) : (
                   <div className="space-y-4">
                     {chatMessages.map((message, index) => (
-                      <div key={index} className={`flex ${(message.type || message.role) === 'user' ? 'justify-end' : 'justify-start'}`}>
-                        <div className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${
-                          (message.type || message.role) === 'user' 
-                            ? 'bg-blue-500 text-white' 
-                            : `${currentTheme.cardBg} ${currentTheme.text} border ${currentTheme.border}`
-                        }`}>
-                          <p className="text-sm">{message.content || message.text}</p>
+                      <div
+                        key={index}
+                        className={`flex ${(message.type || message.role) === "user" ? "justify-end" : "justify-start"}`}
+                      >
+                        <div
+                          className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${
+                            (message.type || message.role) === "user"
+                              ? "bg-blue-500 text-white"
+                              : `${currentTheme.cardBg} ${currentTheme.text} border ${currentTheme.border}`
+                          }`}
+                        >
+                          <p className="text-sm">
+                            {message.content || message.text}
+                          </p>
                           <p className={`text-xs mt-1 opacity-70`}>
-                            {message.timestamp instanceof Date 
+                            {message.timestamp instanceof Date
                               ? message.timestamp.toLocaleTimeString()
-                              : new Date(message.timestamp).toLocaleTimeString()
-                            }
+                              : new Date(
+                                  message.timestamp
+                                ).toLocaleTimeString()}
                           </p>
                         </div>
                       </div>
                     ))}
                     {isTestingAgent && (
                       <div className="flex justify-start">
-                        <div className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${currentTheme.cardBg} ${currentTheme.text} border ${currentTheme.border}`}>
+                        <div
+                          className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${currentTheme.cardBg} ${currentTheme.text} border ${currentTheme.border}`}
+                        >
                           <div className="flex items-center gap-2">
                             <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-500"></div>
                             <p className="text-sm">Agent is thinking...</p>
@@ -3000,7 +3745,7 @@ const AgentDetailsView = ({ agent, onBack, currentTheme }) => {
                 type="text"
                 value={testMessage}
                 onChange={(e) => setTestMessage(e.target.value)}
-                onKeyPress={(e) => e.key === 'Enter' && handleTestAgent()}
+                onKeyPress={(e) => e.key === "Enter" && handleTestAgent()}
                 placeholder="Type your message to test the agent..."
                 disabled={isTestingAgent}
                 className={`flex-1 px-4 py-3 rounded-lg border ${currentTheme.border} ${currentTheme.cardBg} ${currentTheme.text} focus:outline-none focus:ring-2 focus:ring-blue-500/20 disabled:opacity-50`}
@@ -3023,7 +3768,7 @@ const AgentDetailsView = ({ agent, onBack, currentTheme }) => {
                 )}
               </button>
             </div>
-            
+
             {/* Test Controls */}
             <div className="flex gap-3 pt-4 border-t border-gray-200 dark:border-gray-700">
               <button
@@ -3035,16 +3780,20 @@ const AgentDetailsView = ({ agent, onBack, currentTheme }) => {
               </button>
               <button
                 onClick={() => {
-                  const demoMessage = { type: 'user', content: 'Hello! Can you tell me about your capabilities?', timestamp: new Date() };
-                  setChatMessages(prev => [...prev, demoMessage]);
+                  const demoMessage = {
+                    type: "user",
+                    content: "Hello! Can you tell me about your capabilities?",
+                    timestamp: new Date(),
+                  };
+                  setChatMessages((prev) => [...prev, demoMessage]);
                   setIsTestingAgent(true);
                   setTimeout(() => {
                     const response = {
-                      type: 'agent',
+                      type: "agent",
                       content: `Hi! I'm ${agent.name}. I can help you with various tasks using voice interactions. Feel free to ask me anything!`,
-                      timestamp: new Date()
+                      timestamp: new Date(),
                     };
-                    setChatMessages(prev => [...prev, response]);
+                    setChatMessages((prev) => [...prev, response]);
                     setIsTestingAgent(false);
                   }, 1500);
                 }}
@@ -3062,30 +3811,54 @@ const AgentDetailsView = ({ agent, onBack, currentTheme }) => {
         <div className="space-y-6">
           {/* Custom Instructions */}
           {agent.custom_instructions && (
-            <div className={`${currentTheme.cardBg} rounded-lg p-6 border ${currentTheme.border}`}>
-              <h3 className={`text-lg font-semibold ${currentTheme.text} mb-4`}>Custom Instructions</h3>
-              <div className={`p-4 rounded-lg ${currentTheme.searchBg} ${currentTheme.text} whitespace-pre-wrap`}>
+            <div
+              className={`${currentTheme.cardBg} rounded-lg p-6 border ${currentTheme.border}`}
+            >
+              <h3 className={`text-lg font-semibold ${currentTheme.text} mb-4`}>
+                Custom Instructions
+              </h3>
+              <div
+                className={`p-4 rounded-lg ${currentTheme.searchBg} ${currentTheme.text} whitespace-pre-wrap`}
+              >
                 {agent.custom_instructions}
               </div>
             </div>
           )}
 
           {/* System Prompts */}
-          <div className={`${currentTheme.cardBg} rounded-lg p-6 border ${currentTheme.border}`}>
-            <h3 className={`text-lg font-semibold ${currentTheme.text} mb-4`}>System Configuration</h3>
+          <div
+            className={`${currentTheme.cardBg} rounded-lg p-6 border ${currentTheme.border}`}
+          >
+            <h3 className={`text-lg font-semibold ${currentTheme.text} mb-4`}>
+              System Configuration
+            </h3>
             <div className="space-y-4">
               <div>
-                <label className={`text-sm ${currentTheme.textSecondary} block mb-2`}>Agent ID</label>
-                <div className={`p-3 rounded-lg ${currentTheme.searchBg} ${currentTheme.text} font-mono text-sm`}>
+                <label
+                  className={`text-sm ${currentTheme.textSecondary} block mb-2`}
+                >
+                  Agent ID
+                </label>
+                <div
+                  className={`p-3 rounded-lg ${currentTheme.searchBg} ${currentTheme.text} font-mono text-sm`}
+                >
                   {agent?.id || agent?._id || "N/A"}
                 </div>
               </div>
-              
+
               <div>
-                <label className={`text-sm ${currentTheme.textSecondary} block mb-2`}>Model Configuration</label>
-                <div className={`p-3 rounded-lg ${currentTheme.searchBg} ${currentTheme.text}`}>
-                  Model: {agent.model || "N/A"}<br />
-                  Temperature: {agent.temperature || "0.7"}<br />
+                <label
+                  className={`text-sm ${currentTheme.textSecondary} block mb-2`}
+                >
+                  Model Configuration
+                </label>
+                <div
+                  className={`p-3 rounded-lg ${currentTheme.searchBg} ${currentTheme.text}`}
+                >
+                  Model: {agent.model || "N/A"}
+                  <br />
+                  Temperature: {agent.temperature || "0.7"}
+                  <br />
                   Max Tokens: {agent.max_tokens || "Not specified"}
                 </div>
               </div>
@@ -3099,7 +3872,7 @@ const AgentDetailsView = ({ agent, onBack, currentTheme }) => {
 
 const AnalyticsTab = ({ client, currentTheme }) => {
   const [timeRange, setTimeRange] = useState("7days");
-  
+
   // Mock analytics data - replace with actual API calls
   const analyticsData = {
     callStats: {
@@ -3157,37 +3930,59 @@ const AnalyticsTab = ({ client, currentTheme }) => {
 
       {/* Call Statistics */}
       <div>
-        <h4 className={`text-md font-semibold ${currentTheme.text} mb-4 flex items-center gap-2`}>
+        <h4
+          className={`text-md font-semibold ${currentTheme.text} mb-4 flex items-center gap-2`}
+        >
           <Mic2 className="w-5 h-5" />
           Call Statistics
         </h4>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-          <div className={`${currentTheme.cardBg} border ${currentTheme.border} rounded-lg p-4`}>
-            <p className={`text-xs ${currentTheme.textSecondary} mb-1`}>Total Calls</p>
+          <div
+            className={`${currentTheme.cardBg} border ${currentTheme.border} rounded-lg p-4`}
+          >
+            <p className={`text-xs ${currentTheme.textSecondary} mb-1`}>
+              Total Calls
+            </p>
             <p className={`text-2xl font-bold ${currentTheme.text}`}>
               {analyticsData.callStats.totalCalls.toLocaleString()}
             </p>
           </div>
-          <div className={`${currentTheme.cardBg} border ${currentTheme.border} rounded-lg p-4`}>
-            <p className={`text-xs ${currentTheme.textSecondary} mb-1`}>Successful</p>
+          <div
+            className={`${currentTheme.cardBg} border ${currentTheme.border} rounded-lg p-4`}
+          >
+            <p className={`text-xs ${currentTheme.textSecondary} mb-1`}>
+              Successful
+            </p>
             <p className={`text-2xl font-bold text-green-600`}>
               {analyticsData.callStats.successfulCalls.toLocaleString()}
             </p>
           </div>
-          <div className={`${currentTheme.cardBg} border ${currentTheme.border} rounded-lg p-4`}>
-            <p className={`text-xs ${currentTheme.textSecondary} mb-1`}>Failed</p>
+          <div
+            className={`${currentTheme.cardBg} border ${currentTheme.border} rounded-lg p-4`}
+          >
+            <p className={`text-xs ${currentTheme.textSecondary} mb-1`}>
+              Failed
+            </p>
             <p className={`text-2xl font-bold text-red-600`}>
               {analyticsData.callStats.failedCalls}
             </p>
           </div>
-          <div className={`${currentTheme.cardBg} border ${currentTheme.border} rounded-lg p-4`}>
-            <p className={`text-xs ${currentTheme.textSecondary} mb-1`}>Avg Duration</p>
+          <div
+            className={`${currentTheme.cardBg} border ${currentTheme.border} rounded-lg p-4`}
+          >
+            <p className={`text-xs ${currentTheme.textSecondary} mb-1`}>
+              Avg Duration
+            </p>
             <p className={`text-2xl font-bold ${currentTheme.text}`}>
               {analyticsData.callStats.avgDuration}
             </p>
           </div>
-          <div className={`${currentTheme.cardBg} border ${currentTheme.border} rounded-lg p-4`}>
-            <p className={`text-xs ${currentTheme.textSecondary} mb-1`}>Peak Hours</p>
+          <div
+            className={`${currentTheme.cardBg} border ${currentTheme.border} rounded-lg p-4`}
+          >
+            <p className={`text-xs ${currentTheme.textSecondary} mb-1`}>
+              Peak Hours
+            </p>
             <p className={`text-lg font-bold ${currentTheme.text}`}>
               {analyticsData.callStats.peakHours}
             </p>
@@ -3197,31 +3992,49 @@ const AnalyticsTab = ({ client, currentTheme }) => {
 
       {/* Token Usage */}
       <div>
-        <h4 className={`text-md font-semibold ${currentTheme.text} mb-4 flex items-center gap-2`}>
+        <h4
+          className={`text-md font-semibold ${currentTheme.text} mb-4 flex items-center gap-2`}
+        >
           <Repeat className="w-5 h-5" />
           Token Usage
         </h4>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          <div className={`${currentTheme.cardBg} border ${currentTheme.border} rounded-lg p-4`}>
-            <p className={`text-xs ${currentTheme.textSecondary} mb-1`}>Total Tokens</p>
+          <div
+            className={`${currentTheme.cardBg} border ${currentTheme.border} rounded-lg p-4`}
+          >
+            <p className={`text-xs ${currentTheme.textSecondary} mb-1`}>
+              Total Tokens
+            </p>
             <p className={`text-2xl font-bold ${currentTheme.text}`}>
               {analyticsData.tokenUsage.total.toLocaleString()}
             </p>
           </div>
-          <div className={`${currentTheme.cardBg} border ${currentTheme.border} rounded-lg p-4`}>
-            <p className={`text-xs ${currentTheme.textSecondary} mb-1`}>Input Tokens</p>
+          <div
+            className={`${currentTheme.cardBg} border ${currentTheme.border} rounded-lg p-4`}
+          >
+            <p className={`text-xs ${currentTheme.textSecondary} mb-1`}>
+              Input Tokens
+            </p>
             <p className={`text-2xl font-bold text-blue-600`}>
               {analyticsData.tokenUsage.inputTokens.toLocaleString()}
             </p>
           </div>
-          <div className={`${currentTheme.cardBg} border ${currentTheme.border} rounded-lg p-4`}>
-            <p className={`text-xs ${currentTheme.textSecondary} mb-1`}>Output Tokens</p>
+          <div
+            className={`${currentTheme.cardBg} border ${currentTheme.border} rounded-lg p-4`}
+          >
+            <p className={`text-xs ${currentTheme.textSecondary} mb-1`}>
+              Output Tokens
+            </p>
             <p className={`text-2xl font-bold text-purple-600`}>
               {analyticsData.tokenUsage.outputTokens.toLocaleString()}
             </p>
           </div>
-          <div className={`${currentTheme.cardBg} border ${currentTheme.border} rounded-lg p-4`}>
-            <p className={`text-xs ${currentTheme.textSecondary} mb-1`}>Avg per Call</p>
+          <div
+            className={`${currentTheme.cardBg} border ${currentTheme.border} rounded-lg p-4`}
+          >
+            <p className={`text-xs ${currentTheme.textSecondary} mb-1`}>
+              Avg per Call
+            </p>
             <p className={`text-2xl font-bold ${currentTheme.text}`}>
               {analyticsData.tokenUsage.avgPerCall}
             </p>
@@ -3231,31 +4044,49 @@ const AnalyticsTab = ({ client, currentTheme }) => {
 
       {/* Performance Metrics */}
       <div>
-        <h4 className={`text-md font-semibold ${currentTheme.text} mb-4 flex items-center gap-2`}>
+        <h4
+          className={`text-md font-semibold ${currentTheme.text} mb-4 flex items-center gap-2`}
+        >
           <Activity className="w-5 h-5" />
           Performance Metrics
         </h4>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          <div className={`${currentTheme.cardBg} border ${currentTheme.border} rounded-lg p-4`}>
-            <p className={`text-xs ${currentTheme.textSecondary} mb-1`}>Avg Response Time</p>
+          <div
+            className={`${currentTheme.cardBg} border ${currentTheme.border} rounded-lg p-4`}
+          >
+            <p className={`text-xs ${currentTheme.textSecondary} mb-1`}>
+              Avg Response Time
+            </p>
             <p className={`text-2xl font-bold ${currentTheme.text}`}>
               {analyticsData.performance.avgResponseTime}
             </p>
           </div>
-          <div className={`${currentTheme.cardBg} border ${currentTheme.border} rounded-lg p-4`}>
-            <p className={`text-xs ${currentTheme.textSecondary} mb-1`}>Success Rate</p>
+          <div
+            className={`${currentTheme.cardBg} border ${currentTheme.border} rounded-lg p-4`}
+          >
+            <p className={`text-xs ${currentTheme.textSecondary} mb-1`}>
+              Success Rate
+            </p>
             <p className={`text-2xl font-bold text-green-600`}>
               {analyticsData.performance.successRate}
             </p>
           </div>
-          <div className={`${currentTheme.cardBg} border ${currentTheme.border} rounded-lg p-4`}>
-            <p className={`text-xs ${currentTheme.textSecondary} mb-1`}>Customer Satisfaction</p>
+          <div
+            className={`${currentTheme.cardBg} border ${currentTheme.border} rounded-lg p-4`}
+          >
+            <p className={`text-xs ${currentTheme.textSecondary} mb-1`}>
+              Customer Satisfaction
+            </p>
             <p className={`text-2xl font-bold text-yellow-600`}>
               {analyticsData.performance.customerSatisfaction}
             </p>
           </div>
-          <div className={`${currentTheme.cardBg} border ${currentTheme.border} rounded-lg p-4`}>
-            <p className={`text-xs ${currentTheme.textSecondary} mb-1`}>Resolved Queries</p>
+          <div
+            className={`${currentTheme.cardBg} border ${currentTheme.border} rounded-lg p-4`}
+          >
+            <p className={`text-xs ${currentTheme.textSecondary} mb-1`}>
+              Resolved Queries
+            </p>
             <p className={`text-2xl font-bold ${currentTheme.text}`}>
               {analyticsData.performance.resolvedQueries}
             </p>
@@ -3265,25 +4096,39 @@ const AnalyticsTab = ({ client, currentTheme }) => {
 
       {/* Revenue Analytics */}
       <div>
-        <h4 className={`text-md font-semibold ${currentTheme.text} mb-4 flex items-center gap-2`}>
+        <h4
+          className={`text-md font-semibold ${currentTheme.text} mb-4 flex items-center gap-2`}
+        >
           <DollarSign className="w-5 h-5" />
           Revenue Analytics
         </h4>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className={`${currentTheme.cardBg} border ${currentTheme.border} rounded-lg p-4`}>
-            <p className={`text-xs ${currentTheme.textSecondary} mb-1`}>Current Month</p>
+          <div
+            className={`${currentTheme.cardBg} border ${currentTheme.border} rounded-lg p-4`}
+          >
+            <p className={`text-xs ${currentTheme.textSecondary} mb-1`}>
+              Current Month
+            </p>
             <p className={`text-2xl font-bold ${currentTheme.text}`}>
               ${analyticsData.revenue.currentMonth.toFixed(2)}
             </p>
           </div>
-          <div className={`${currentTheme.cardBg} border ${currentTheme.border} rounded-lg p-4`}>
-            <p className={`text-xs ${currentTheme.textSecondary} mb-1`}>Previous Month</p>
+          <div
+            className={`${currentTheme.cardBg} border ${currentTheme.border} rounded-lg p-4`}
+          >
+            <p className={`text-xs ${currentTheme.textSecondary} mb-1`}>
+              Previous Month
+            </p>
             <p className={`text-2xl font-bold ${currentTheme.text}`}>
               ${analyticsData.revenue.previousMonth.toFixed(2)}
             </p>
           </div>
-          <div className={`${currentTheme.cardBg} border ${currentTheme.border} rounded-lg p-4`}>
-            <p className={`text-xs ${currentTheme.textSecondary} mb-1`}>Growth</p>
+          <div
+            className={`${currentTheme.cardBg} border ${currentTheme.border} rounded-lg p-4`}
+          >
+            <p className={`text-xs ${currentTheme.textSecondary} mb-1`}>
+              Growth
+            </p>
             <p className={`text-2xl font-bold text-green-600`}>
               {analyticsData.revenue.growth}
             </p>
@@ -3293,28 +4138,42 @@ const AnalyticsTab = ({ client, currentTheme }) => {
 
       {/* AI Employees Performance */}
       <div>
-        <h4 className={`text-md font-semibold ${currentTheme.text} mb-4 flex items-center gap-2`}>
+        <h4
+          className={`text-md font-semibold ${currentTheme.text} mb-4 flex items-center gap-2`}
+        >
           <Bot className="w-5 h-5" />
           AI Employees Performance
         </h4>
-        <div className={`${currentTheme.cardBg} border ${currentTheme.border} rounded-lg p-4`}>
+        <div
+          className={`${currentTheme.cardBg} border ${currentTheme.border} rounded-lg p-4`}
+        >
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead>
                 <tr className={`border-b ${currentTheme.border}`}>
-                  <th className={`text-left py-3 px-4 text-sm font-semibold ${currentTheme.text}`}>
+                  <th
+                    className={`text-left py-3 px-4 text-sm font-semibold ${currentTheme.text}`}
+                  >
                     AI Employee
                   </th>
-                  <th className={`text-left py-3 px-4 text-sm font-semibold ${currentTheme.text}`}>
+                  <th
+                    className={`text-left py-3 px-4 text-sm font-semibold ${currentTheme.text}`}
+                  >
                     Calls
                   </th>
-                  <th className={`text-left py-3 px-4 text-sm font-semibold ${currentTheme.text}`}>
+                  <th
+                    className={`text-left py-3 px-4 text-sm font-semibold ${currentTheme.text}`}
+                  >
                     Avg Duration
                   </th>
-                  <th className={`text-left py-3 px-4 text-sm font-semibold ${currentTheme.text}`}>
+                  <th
+                    className={`text-left py-3 px-4 text-sm font-semibold ${currentTheme.text}`}
+                  >
                     Success Rate
                   </th>
-                  <th className={`text-left py-3 px-4 text-sm font-semibold ${currentTheme.text}`}>
+                  <th
+                    className={`text-left py-3 px-4 text-sm font-semibold ${currentTheme.text}`}
+                  >
                     Status
                   </th>
                 </tr>
@@ -3322,7 +4181,10 @@ const AnalyticsTab = ({ client, currentTheme }) => {
               <tbody>
                 {client?.ai_employees?.length > 0 ? (
                   client.ai_employees.map((employee, index) => (
-                    <tr key={index} className={`border-b ${currentTheme.border} hover:${currentTheme.hover}`}>
+                    <tr
+                      key={index}
+                      className={`border-b ${currentTheme.border} hover:${currentTheme.hover}`}
+                    >
                       <td className={`py-3 px-4 text-sm ${currentTheme.text}`}>
                         {employee.agent_name || `AI Employee ${index + 1}`}
                       </td>
@@ -3330,7 +4192,8 @@ const AnalyticsTab = ({ client, currentTheme }) => {
                         {Math.floor(Math.random() * 500) + 100}
                       </td>
                       <td className={`py-3 px-4 text-sm ${currentTheme.text}`}>
-                        {Math.floor(Math.random() * 5) + 2}m {Math.floor(Math.random() * 60)}s
+                        {Math.floor(Math.random() * 5) + 2}m{" "}
+                        {Math.floor(Math.random() * 60)}s
                       </td>
                       <td className={`py-3 px-4 text-sm`}>
                         <span className="text-green-600 font-semibold">
@@ -3338,19 +4201,24 @@ const AnalyticsTab = ({ client, currentTheme }) => {
                         </span>
                       </td>
                       <td className={`py-3 px-4 text-sm`}>
-                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                          employee.status === 'active' 
-                            ? 'bg-green-100 text-green-700 dark:bg-green-900/20 dark:text-green-400'
-                            : 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-400'
-                        }`}>
-                          {employee.status || 'active'}
+                        <span
+                          className={`px-2 py-1 rounded-full text-xs font-medium ${
+                            employee.status === "active"
+                              ? "bg-green-100 text-green-700 dark:bg-green-900/20 dark:text-green-400"
+                              : "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-400"
+                          }`}
+                        >
+                          {employee.status || "active"}
                         </span>
                       </td>
                     </tr>
                   ))
                 ) : (
                   <tr>
-                    <td colSpan="5" className={`py-8 text-center text-sm ${currentTheme.textSecondary}`}>
+                    <td
+                      colSpan="5"
+                      className={`py-8 text-center text-sm ${currentTheme.textSecondary}`}
+                    >
                       No AI employees configured yet
                     </td>
                   </tr>
@@ -3465,13 +4333,13 @@ const ClientManagement = () => {
   const { theme, currentTheme } = useTheme();
   const navigate = useNavigate();
   const location = useLocation();
-  
+
   // Get initial tab from URL params or default to "all"
   const getInitialTab = () => {
     const params = new URLSearchParams(location.search);
-    return params.get('tab') || 'all';
+    return params.get("tab") || "all";
   };
-  
+
   const [searchTerm, setSearchTerm] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [activeTab, setActiveTab] = useState(getInitialTab());
@@ -3507,22 +4375,24 @@ const ClientManagement = () => {
   // Track which tabs have been visited to avoid unnecessary count fetches
   const visitedTabsRef = useRef(new Set());
   const fetchInProgressRef = useRef(false);
-  
+
   // Update URL when active tab changes
   useEffect(() => {
     const params = new URLSearchParams(location.search);
-    const currentTabParam = params.get('tab');
-    
+    const currentTabParam = params.get("tab");
+
     if (currentTabParam !== activeTab) {
-      if (activeTab === 'all') {
-        params.delete('tab');
+      if (activeTab === "all") {
+        params.delete("tab");
       } else {
-        params.set('tab', activeTab);
+        params.set("tab", activeTab);
       }
-      
+
       const newSearch = params.toString();
-      const newPath = newSearch ? `${location.pathname}?${newSearch}` : location.pathname;
-      
+      const newPath = newSearch
+        ? `${location.pathname}?${newSearch}`
+        : location.pathname;
+
       navigate(newPath, { replace: true });
     }
   }, [activeTab, location.pathname, location.search, navigate]);
@@ -4027,7 +4897,7 @@ const ClientManagement = () => {
       console.log("🔍 handleViewClient called with client:", client);
       // Navigate to client details page with client data in state
       navigate(`/dashboard/clients/${client?.id || client?._id}`, {
-        state: { client }
+        state: { client },
       });
     } catch (error) {
       console.error("❌ Error navigating to client details:", error);
@@ -4644,8 +5514,8 @@ const ClientManagement = () => {
   // Agent Details View
   if (viewMode === "agentView" && selectedAgent) {
     return (
-      <AgentDetailsView 
-        agent={selectedAgent} 
+      <AgentDetailsView
+        agent={selectedAgent}
         onBack={handleBackToList}
         currentTheme={currentTheme}
       />
@@ -4654,9 +5524,12 @@ const ClientManagement = () => {
 
   // Client Details View - Navigate to dedicated page
   if (viewMode === "details" && selectedClient) {
-    navigate(`/dashboard/clients/${selectedClient._id || selectedClient.userData?._id}`, {
-      state: { client: selectedClient }
-    });
+    navigate(
+      `/dashboard/clients/${selectedClient._id || selectedClient.userData?._id}`,
+      {
+        state: { client: selectedClient },
+      }
+    );
     // Reset viewMode to prevent infinite loop
     setViewMode("list");
     return null;
@@ -5391,9 +6264,7 @@ const ClientManagement = () => {
                   <div
                     className={`p-3 rounded-full ${currentTheme.searchBg} w-16 h-16 mx-auto mb-4 flex items-center justify-center`}
                   >
-                    <Mic2
-                      className={`w-8 h-8 ${currentTheme.textSecondary}`}
-                    />
+                    <Mic2 className={`w-8 h-8 ${currentTheme.textSecondary}`} />
                   </div>
                   <h4
                     className={`text-lg font-medium ${currentTheme.text} mb-2`}
@@ -5424,9 +6295,7 @@ const ClientManagement = () => {
                         <div
                           className={`p-2 rounded-lg ${currentTheme.cardBg} border ${currentTheme.border}`}
                         >
-                          <Bot
-                            className={`w-5 h-5 ${currentTheme.text}`}
-                          />
+                          <Bot className={`w-5 h-5 ${currentTheme.text}`} />
                         </div>
                         <div>
                           <h4
@@ -6596,9 +7465,7 @@ const ClientManagement = () => {
               <div
                 className={`w-10 h-10 md:w-12 md:h-12 rounded-lg ${currentTheme.searchBg} flex items-center justify-center`}
               >
-                <Users
-                  className={`w-5 h-5 ${currentTheme.textSecondary}`}
-                />
+                <Users className={`w-5 h-5 ${currentTheme.textSecondary}`} />
               </div>
               <span className="text-xs md:text-sm font-medium text-blue-500">
                 Total
@@ -6630,9 +7497,7 @@ const ClientManagement = () => {
               <div
                 className={`w-10 h-10 md:w-12 md:h-12 rounded-lg ${currentTheme.searchBg} flex items-center justify-center`}
               >
-                <Clock
-                  className={`w-5 h-5 ${currentTheme.textSecondary}`}
-                />
+                <Clock className={`w-5 h-5 ${currentTheme.textSecondary}`} />
               </div>
               <span className="text-xs md:text-sm font-medium text-yellow-500">
                 Pending
@@ -6658,9 +7523,7 @@ const ClientManagement = () => {
               <div
                 className={`w-10 h-10 md:w-12 md:h-12 rounded-lg ${currentTheme.searchBg} flex items-center justify-center`}
               >
-                <Check
-                  className={`w-5 h-5 ${currentTheme.textSecondary}`}
-                />
+                <Check className={`w-5 h-5 ${currentTheme.textSecondary}`} />
               </div>
               <span className="text-xs md:text-sm font-medium text-green-500">
                 Active
@@ -6711,7 +7574,7 @@ const ClientManagement = () => {
 
             <div className="relative flex-1 sm:flex-none">
               <Search
-                className={`absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 ${currentTheme.textSecondary}`}
+                className={`absolute left-[92%] lg:left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 ${currentTheme.textSecondary}`}
               />
               <input
                 type="text"
@@ -6810,9 +7673,7 @@ const ClientManagement = () => {
                     <div
                       className={`w-9 h-9 md:w-10 md:h-10 rounded-lg ${currentTheme.activeBg} flex items-center justify-center flex-shrink-0`}
                     >
-                      <Building2
-                        className={`w-5 h-5 ${currentTheme.text}`}
-                      />
+                      <Building2 className={`w-5 h-5 ${currentTheme.text}`} />
                     </div>
                     <div className="flex-1 min-w-0">
                       <h4
@@ -6844,10 +7705,17 @@ const ClientManagement = () => {
                     {(client?.userData?.isOnboarded || client?.isOnboarded) && (
                       <button
                         onClick={() => {
-                          const clientId = client?.id || client?._id || client?.userData?.id || client?.userData?._id;
-                          navigate(`/dashboard/clients/${clientId}?tab=employees`, {
-                            state: { client }
-                          });
+                          const clientId =
+                            client?.id ||
+                            client?._id ||
+                            client?.userData?.id ||
+                            client?.userData?._id;
+                          navigate(
+                            `/dashboard/clients/${clientId}?tab=employees`,
+                            {
+                              state: { client },
+                            }
+                          );
                         }}
                         className={`p-2 flex items-center justify-center ${currentTheme.textSecondary} rounded-lg ${currentTheme.activeBg} hover:scale-105 transition-all duration-200`}
                         title="View AI Employee Analytics"
@@ -6997,6 +7865,10 @@ const ClientManagement = () => {
 export default ClientManagement;
 
 // Export tab components for use in ClientDetailsPage
-export { OnboardingDataTab, ClientDetailsTab, AIEmployeesTab, TransactionsTab, AgentDetailsView };
-
-
+export {
+  OnboardingDataTab,
+  ClientDetailsTab,
+  AIEmployeesTab,
+  TransactionsTab,
+  AgentDetailsView,
+};

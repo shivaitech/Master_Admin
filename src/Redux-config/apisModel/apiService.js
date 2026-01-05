@@ -266,7 +266,7 @@ const shivaiApiService = {
         `/v1/onboarding/${clientId}/status`,
         {
           status: "rejected",
-          rejectionReason: reason,
+          rejectionReason: "Not meeting criteria",
         }
       );
       console.log("✅ Client rejected successfully:", response.data);

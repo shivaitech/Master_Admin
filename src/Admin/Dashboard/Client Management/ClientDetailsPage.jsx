@@ -16,15 +16,11 @@ import {
   RiDeleteBinLine,
   RiEyeLine,
   RiErrorWarningLine,
-  RiTimeLine,
-  RiGlobalLine,
-  RiMailLine,
   RiBuildingLine,
   RiBankCardLine,
   RiUserVoiceLine,
 } from "react-icons/ri";
 
-// Import tab components from ClientManagement
 import {
   OnboardingDataTab,
   ClientDetailsTab,
@@ -38,19 +34,73 @@ const ClientDetailsPage = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { theme, currentTheme } = useTheme();
-
   const [client, setClient] = useState(location.state?.client || null);
   const [loading, setLoading] = useState(!location.state?.client);
   const [selectedAgent, setSelectedAgent] = useState(null);
-  const [viewMode, setViewMode] = useState("details"); // "details" or "agentView"
-  const [previousTab, setPreviousTab] = useState(null); // Track tab before viewing agent
+  const [viewMode, setViewMode] = useState("details");
+  const [previousTab, setPreviousTab] = useState(null);
 
-  // Memoize isOnboarded to prevent recalculation on every render
   const isOnboarded = useMemo(() => {
     return client?.userData?.isOnboarded || client?.isOnboarded || false;
   }, [client?.userData?.isOnboarded, client?.isOnboarded]);
 
-  // Memoize tabs array to prevent recreation on every render
+  const [onboardingData, setOnboardingData] = useState(null);
+  const [error, setError] = useState(null);
+
+  // Fetch onboarding data using the API
+  useEffect(() => {
+    const fetchOnboardingData = async () => {
+      const userId =
+        client?.userData?._id ||
+        client?._id ||
+        client?.userData?.id ||
+        client?.id;
+
+      if (!userId) {
+        console.warn("⚠️ No user ID found for fetching onboarding data");
+        setLoading(false);
+        return;
+      }
+
+      try {
+        setLoading(true);
+        setError(null);
+        console.log("🔍 Fetching onboarding data for user ID:", userId);
+
+        const response = await shivaiApiService.getOnboardingByUserId(userId);
+        console.log("✅ Onboarding data fetched:", response);
+
+        // Handle different response structures
+        const data =
+          response?.data?.onboarding ||
+          response?.onboarding ||
+          response?.data ||
+          response;
+        setOnboardingData(data);
+      } catch (err) {
+        console.error("❌ Error fetching onboarding data:", err);
+        setError(err.message || "Failed to load onboarding data");
+
+        // Fallback to client data if API fails
+        const fallbackData =
+          client?.onboardingDetails?.onboarding ||
+          client?.userData?.onboarding ||
+          client?.onboarding ||
+          {};
+
+        if (fallbackData && Object.keys(fallbackData).length > 0) {
+          console.log("📋 Using fallback onboarding data from client prop");
+          setOnboardingData(fallbackData);
+          setError(null);
+        }
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchOnboardingData();
+  }, [client]);
+
   const tabs = useMemo(() => {
     const allTabs = [
       { id: "onboarding", label: "Onboarding Data", icon: RiFileTextLine },
@@ -58,41 +108,40 @@ const ClientDetailsPage = () => {
       { id: "employees", label: "AI Employees", icon: RiRobotLine },
       { id: "transactions", label: "Transactions", icon: RiExchangeDollarLine },
     ];
-    
-    return isOnboarded 
-      ? allTabs 
-      : allTabs.filter(tab => tab.id !== "onboarding");
+
+    return isOnboarded
+      ? allTabs
+      : allTabs.filter((tab) => tab.id !== "onboarding");
   }, [isOnboarded]);
 
-  // Get initial tab from URL or set based on onboarding status
   const getInitialTab = useCallback(() => {
     const urlParams = new URLSearchParams(location.search);
-    const tabFromUrl = urlParams.get('tab');
-    
-    if (tabFromUrl && tabs.some(t => t.id === tabFromUrl)) {
+    const tabFromUrl = urlParams.get("tab");
+
+    if (tabFromUrl && tabs.some((t) => t.id === tabFromUrl)) {
       return tabFromUrl;
     }
-    
+
     return isOnboarded ? "onboarding" : "details";
   }, [location.search, tabs, isOnboarded]);
 
-  // Initialize activeTab with URL state or default
   const [activeTab, setActiveTab] = useState(getInitialTab);
 
-  // Update URL when tab changes
   useEffect(() => {
     const urlParams = new URLSearchParams(location.search);
-    const currentTabInUrl = urlParams.get('tab');
-    
+    const currentTabInUrl = urlParams.get("tab");
+
     if (currentTabInUrl !== activeTab) {
-      urlParams.set('tab', activeTab);
-      navigate(`${location.pathname}?${urlParams.toString()}`, { replace: true, state: location.state });
+      urlParams.set("tab", activeTab);
+      navigate(`${location.pathname}?${urlParams.toString()}`, {
+        replace: true,
+        state: location.state,
+      });
     }
   }, [activeTab, navigate, location.pathname, location.search, location.state]);
 
   useEffect(() => {
     const fetchClientDetails = async () => {
-      // If client data is already in state, no need to fetch
       if (location.state?.client) {
         console.log(
           "✅ Client data received from navigation state:",
@@ -103,14 +152,10 @@ const ClientDetailsPage = () => {
         return;
       }
 
-      // Fetch from API only if not in state
       try {
         setLoading(true);
-        console.log("🔄 Fetching client details from API for ID:", clientId);
-
         const response = await shivaiApiService.getClientById(clientId);
         console.log("✅ Client data fetched from API:", response);
-
         if (response?.success && response?.data) {
           setClient(response.data);
         } else {
@@ -183,13 +228,30 @@ const ClientDetailsPage = () => {
   };
 
   const handleApprove = async (client) => {
+    console.log(client, "jj");
     try {
-      await shivaiApiService.approveClient(client?._id);
-      toast.success("Client approved successfully");
-      // Refresh client data
-      const response = await shivaiApiService.getClientById(clientId);
-      if (response?.success && response?.data) {
-        setClient(response.data);
+      const response = await shivaiApiService.approveClient(
+        onboardingData?._id
+      );
+      if (response?.message === "Onboarding approved successfully") {
+        toast.success("Client approved successfully");
+        
+        // Update local state immediately with approved status
+        const updatedClient = {
+          ...client,
+          onboardingStatus: "approved",
+          userData: {
+            ...client.userData,
+            isOnboarded: true
+          }
+        };
+        setClient(updatedClient);
+        
+        // Also fetch fresh data from API to ensure consistency
+        const clientResponse = await shivaiApiService.getClientById(clientId);
+        if (clientResponse?.success && clientResponse?.data) {
+          setClient(clientResponse.data);
+        }
       }
     } catch (error) {
       console.error("Error approving client:", error);
@@ -199,7 +261,7 @@ const ClientDetailsPage = () => {
 
   const handleReject = async (client) => {
     try {
-      await shivaiApiService.rejectClient(client?._id);
+      await shivaiApiService.rejectClient(onboardingData?._id);
       toast.success("Client rejected successfully");
       navigate("/dashboard/clients");
     } catch (error) {
@@ -305,13 +367,10 @@ const ClientDetailsPage = () => {
               <p
                 className={`text-sm ${currentTheme.textSecondary} truncate mt-1`}
               >
-                {client?.email ||
-                  client?.company_basics?.company_email ||
-                  ""}
+                {client?.email || client?.company_basics?.company_email || ""}
               </p>
             </div>
           </div>
-          {console.log("🔍 Rendering action buttons for client:", client)}
 
           {/* Action Buttons */}
           <div className="flex items-center gap-2 flex-shrink-0">
@@ -335,10 +394,10 @@ const ClientDetailsPage = () => {
                 </>
               )}
             {client?.onboardingStatus === "approved" && (
-                <div className="flex items-center gap-2 px-3 py-1.5 bg-green-100 text-green-700 rounded-lg text-sm font-medium">
-                    <RiCheckLine className="w-4 h-4" />
-                    <span>Approved</span>
-                </div>
+              <div className="flex items-center gap-2 px-3 py-1.5 bg-green-100 text-green-700 rounded-lg text-sm font-medium">
+                <RiCheckLine className="w-4 h-4" />
+                <span>Approved</span>
+              </div>
             )}
 
             <button
