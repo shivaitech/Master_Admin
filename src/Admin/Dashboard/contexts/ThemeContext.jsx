@@ -37,7 +37,7 @@ export const ThemeProvider = ({ children }) => {
       cardShadow: 'shadow-lg shadow-black/10'
     },
     light: {
-      bg: 'bg-white',
+      bg: 'bg-[#F1F5F9]',
       cardBg: 'bg-white',
       border: 'border-[#e0e0e0]',
       text: 'text-[#333333]',
