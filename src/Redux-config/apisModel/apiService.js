@@ -108,7 +108,7 @@ const shivaiApiService = {
   getOnboardingByUserId: async (userId) => {
     try {
       console.log(`🔍 Fetching onboarding data for user: ${userId}`);
-      const response = await apiClient.get(`/v1/admin/onboarding/${userId}`);
+      const response = await apiClient.get(`/v1/onboarding/${userId}`);
       console.log("✅ Onboarding data fetched successfully:", response.data);
       return response.data;
     } catch (error) {
@@ -133,7 +133,7 @@ const shivaiApiService = {
   getAllOnboarding: async () => {
     try {
       console.log("🔍 Fetching all onboarding data...");
-      const response = await apiClient.get("/v1/admin/onboarding");
+      const response = await apiClient.get("/v1/onboarding");
       console.log(
         "✅ All onboarding data fetched successfully:",
         response.data
@@ -158,7 +158,7 @@ const shivaiApiService = {
   updateOnboardingData: async (id, data) => {
     try {
       console.log(`🔄 Updating onboarding data for ID: ${id}`);
-      const response = await apiClient.put(`/v1/admin/onboarding/${id}`, data);
+      const response = await apiClient.put(`/v1/onboarding/${id}`, data);
       console.log("✅ Onboarding data updated successfully:", response.data);
       return response.data;
     } catch (error) {

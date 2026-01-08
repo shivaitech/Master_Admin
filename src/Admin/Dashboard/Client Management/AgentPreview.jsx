@@ -50,46 +50,107 @@ const AgentPreview = ({ agent, onBack, currentTheme, onClose }) => {
     "AI Assistant";
   console.log("Extracted Agent Name:", extractedAgentName);
 
+  // Extract available languages from agent data
+  const getLanguageDisplay = () => {
+    const languages = new Set();
+
+    // Check greeting_messages for language support
+    if (
+      agent?.greeting_messages &&
+      typeof agent.greeting_messages === "object"
+    ) {
+      Object.keys(agent.greeting_messages).forEach((lang) => {
+        if (
+          lang !== "multilingual" &&
+          agent.greeting_messages[lang] &&
+          agent.greeting_messages[lang].trim() !== ""
+        ) {
+          languages.add(lang);
+        }
+      });
+    }
+
+    // Also check userData.greeting_messages
+    if (
+      agent?.userData?.greeting_messages &&
+      typeof agent.userData.greeting_messages === "object"
+    ) {
+      Object.keys(agent.userData.greeting_messages).forEach((lang) => {
+        if (
+          lang !== "multilingual" &&
+          agent.userData.greeting_messages[lang] &&
+          agent.userData.greeting_messages[lang].trim() !== ""
+        ) {
+          languages.add(lang);
+        }
+      });
+    }
+
+    // Check if agent has multiple language codes directly
+    const langFields = [
+      agent?.language,
+      agent?.preferred_language,
+      agent?.userData?.language,
+      agent?.userData?.preferred_language,
+    ].filter(Boolean);
+
+    langFields.forEach((lang) => languages.add(lang));
+
+    // Check for languages arrays
+    if (agent?.languages && Array.isArray(agent.languages)) {
+      agent.languages.forEach((lang) => {
+        if (lang) languages.add(lang);
+      });
+    }
+    if (agent?.userData?.languages && Array.isArray(agent.userData.languages)) {
+      agent.userData.languages.forEach((lang) => {
+        if (lang) languages.add(lang);
+      });
+    }
+
+    // Convert Set to Array and filter out empty values
+    const validLanguages = Array.from(languages).filter(
+      (lang) => lang && lang.trim() !== ""
+    );
+
+    if (validLanguages.length > 1) {
+      return "Multi lingual";
+    } else if (validLanguages.length === 1) {
+      return validLanguages[0].toUpperCase();
+    } else {
+      return "EN"; // default
+    }
+  };
+
   // Simplified widget configuration using agent data
   const widgetConfig = {
     agentId: extractedAgentId || "NO_AGENT_ID_FOUND",
     agentName: extractedAgentName,
-    language:
-      agent?.preferred_language ||
-      agent?.language ||
-      agent?.userData?.preferred_language ||
-      agent?.userData?.language ||
-      "en",
+    language: getLanguageDisplay(),
     primaryColor:
-      agent?.primary_color || agent?.userData?.primary_color || "#4b5563",
+      agent?.widget?.primary_color ||
+      agent?.userData?.primary_color ||
+      "#4b5563",
     secondaryColor:
-      agent?.secondary_color || agent?.userData?.secondary_color || "#6b7280",
+      agent?.widget?.secondary_color ||
+      agent?.userData?.secondary_color ||
+      "#6b7280",
     accentColor:
-      agent?.accent_color || agent?.userData?.accent_color || "#374151",
+      agent?.widget?.accent_color || agent?.userData?.accent_color || "#374151",
     position: "bottom-right",
     chatWidth: "380px",
     chatHeight: "520px",
     autoOpen: false,
-    voiceEnabled: agent?.voice_enabled !== false,
-    companyName:
-      agent?.company_name ||
-      agent?.companyName ||
-      agent?.userData?.company_name ||
-      agent?.userData?.companyName ||
-      extractedAgentName ||
-      "Your Company",
+    voiceEnabled: agent?.voice,
+    companyName: agent?.widget?.company_name || extractedAgentName,
     companyDescription:
       agent?.description ||
       agent?.company_description ||
       agent?.userData?.description ||
       agent?.userData?.company_description ||
       "AI-Powered Support - We offer 24/7 voice support to handle your business calls efficiently and professionally.",
-    welcomeMessage:
-      agent?.welcome_message ||
-      agent?.welcomeMessage ||
-      agent?.userData?.welcome_message ||
-      agent?.userData?.welcomeMessage ||
-      `Hi! I'm ${extractedAgentName}. How can I help you today?`,
+    allowedDomains: agent?.allowed_domains ||
+      agent?.userData?.allowed_domains || ["*"],
   };
 
   const iframeRef = useRef(null);
@@ -99,7 +160,6 @@ const AgentPreview = ({ agent, onBack, currentTheme, onClose }) => {
     const baseUrl = "https://callshivai.com/widget2.js";
     const params = new URLSearchParams({
       agentId: widgetConfig.agentId,
-      agentName: widgetConfig.agentName,
       language: widgetConfig.language,
       primaryColor: widgetConfig.primaryColor,
       secondaryColor: widgetConfig.secondaryColor,
@@ -111,16 +171,18 @@ const AgentPreview = ({ agent, onBack, currentTheme, onClose }) => {
       voiceEnabled: widgetConfig.voiceEnabled.toString(),
       companyName: widgetConfig.companyName,
       companyDescription: widgetConfig.companyDescription,
-      welcomeMessage: widgetConfig.welcomeMessage,
+      allowedDomains: widgetConfig.allowedDomains.join(","),
       v: Date.now().toString(),
     });
 
     return `${baseUrl}?${params.toString()}`;
   };
+  console.log("Generated Widget URL:", widgetConfig, agent);
 
   // Generate preview HTML content
   const generatePreviewHTML = () => {
     const widgetUrl = generateWidgetUrl();
+    const languageDisplay = getLanguageDisplay(); // Call the function here
     return `
 <!DOCTYPE html>
 <html lang="en">
@@ -131,13 +193,9 @@ const AgentPreview = ({ agent, onBack, currentTheme, onClose }) => {
     <style>
         body {
             margin: 0;
-            padding: 16px;
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
-            background: #f8fafc;
-            height: 100vh;
             color: #334155;
             overflow: hidden;
-            box-sizing: border-box;
         }
         * {
             box-sizing: border-box;
@@ -151,7 +209,6 @@ const AgentPreview = ({ agent, onBack, currentTheme, onClose }) => {
         .header {
             background: white;
             border-radius: 8px;
-            padding: 16px;
             box-shadow: 0 1px 3px rgba(0,0,0,0.1);
             text-align: center;
         }
@@ -172,14 +229,14 @@ const AgentPreview = ({ agent, onBack, currentTheme, onClose }) => {
         }
         .content {
             display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 12px;
+            grid-template-columns: 1fr;
+            gap: 16px;
             height: 100%;
         }
         .card {
             background: white;
-            border-radius: 8px;
-            padding: 16px;
+            border-radius: 6px;
+            padding: 12px;
             box-shadow: 0 1px 3px rgba(0,0,0,0.1);
             overflow: auto;
         }
@@ -196,24 +253,26 @@ const AgentPreview = ({ agent, onBack, currentTheme, onClose }) => {
         }
         .info-grid {
             display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 12px;
+            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+            gap: 8px;
+            margin-top: 12px;
         }
         .info-item {
             background: #f8fafc;
             padding: 8px;
-            border-radius: 6px;
-            border-left: 3px solid #3b82f6;
+            border-radius: 4px;
+            border: 1px solid #e2e8f0;
+            text-align: left;
         }
         .info-label {
-            font-size: 0.7rem;
+            font-size: 0.65rem;
             color: #64748b;
             text-transform: uppercase;
-            font-weight: 600;
-            margin-bottom: 2px;
+            font-weight: 500;
+            margin-bottom: 4px;
         }
         .info-value {
-            font-size: 0.85rem;
+            font-size: 0.8rem;
             color: #1e293b;
             font-weight: 500;
         }
@@ -266,13 +325,16 @@ const AgentPreview = ({ agent, onBack, currentTheme, onClose }) => {
 
         /* Mobile adjustments */
         @media (max-width: 768px) {
-            .content {
-                grid-template-columns: 1fr;
-                grid-template-rows: auto auto;
-            }
             .info-grid {
-                grid-template-columns: 1fr;
-                gap: 8px;
+                grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+                gap: 6px;
+            }
+            .info-item {
+                padding: 6px;
+            }
+            .card {
+                padding: 0px 8px;
+                border: none;
             }
         }
     </style>
@@ -283,7 +345,6 @@ const AgentPreview = ({ agent, onBack, currentTheme, onClose }) => {
         
         <div class="content">
             <div class="card">
-                <h2 class="card-title">Configurations</h2>
                 ${widgetConfig.agentName ? `<div class="description">${widgetConfig.agentName}</div>` : ""}
                 ${widgetConfig.companyDescription ? `<div class="description">${widgetConfig.companyDescription}</div>` : ""}
                 
@@ -292,36 +353,52 @@ const AgentPreview = ({ agent, onBack, currentTheme, onClose }) => {
                         <div class="info-label">Status</div>
                         <div class="info-value">
                             <span class="status-badge ${agent?.is_active !== false ? "status-active" : "status-inactive"}">
-                                ${agent?.is_active !== false ? "🟢 Active" : "🔴 Inactive"}
+                                ${agent?.is_active !== false ? "Active" : "Inactive"}
                             </span>
                         </div>
                     </div>
                     <div class="info-item">
                         <div class="info-label">Language</div>
-                        <div class="info-value">${widgetConfig.language.toUpperCase()}</div>
+                        <div class="info-value">${languageDisplay}</div>
                     </div>
                     <div class="info-item">
                         <div class="info-label">Voice</div>
-                        <div class="info-value">${widgetConfig.voiceEnabled ? "🎙️ Enabled" : "🔇 Disabled"}</div>
+                        <div class="info-value">${widgetConfig.voiceEnabled ? "Enabled" : "Disabled"}</div>
                     </div>
-                    <div class="info-item">
-                        <div class="info-label">Auto Open</div>
-                        <div class="info-value">${widgetConfig.autoOpen ? "✅ Yes" : "❌ No"}</div>
-                    </div>
+                   
                     <div class="info-item">
                         <div class="info-label">Position</div>
                         <div class="info-value">${widgetConfig.position}</div>
                     </div>
                     <div class="info-item">
-                        <div class="info-label">Size</div>
+                        <div class="info-label">Dimensions</div>
                         <div class="info-value">${widgetConfig.chatWidth} × ${widgetConfig.chatHeight}</div>
                     </div>
+                    <div class="info-item">
+                        <div class="info-label">Primary Color</div>
+                        <div class="info-value">
+                            ${widgetConfig.primaryColor}
+                            <span class="color-preview" style="background-color: ${widgetConfig.primaryColor}"></span>
+                        </div>
+                    </div>
                 </div>
-            </div>
-
-          
-
-               
+                
+                <div style="margin-top: 16px;">
+                    <h3 style="font-size: 0.9rem; font-weight: 600; margin-bottom: 8px; color: #1e293b;">Allowed Domains</h3>
+                    <div class="message-box">
+                        <div class="message-text">
+                            ${
+                              agent?.allowed_domains &&
+                              agent.allowed_domains.length > 0
+                                ? agent.allowed_domains.join(", ")
+                                : agent?.userData?.allowed_domains &&
+                                    agent.userData.allowed_domains.length > 0
+                                  ? agent.userData.allowed_domains.join(", ")
+                                  : "All domains allowed (*)"
+                            }
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -350,10 +427,26 @@ const AgentPreview = ({ agent, onBack, currentTheme, onClose }) => {
 
   return (
     <div className="h-screen flex flex-col">
-      <div className="flex-1 flex items-start justify-center ">
+      <div className="flex items-center justify-between p-4 border-b border-gray-200">
+        <h3 className="text-lg font-medium text-gray-900">Configuration</h3>
+        <button
+          onClick={refreshPreview}
+          className="px-3 py-1.5 text-sm bg-blue-500 text-white rounded-md hover:bg-blue-600 transition-colors duration-200 flex items-center gap-2"
+          title="Reload Widget Script"
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/>
+            <path d="M21 3v5h-5"/>
+            <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/>
+            <path d="M3 21v-5h5"/>
+          </svg>
+          Load
+        </button>
+      </div>
+      <div className="flex items-start justify-center flex-1">
         <iframe
           ref={iframeRef}
-          className="w-full h-[74vh] lg:h-[60vh] border-0 rounded-lg shadow-lg overflow-auto"
+          className="w-full h-[60vh] lg:h-[60vh] border-0 overflow-auto"
           title="Widget Preview"
           sandbox="allow-scripts allow-same-origin allow-forms"
         />

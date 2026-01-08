@@ -47,11 +47,9 @@ function Root() {
   if (isLoading) return <Loading />;
 
   return (
-    <StrictMode>
       <Suspense fallback={<Loading />}>
         <App />
       </Suspense>
-    </StrictMode>
   );
 }
 

@@ -4,115 +4,219 @@ import {
   Clock, 
   DollarSign, 
   Star,
-  TrendingUp
+  Users,
+  TrendingUp,
+  Activity
 } from 'lucide-react';
 import { useTheme } from '../contexts/ThemeContext';
-import MetricCard from './common/MetricCard';
-import TemplateChart from './common/TemplateChart';
 
 const AnalyticsOptimized = () => {
-  const { currentTheme, theme } = useTheme();
+  const { currentTheme } = useTheme();
 
   const metrics = [
     {
-      label: 'Monthly Conversion',
-      value: '68%',
-      change: '+5% from last month',
-      changeColor: 'text-green-500',
-      icon: BarChart3,
-      iconBg: 'bg-gradient-to-r from-blue-500 to-blue-600'
+      label: 'Active Clients',
+      value: '2,847',
+      subtitle: 'Paying subscriber',
+      change: '+12.5%',
+      icon: Users
     },
     {
-      label: 'Avg Response Time',
-      value: '2.4hrs',
-      change: '-0.5hrs improvement',
-      changeColor: 'text-green-500',
-      icon: Clock,
-      iconBg: 'bg-gradient-to-r from-orange-500 to-orange-600'
+      label: 'Monthly Revenue',
+      value: '$45.2K',
+      subtitle: 'Subscription revenue',
+      change: '+18.2%',
+      icon: DollarSign
     },
     {
-      label: 'Revenue This Month',
-      value: '$2.4M',
-      change: '+18% from last month',
-      changeColor: 'text-green-500',
-      icon: DollarSign,
-      iconBg: 'bg-gradient-to-r from-green-500 to-green-600'
+      label: 'AI Employees',
+      value: '8,451',
+      subtitle: 'Serving customers',
+      change: '+7%',
+      icon: Activity
     },
     {
-      label: 'Client Satisfaction',
+      label: 'Satisfaction',
       value: '4.8/5',
-      change: '+0.2 improvement',
-      changeColor: 'text-green-500',
-      icon: Star,
-      iconBg: 'bg-gradient-to-r from-purple-500 to-purple-600'
+      subtitle: 'Average rating',
+      change: '+0.2',
+      icon: Star
     }
   ];
 
-  const templateData = [
-    { name: 'Basic Proposal', value: 45 },
-    { name: 'Enterprise', value: 23 },
-    { name: 'Custom Dev', value: 12 }
-  ];
-
-  const templateData2 = [
-    { name: 'Basic Proposal', value: 45 },
-    { name: 'Enterprise', value: 23 },
-    { name: 'Custom Dev', value: 12 }
+  const recentActivities = [
+    {
+      company: 'TechCorp Solutions',
+      action: 'Upgraded to Premium',
+      employees: '12 AI Employees',
+      amount: '$2,400/mo',
+      time: '2 hours ago',
+      icon: TrendingUp
+    },
+    {
+      company: 'Marketing Masters',
+      action: 'Added 3 new AI Employees',
+      employees: '8 AI Employees',
+      amount: '$1,200/mo',
+      time: '5 hours ago',
+      icon: Users
+    }
   ];
 
   return (
-    <div className="space-y-8">
-      {/* Metrics Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+    <div className="space-y-6">
+      {/* Clean Metrics Grid */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {metrics.map((metric, index) => (
-          <MetricCard key={index} metric={metric} index={index} />
+          <div key={index} className={`${currentTheme?.cardBg || 'bg-white'} border ${currentTheme?.border || 'border-gray-200'} rounded-lg p-4`}>
+            <div className="flex items-center justify-between mb-3">
+              <metric.icon className={`w-5 h-5 ${currentTheme?.textSecondary || 'text-gray-400'}`} />
+              <span className="text-xs font-medium text-green-600">
+                {metric.change}
+              </span>
+            </div>
+            <div>
+              <p className={`text-2xl font-bold ${currentTheme?.text || 'text-gray-900'} mb-1`}>
+                {metric.value}
+              </p>
+              <p className={`text-sm font-medium ${currentTheme?.text || 'text-gray-900'} mb-0.5`}>
+                {metric.label}
+              </p>
+              <p className={`text-xs ${currentTheme?.textSecondary || 'text-gray-500'}`}>
+                {metric.subtitle}
+              </p>
+            </div>
+          </div>
         ))}
       </div>
 
-      {/* Charts Section */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <TemplateChart data={templateData} title="Top Templates" />
-        <TemplateChart data={templateData2} title="Top Templates" />
+      {/* Recent Client Activity */}
+      <div className={`${currentTheme?.cardBg || 'bg-white'} border ${currentTheme?.border || 'border-gray-200'} rounded-lg p-6`}>
+        <div className="flex items-center mb-4">
+          <Users className={`w-5 h-5 ${currentTheme?.text || 'text-gray-900'} mr-2`} />
+          <h2 className={`text-lg font-semibold ${currentTheme?.text || 'text-gray-900'}`}>Recent Client Activity</h2>
+        </div>
+        
+        <p className={`text-sm ${currentTheme?.textSecondary || 'text-gray-600'} mb-6`}>
+          Recent Client Activities
+        </p>
+
+        <div className="space-y-4">
+          {recentActivities.map((activity, index) => (
+            <div key={index} className="flex items-start justify-between p-4 border border-gray-100 rounded-lg hover:bg-gray-50 transition-colors">
+              <div className="flex items-start space-x-3">
+                <div className={`p-2 ${currentTheme?.searchBg || 'bg-gray-50'} rounded-lg`}>
+                  <activity.icon className="w-4 h-4 text-gray-600" />
+                </div>
+                <div>
+                  <h4 className={`font-medium ${currentTheme?.text || 'text-gray-900'}`}>
+                    {activity.company}
+                  </h4>
+                  <p className={`text-sm ${currentTheme?.textSecondary || 'text-gray-600'}`}>
+                    {activity.action}
+                  </p>
+                  <p className={`text-sm ${currentTheme?.textSecondary || 'text-gray-600'}`}>
+                    {activity.employees}
+                  </p>
+                </div>
+              </div>
+              <div className="text-right">
+                <p className={`text-sm font-medium ${currentTheme?.text || 'text-gray-900'}`}>
+                  {activity.amount}
+                </p>
+                <p className={`text-xs ${currentTheme?.textSecondary || 'text-gray-500'}`}>
+                  {activity.time}
+                </p>
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
 
-      {/* Performance Overview */}
-      <div className="relative group">
-        <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-blue-600/10 to-purple-600/10 blur-xl"></div>
-        <div className={`relative ${currentTheme.cardBg} backdrop-blur-lg rounded-2xl border ${currentTheme.border} p-6`}>
-          <h2 className={`text-xl font-bold ${currentTheme.text} mb-6`}>Performance Overview</h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div className="text-center">
-              <div className="flex items-center justify-center w-16 h-16 mx-auto mb-4 bg-gradient-to-r from-green-500 to-emerald-500 rounded-full">
-                <TrendingUp className="w-8 h-8 text-white" />
-              </div>
-              <h3 className={`text-lg font-semibold ${currentTheme.text} mb-1`}>Revenue Growth</h3>
-              <p className={`${currentTheme.textSecondary} text-sm mb-2`}>+18% this month</p>
-              <div className={`w-full rounded-full h-2 ${currentTheme.activeBg}`}>
-                <div className="bg-gradient-to-r from-green-500 to-emerald-500 h-2 rounded-full w-3/4"></div>
-              </div>
-            </div>
+      {/* Quick Actions */}
+      <div className={`${currentTheme?.cardBg || 'bg-white'} border ${currentTheme?.border || 'border-gray-200'} rounded-lg p-6`}>
+        <div className="flex items-center mb-4">
+          <Clock className={`w-5 h-5 ${currentTheme?.text || 'text-gray-900'} mr-2`} />
+          <h2 className={`text-lg font-semibold ${currentTheme?.text || 'text-gray-900'}`}>Quick Actions</h2>
+        </div>
 
-            <div className="text-center">
-              <div className="flex items-center justify-center w-16 h-16 mx-auto mb-4 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-full">
-                <BarChart3 className="w-8 h-8 text-white" />
-              </div>
-              <h3 className={`text-lg font-semibold ${currentTheme.text} mb-1`}>Conversion Rate</h3>
-              <p className={`${currentTheme.textSecondary} text-sm mb-2`}>68% success rate</p>
-              <div className={`w-full rounded-full h-2 ${currentTheme.activeBg}`}>
-                <div className="bg-gradient-to-r from-blue-500 to-cyan-500 h-2 rounded-full w-4/5"></div>
-              </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <button className="flex items-center space-x-3 p-3 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors">
+            <div className="p-2 bg-blue-500 rounded-lg">
+              <Users className="w-4 h-4 text-white" />
             </div>
+            <span className="font-medium text-blue-700">Add New Client</span>
+          </button>
 
-            <div className="text-center">
-              <div className="flex items-center justify-center w-16 h-16 mx-auto mb-4 bg-gradient-to-r from-purple-500 to-pink-500 rounded-full">
-                <Star className="w-8 h-8 text-white" />
+          <button className="flex items-center space-x-3 p-3 bg-purple-50 hover:bg-purple-100 rounded-lg transition-colors">
+            <div className="p-2 bg-purple-500 rounded-lg">
+              <Star className="w-4 h-4 text-white" />
+            </div>
+            <span className="font-medium text-purple-700">Create Service Plan</span>
+          </button>
+
+          <button className="flex items-center space-x-3 p-3 bg-green-50 hover:bg-green-100 rounded-lg transition-colors">
+            <div className="p-2 bg-green-500 rounded-lg">
+              <BarChart3 className="w-4 h-4 text-white" />
+            </div>
+            <span className="font-medium text-green-700">Revenue Report</span>
+          </button>
+
+          <button className="flex items-center space-x-3 p-3 bg-orange-50 hover:bg-orange-100 rounded-lg transition-colors">
+            <div className="p-2 bg-orange-500 rounded-lg">
+              <Clock className="w-4 h-4 text-white" />
+            </div>
+            <span className="font-medium text-orange-700">Support Center</span>
+          </button>
+        </div>
+      </div>
+
+      {/* Recent Transactions */}
+      <div className={`${currentTheme?.cardBg || 'bg-white'} border ${currentTheme?.border || 'border-gray-200'} rounded-lg p-6`}>
+        <div className="flex items-center mb-4">
+          <TrendingUp className={`w-5 h-5 ${currentTheme?.text || 'text-gray-900'} mr-2`} />
+          <h2 className={`text-lg font-semibold ${currentTheme?.text || 'text-gray-900'}`}>Recent Transactions</h2>
+        </div>
+
+        <div className="space-y-3">
+          <div className="flex items-center justify-between p-3 border border-gray-100 rounded-lg">
+            <div className="flex items-center space-x-3">
+              <div className="p-2 bg-green-100 rounded-lg">
+                <DollarSign className="w-4 h-4 text-green-600" />
               </div>
-              <h3 className={`text-lg font-semibold ${currentTheme.text} mb-1`}>Satisfaction</h3>
-              <p className={`${currentTheme.textSecondary} text-sm mb-2`}>4.8/5 average</p>
-              <div className={`w-full rounded-full h-2 ${currentTheme.activeBg}`}>
-                <div className="bg-gradient-to-r from-purple-500 to-pink-500 h-2 rounded-full w-5/6"></div>
+              <div>
+                <p className={`font-medium ${currentTheme?.text || 'text-gray-900'}`}>
+                  Payment received
+                </p>
+                <p className={`text-sm ${currentTheme?.textSecondary || 'text-gray-600'}`}>
+                  TechCorp Solutions
+                </p>
+                <p className={`text-xs ${currentTheme?.textSecondary || 'text-gray-500'}`}>
+                  2 minutes ago
+                </p>
               </div>
             </div>
+            <p className="font-semibold text-green-600">$2,400</p>
+          </div>
+
+          <div className="flex items-center justify-between p-3 border border-gray-100 rounded-lg">
+            <div className="flex items-center space-x-3">
+              <div className="p-2 bg-blue-100 rounded-lg">
+                <Users className="w-4 h-4 text-blue-600" />
+              </div>
+              <div>
+                <p className={`font-medium ${currentTheme?.text || 'text-gray-900'}`}>
+                  New client registered
+                </p>
+                <p className={`text-sm ${currentTheme?.textSecondary || 'text-gray-600'}`}>
+                  DataFlow Industries
+                </p>
+                <p className={`text-xs ${currentTheme?.textSecondary || 'text-gray-500'}`}>
+                  15 minutes ago
+                </p>
+              </div>
+            </div>
+            <p className={`font-semibold ${currentTheme?.text || 'text-gray-600'}`}>Enterprise</p>
           </div>
         </div>
       </div>

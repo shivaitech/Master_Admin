@@ -14,9 +14,7 @@ import {
   RiCloseLine,
   RiEditLine,
   RiDeleteBinLine,
-  RiEyeLine,
   RiErrorWarningLine,
-  RiBuildingLine,
   RiBankCardLine,
   RiUserVoiceLine,
 } from "react-icons/ri";
@@ -30,52 +28,190 @@ import {
 } from "./ClientManagement";
 
 const ClientDetailsPage = () => {
-  const { clientId } = useParams();
+  const params = useParams();
   const navigate = useNavigate();
   const location = useLocation();
   const { theme, currentTheme } = useTheme();
+  
+  const clientId = params.clientId || params.id;
+  
+  console.log("🔍 ClientId from URL params:", clientId);
+  
+  if (!clientId) {
+    const pathSegments = location.pathname.split('/');
+    const possibleClientId = pathSegments[pathSegments.length - 1];
+    console.log("🔍 Path segments:", pathSegments);
+    console.log("🔍 Possible clientId from path:", possibleClientId);
+  }
+  
   const [client, setClient] = useState(location.state?.client || null);
   const [loading, setLoading] = useState(!location.state?.client);
   const [selectedAgent, setSelectedAgent] = useState(null);
   const [viewMode, setViewMode] = useState("details");
   const [previousTab, setPreviousTab] = useState(null);
-
-  const isOnboarded = useMemo(() => {
-    return client?.userData?.isOnboarded || client?.isOnboarded || false;
-  }, [client?.userData?.isOnboarded, client?.isOnboarded]);
-
+  const [apiCallsInProgress, setApiCallsInProgress] = useState(false);
   const [onboardingData, setOnboardingData] = useState(null);
   const [error, setError] = useState(null);
+
+  const isOnboarded = useMemo(() => {
+    // Check if we have actual onboarding data OR if client is marked as onboarded
+    const hasOnboardingData = onboardingData && typeof onboardingData === 'object' && Object.keys(onboardingData).length > 0;
+    const markedAsOnboarded = client?.userData?.isOnboarded || client?.isOnboarded;
+    const finalValue = hasOnboardingData || markedAsOnboarded || false;
+    
+    console.log("🎯 isOnboarded calculation:", {
+      hasClient: !!client,
+      userData_isOnboarded: client?.userData?.isOnboarded,
+      client_isOnboarded: client?.isOnboarded,
+      hasOnboardingData: hasOnboardingData,
+      onboardingDataKeys: onboardingData ? Object.keys(onboardingData) : [],
+      finalValue: finalValue
+    });
+    return finalValue;
+  }, [client?.userData?.isOnboarded, client?.isOnboarded, onboardingData]);
+
+  // Validate clientId on component mount with more flexible validation
+  useEffect(() => {
+    console.log("🎯 ClientDetailsPage mounted with clientId:", clientId);
+    
+    if (!clientId) {
+      console.error("❌ Critical Error: No clientId found in URL params");
+      setError("Invalid URL - Client ID is missing");
+      setLoading(false);
+      return;
+    }
+    
+    // More flexible clientId validation
+    if (typeof clientId !== 'string') {
+      console.error("❌ Critical Error: ClientId is not a string:", typeof clientId, clientId);
+      setError("Invalid Client ID format");
+      setLoading(false);
+      return;
+    }
+    
+    if (clientId.length < 3) {  // More flexible minimum length
+      console.error("❌ Critical Error: ClientId too short:", clientId, "Length:", clientId.length);
+      setError("Invalid Client ID - ID too short");
+      setLoading(false);
+      return;
+    }
+    
+    // Allow more characters including dashes and underscores
+    if (!/^[a-zA-Z0-9_-]+$/.test(clientId)) {
+      console.error("❌ Critical Error: ClientId contains invalid characters:", clientId);
+      setError("Invalid Client ID - Contains invalid characters");
+      setLoading(false);
+      return;
+    }
+    
+    console.log("✅ ClientId validation passed:", clientId);
+  }, [clientId]);
 
   // Fetch onboarding data using the API
   useEffect(() => {
     const fetchOnboardingData = async () => {
-      const userId =
-        client?.userData?._id ||
-        client?._id ||
-        client?.userData?.id ||
-        client?.id;
+      console.log("🔄 fetchOnboardingData triggered - client exists:", !!client);
+      console.log("🔄 Client object:", client);
+      
+      // Don't fetch if no client data yet
+      if (!client) {
+        console.log("⏳ No client data available yet, skipping onboarding fetch");
+        return;
+      }
+
+      // Prevent multiple simultaneous API calls
+      if (apiCallsInProgress) {
+        console.log("⏳ API calls already in progress, skipping onboarding fetch");
+        return;
+      }
+
+      // Enhanced user ID extraction with more logging
+      const userIdOptions = {
+        userData_id: client?.userData?._id,
+        client_id: client?._id,
+        userData_id_alt: client?.userData?.id,
+        client_id_alt: client?.id,
+        email: client?.email,
+        userData_email: client?.userData?.email
+      };
+      
+      console.log("🔍 UserId extraction options:", userIdOptions);
+      
+      const userId =clientId;
+      
+      console.log("🔍 Final extracted userId:", userId);
 
       if (!userId) {
         console.warn("⚠️ No user ID found for fetching onboarding data");
-        setLoading(false);
+        console.warn("⚠️ Client structure:", {
+          hasUserData: !!client.userData,
+          hasId: !!client._id,
+          hasAltId: !!client.id,
+          clientKeys: Object.keys(client)
+        });
+        
+        // Try using clientId as fallback
+        if (clientId) {
+          console.log("🔄 Using clientId as fallback for onboarding fetch:", clientId);
+        } else {
+          return;
+        }
+      }
+
+      // More flexible userId validation
+      const finalUserId = userId || clientId;
+      if (typeof finalUserId !== 'string' || finalUserId.length < 3) {
+        console.warn("⚠️ Invalid user ID format:", finalUserId);
+        setError("Invalid user ID format");
         return;
       }
 
       try {
-        setLoading(true);
+        console.log("🚀 Starting API call for onboarding data - userId:", finalUserId);
+        setApiCallsInProgress(true);
         setError(null);
-        console.log("🔍 Fetching onboarding data for user ID:", userId);
+        console.log("🔍 Fetching onboarding data for user ID:", finalUserId);
 
-        const response = await shivaiApiService.getOnboardingByUserId(userId);
+        const response = await shivaiApiService.getOnboardingByUserId(finalUserId);
         console.log("✅ Onboarding data fetched:", response);
 
-        // Handle different response structures
-        const data =
-          response?.data?.onboarding ||
-          response?.onboarding ||
-          response?.data ||
-          response;
+        // Handle different response structures - check the actual API response structure
+        let data = null;
+        
+        // The API returns: { success: true, data: { file_storage: {...}, onboarding: {...} } }
+        // We need the `onboarding` object inside `data`
+        if (response?.success && response?.data?.onboarding) {
+          // API returned {success: true, data: { onboarding: {...} }} structure
+          data = response.data.onboarding;
+          console.log("📊 Extracted data from response.data.onboarding:", data);
+        } else if (response?.data?.onboarding) {
+          // Nested onboarding structure without success flag
+          data = response.data.onboarding;
+          console.log("📊 Extracted data from response.data.onboarding (no success):", data);
+        } else if (response?.onboarding) {
+          // Direct onboarding property
+          data = response.onboarding;
+          console.log("📊 Extracted data from response.onboarding:", data);
+        } else if (response?.success && response?.data) {
+          // API returned {success: true, data: {...}} - data IS the onboarding
+          data = response.data;
+          console.log("📊 Extracted data from response.data (direct):", data);
+        } else if (response?.data) {
+          // Fallback to data property
+          data = response.data;
+          console.log("📊 Extracted data from response.data (fallback):", data);
+        } else {
+          // Use the entire response
+          data = response;
+          console.log("📊 Using entire response as data:", data);
+        }
+        
+        console.log("✅ Final onboarding data to set:", data);
+        console.log("📋 Data type:", typeof data, "Is object:", typeof data === 'object');
+        console.log("📋 Data keys:", data && typeof data === 'object' ? Object.keys(data) : 'Not an object');
+        console.log("📋 Has company_basics:", !!data?.company_basics);
+        console.log("📋 Has ai_employees:", !!data?.ai_employees);
+        
         setOnboardingData(data);
       } catch (err) {
         console.error("❌ Error fetching onboarding data:", err);
@@ -94,12 +230,16 @@ const ClientDetailsPage = () => {
           setError(null);
         }
       } finally {
-        setLoading(false);
+        setApiCallsInProgress(false);
       }
     };
 
-    fetchOnboardingData();
-  }, [client]);
+    // Always run this effect when client data changes
+    if (client) {
+      console.log("🎯 useEffect triggered for onboarding data - clientId:", client?._id || client?.id);
+      fetchOnboardingData();
+    }
+  }, [client, clientId]); // Added clientId to dependencies
 
   const tabs = useMemo(() => {
     const allTabs = [
@@ -109,72 +249,255 @@ const ClientDetailsPage = () => {
       { id: "transactions", label: "Transactions", icon: RiExchangeDollarLine },
     ];
 
-    return isOnboarded
+    const finalTabs = isOnboarded
       ? allTabs
       : allTabs.filter((tab) => tab.id !== "onboarding");
+      
+    console.log("🔍 Tabs calculation:", {
+      isOnboarded,
+      allTabsCount: allTabs.length,
+      finalTabsCount: finalTabs.length,
+      finalTabIds: finalTabs.map(t => t.id),
+      onboardingTabIncluded: finalTabs.some(t => t.id === "onboarding")
+    });
+
+    return finalTabs;
   }, [isOnboarded]);
 
   const getInitialTab = useCallback(() => {
     const urlParams = new URLSearchParams(location.search);
     const tabFromUrl = urlParams.get("tab");
 
+    console.log("🎯 getInitialTab - tabFromUrl:", tabFromUrl, "isOnboarded:", isOnboarded);
+
     if (tabFromUrl && tabs.some((t) => t.id === tabFromUrl)) {
+      console.log("✅ Using tab from URL:", tabFromUrl);
       return tabFromUrl;
     }
 
-    return isOnboarded ? "onboarding" : "details";
+    const defaultTab = isOnboarded ? "onboarding" : "details";
+    console.log("✅ Using default tab:", defaultTab);
+    return defaultTab;
   }, [location.search, tabs, isOnboarded]);
 
   const [activeTab, setActiveTab] = useState(getInitialTab);
+
+  // Update active tab when isOnboarded changes (important for refresh scenarios)
+  useEffect(() => {
+    const currentTab = getInitialTab();
+    console.log("🎯 Tab update check - currentTab:", currentTab, "activeTab:", activeTab, "isOnboarded:", isOnboarded);
+    
+    // Only update if we're not on a valid tab for the current onboarded state
+    if (activeTab === "onboarding" && !isOnboarded) {
+      console.log("🔄 Switching from onboarding to details (not onboarded)");
+      setActiveTab("details");
+    } else if (!tabs.some(t => t.id === activeTab)) {
+      console.log("🔄 Switching to valid tab:", currentTab);
+      setActiveTab(currentTab);
+    }
+  }, [isOnboarded, tabs, getInitialTab, activeTab]);
 
   useEffect(() => {
     const urlParams = new URLSearchParams(location.search);
     const currentTabInUrl = urlParams.get("tab");
 
     if (currentTabInUrl !== activeTab) {
-      urlParams.set("tab", activeTab);
-      navigate(`${location.pathname}?${urlParams.toString()}`, {
-        replace: true,
-        state: location.state,
-      });
+      const newParams = new URLSearchParams(location.search);
+      newParams.set("tab", activeTab);
+      const newUrl = `${location.pathname}?${newParams.toString()}`;
+      
+      if (window.location.href !== window.location.origin + newUrl) {
+        window.history.replaceState(location.state, "", newUrl);
+      }
     }
-  }, [activeTab, navigate, location.pathname, location.search, location.state]);
+  }, [activeTab, location.pathname, location.search, location.state]);
 
   useEffect(() => {
     const fetchClientDetails = async () => {
+      console.log("🔄 fetchClientDetails triggered");
+      console.log("🔍 Current clientId:", clientId);
+      console.log("🔍 ClientId type:", typeof clientId);
+      console.log("🔍 ClientId length:", clientId?.length);
+      console.log("🔍 Location state exists:", !!location.state?.client);
+      
+      // Skip if we already have client data from navigation state
       if (location.state?.client) {
-        console.log(
-          "✅ Client data received from navigation state:",
-          location.state.client
-        );
+        console.log("✅ Using client data from navigation state:", location.state.client);
         setClient(location.state.client);
         setLoading(false);
         return;
       }
 
+      // Critical validation - ensure we have a valid clientId before making API calls
+      if (!clientId) {
+        console.error("❌ CRITICAL: No clientId provided - cannot fetch client data");
+        setError("Client ID is required but missing from URL");
+        setLoading(false);
+        return;
+      }
+
+      if (typeof clientId !== 'string') {
+        console.error("❌ CRITICAL: ClientId is not a string:", typeof clientId, clientId);
+        setError("Invalid Client ID type");
+        setLoading(false);
+        return;
+      }
+
+      if (clientId.length < 3) {  // More flexible minimum length
+        console.error("❌ CRITICAL: ClientId too short for valid ID:", clientId, "Length:", clientId.length);
+        setError("Invalid Client ID format");
+        setLoading(false);
+        return;
+      }
+
+      // Prevent multiple simultaneous API calls
+      if (apiCallsInProgress) {
+        console.log("⏳ API calls already in progress, skipping client fetch");
+        return;
+      }
+
       try {
+        console.log("🚀 Starting API call for client details");
+        console.log("📡 API Call - ClientId being sent:", clientId);
+        console.log("📡 API Call - ClientId length:", clientId.length);
+        console.log("📡 API Call - ClientId type:", typeof clientId);
+        
         setLoading(true);
-        const response = await shivaiApiService.getClientById(clientId);
-        console.log("✅ Client data fetched from API:", response);
+        setApiCallsInProgress(true);
+        setError(null);
+        
+        // Use the proper API method for getting client/agent data
+        let response;
+        
+        try {
+          console.log("🔄 Attempting getAgentsById with clientId:", clientId);
+          const agentData = await shivaiApiService.getAgentsById(clientId);
+          console.log("✅ getAgentsById SUCCESS - Response:", agentData);
+          
+          // Structure the response to match expected format
+          response = {
+            success: true,
+            data: agentData
+          };
+        } catch (agentError) {
+          console.log("❌ getAgentsById FAILED for clientId:", clientId, "Error:", agentError.message);
+          
+          // Fallback to direct user endpoint
+          try {
+            console.log("🔄 Attempting direct /users endpoint with clientId:", clientId);
+            const userResponse = await shivaiApiService.get(`/v1/users/${clientId}`);
+            console.log("✅ Direct /users endpoint SUCCESS - Response:", userResponse);
+            response = userResponse;
+          } catch (usersError) {
+            console.log("❌ Direct /users endpoint FAILED for clientId:", clientId, "Error:", usersError.message);
+            
+            // Final fallback: get all users and filter
+            console.log("🔄 Attempting getAllUsers fallback and filtering for clientId:", clientId);
+            const allUsersResponse = await shivaiApiService.getAllUsers();
+            console.log("📊 getAllUsers response structure:", {
+              hasData: !!allUsersResponse?.data,
+              hasDataData: !!allUsersResponse?.data?.data,
+              isArray: Array.isArray(allUsersResponse),
+              dataIsArray: Array.isArray(allUsersResponse?.data),
+              dataDataIsArray: Array.isArray(allUsersResponse?.data?.data),
+            });
+            
+            // Extract users array from response
+            let users = [];
+            if (allUsersResponse?.data?.data) {
+              users = allUsersResponse.data.data;
+            } else if (allUsersResponse?.data && Array.isArray(allUsersResponse.data)) {
+              users = allUsersResponse.data;
+            } else if (Array.isArray(allUsersResponse)) {
+              users = allUsersResponse;
+            } else {
+              console.error("❌ Invalid users response structure:", allUsersResponse);
+              throw new Error(`Unable to fetch client data. Invalid response structure from API.`);
+            }
+            
+            if (!Array.isArray(users)) {
+              console.error("❌ Users data is not an array:", typeof users, users);
+              throw new Error("Users data is not in expected array format");
+            }
+            
+            console.log(`🔍 Searching for clientId "${clientId}" in ${users.length} users`);
+            
+            const foundUser = users.find(user => {
+              const userMatches = [
+                user._id === clientId,
+                user.id === clientId,
+                user.userData?._id === clientId,
+                user.userData?.id === clientId
+              ];
+              
+              if (userMatches.some(match => match)) {
+                console.log("✅ User match found:", {
+                  user_id: user._id || user.id,
+                  userData_id: user.userData?._id || user.userData?.id,
+                  searchingFor: clientId,
+                  matchedBy: userMatches
+                });
+                return true;
+              }
+              return false;
+            });
+            
+            if (foundUser) {
+              console.log("✅ Client found in users list:", foundUser);
+              response = { success: true, data: foundUser };
+            } else {
+              console.error(`❌ Client with ID "${clientId}" not found in ${users.length} users`);
+              throw new Error(`Client not found: No client with ID "${clientId}" exists in the system`);
+            }
+          }
+        }
+        
         if (response?.success && response?.data) {
+          console.log("✅ Final client data to be set:", response.data);
           setClient(response.data);
+          setError(null);
         } else {
-          toast.error("Client not found");
-          navigate("/dashboard/clients");
+          console.error("❌ Invalid response structure:", response);
+          setError("Failed to load client data - Invalid API response");
         }
       } catch (error) {
-        console.error("❌ Error fetching client:", error);
-        toast.error("Failed to load client details");
-        navigate("/dashboard/clients");
+        console.error("❌ Complete API failure for clientId:", clientId, "Error:", error);
+        
+        // Only navigate away for genuine 404 errors
+        if (error.response?.status === 404) {
+          console.log("🔄 404 Error - Navigating back to clients list");
+          toast.error("Client not found");
+          navigate("/dashboard/clients");
+        } else {
+          // For other errors, just set error state and stay on page
+          let errorMessage = `Failed to load client details for ID: ${clientId}`;
+          if (error.response?.status === 403) {
+            errorMessage = "Access denied - You don't have permission to view this client";
+          } else if (error.code === 'NETWORK_ERROR' || !navigator.onLine) {
+            errorMessage = "Network error. Please check your connection and try again.";
+          } else if (error.message) {
+            errorMessage = error.message;
+          }
+          
+          setError(errorMessage);
+          toast.error(errorMessage);
+        }
       } finally {
         setLoading(false);
+        setApiCallsInProgress(false);
       }
     };
 
-    if (clientId) {
+    // Only run this effect if we have a valid clientId
+    if (clientId && typeof clientId === 'string' && clientId.length >= 3) {
+      console.log("🎯 Starting fetchClientDetails with validated clientId:", clientId);
       fetchClientDetails();
+    } else {
+      console.error("❌ Cannot fetch client details - invalid clientId:", clientId);
+      setError("Invalid Client ID in URL");
+      setLoading(false);
     }
-  }, [clientId, navigate, location.state]);
+  }, [clientId, navigate]); // Dependencies: clientId and navigate
 
   // Update browser tab title
   useEffect(() => {
@@ -248,9 +571,14 @@ const ClientDetailsPage = () => {
         setClient(updatedClient);
         
         // Also fetch fresh data from API to ensure consistency
-        const clientResponse = await shivaiApiService.getClientById(clientId);
-        if (clientResponse?.success && clientResponse?.data) {
-          setClient(clientResponse.data);
+        try {
+          const clientResponse = await shivaiApiService.getAgentsById(clientId);
+          if (clientResponse) {
+            setClient(clientResponse);
+          }
+        } catch (fetchError) {
+          console.warn("Could not refresh client data after approval:", fetchError);
+          // Don't throw error, approval was successful
         }
       }
     } catch (error) {
@@ -302,6 +630,34 @@ const ClientDetailsPage = () => {
     );
   }
 
+  if (!client && !loading && error) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <RiErrorWarningLine className="w-16 h-16 mx-auto mb-4 text-red-500" />
+          <h2 className="text-2xl font-bold text-gray-900 mb-2">
+            {error.includes("Network") ? "Connection Error" : "Error Loading Client"}
+          </h2>
+          <p className="text-gray-600 mb-4">{error}</p>
+          <div className="flex gap-2 justify-center">
+            <button
+              onClick={() => window.location.reload()}
+              className="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-colors"
+            >
+              Try Again
+            </button>
+            <button
+              onClick={handleBack}
+              className="px-4 py-2 bg-gray-500 hover:bg-gray-600 text-white rounded-lg transition-colors"
+            >
+              Back to Clients
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   if (!client) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -345,162 +701,160 @@ const ClientDetailsPage = () => {
   };
 
   return (
-    <div className="space-y-4 md:space-y-6">
-      {/* Header with Back Button */}
-      <div className="flex flex-col gap-3 sm:gap-0">
-        <div className="flex items-start justify-between gap-3 sm:gap-4 min-w-0">
-          <div className="flex items-start gap-3 sm:gap-4 min-w-0 flex-1">
+    <div className="space-y-3">
+      {/* Simple Header */}
+      <div className={`${currentTheme.cardBg} border ${currentTheme.border} rounded-lg p-3 md:p-4`}>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-2 md:space-x-3">
             <button
               onClick={handleBack}
-              className={`p-2 rounded-lg ${currentTheme.hover} ${currentTheme.text} transition-all duration-200 flex-shrink-0 mt-1`}
+              className="p-1.5 md:p-2 hover:bg-gray-100 rounded-lg transition-colors"
             >
-              <RiArrowLeftLine className="w-5 h-5" />
+              <RiArrowLeftLine className="w-4 h-4 md:w-5 md:h-5 text-gray-600" />
             </button>
-            <div className="min-w-0 flex-1">
-              <h1
-                className={`text-xl sm:text-2xl font-bold ${currentTheme.text} truncate`}
-              >
+            <div>
+              <h1 className={`text-lg md:text-xl font-semibold ${currentTheme.text}`}>
                 {client?.fullName ||
                   client?.company_basics?.name ||
                   "Client Details"}
               </h1>
-              <p
-                className={`text-sm ${currentTheme.textSecondary} truncate mt-1`}
-              >
+              <p className={`text-xs md:text-sm ${currentTheme.textSecondary}`}>
                 {client?.email || client?.company_basics?.company_email || ""}
               </p>
             </div>
           </div>
 
           {/* Action Buttons */}
-          <div className="flex items-center gap-2 flex-shrink-0">
+          <div className="flex items-center space-x-1 md:space-x-2">
             {(client?.userData?.isOnboarded || client?.isOnboarded) &&
               client?.onboardingStatus !== "approved" && (
                 <>
                   <button
                     onClick={() => handleApprove(client)}
-                    className={`p-2 rounded-lg ${currentTheme.hover} ${currentTheme.text} transition-all duration-200`}
+                    className="p-1.5 md:p-2 hover:bg-green-50 rounded-lg transition-colors"
                     title="Accept Client"
                   >
-                    <RiCheckLine className="w-5 h-5" />
+                    <RiCheckLine className="w-3.5 h-3.5 md:w-4 md:h-4 text-green-600" />
                   </button>
                   <button
                     onClick={() => handleReject(client)}
-                    className={`p-2 rounded-lg ${currentTheme.hover} ${currentTheme.text} transition-all duration-200`}
+                    className="p-1.5 md:p-2 hover:bg-red-50 rounded-lg transition-colors"
                     title="Reject Client"
                   >
-                    <RiCloseLine className="w-5 h-5" />
+                    <RiCloseLine className="w-3.5 h-3.5 md:w-4 md:h-4 text-red-600" />
                   </button>
                 </>
               )}
             {client?.onboardingStatus === "approved" && (
-              <div className="flex items-center gap-2 px-3 py-1.5 bg-green-100 text-green-700 rounded-lg text-sm font-medium">
-                <RiCheckLine className="w-4 h-4" />
+              <div className="flex items-center space-x-1 px-2 py-1 md:px-3 md:py-1.5 bg-green-100 text-green-700 rounded-lg text-xs md:text-sm font-medium">
+                <RiCheckLine className="w-3 h-3 md:w-4 md:h-4" />
                 <span>Approved</span>
               </div>
             )}
 
             <button
               onClick={() => handleEdit(client)}
-              className={`p-2 rounded-lg ${currentTheme.hover} ${currentTheme.text} transition-all duration-200`}
+              className="p-1.5 md:p-2 hover:bg-gray-100 rounded-lg transition-colors"
               title="Edit Client"
             >
-              <RiEditLine className="w-5 h-5" />
+              <RiEditLine className="w-3.5 h-3.5 md:w-4 md:h-4 text-gray-600" />
             </button>
             <button
               onClick={() => handleDelete(client)}
-              className={`p-2 rounded-lg ${currentTheme.hover} ${currentTheme.text} transition-all duration-200`}
+              className="p-1.5 md:p-2 hover:bg-red-50 rounded-lg transition-colors"
               title="Delete Client"
             >
-              <RiDeleteBinLine className="w-5 h-5" />
+              <RiDeleteBinLine className="w-3.5 h-3.5 md:w-4 md:h-4 text-red-600" />
             </button>
           </div>
         </div>
       </div>
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
-        <div
-          className={`${currentTheme.cardBg} border ${currentTheme.border} rounded-xl p-3 md:p-4`}
-        >
-          <div className="flex items-center justify-between mb-2">
-            <RiRobotLine className={`w-5 h-5 ${currentTheme.textSecondary}`} />
+      {/* Optimized Stats Cards - Row Layout */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-4">
+        <div className={`${currentTheme.cardBg} border ${currentTheme.border} rounded-lg p-3 md:p-4`}>
+          <div className="flex items-start space-x-2 md:space-x-3">
+            <div className="p-1.5 md:p-2 bg-gray-50 rounded-lg">
+              <RiRobotLine className="w-4 h-4 md:w-5 md:h-5 text-gray-900" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className={`text-lg md:text-xl font-bold ${currentTheme.text} leading-none`}>
+                {clientStats.totalAIEmployees}
+              </p>
+              <p className={`text-xs md:text-sm ${currentTheme.textSecondary} truncate`}>
+                AI Employees
+              </p>
+            </div>
           </div>
-          <p className={`text-2xl md:text-3xl font-bold ${currentTheme.text}`}>
-            {clientStats.totalAIEmployees}
-          </p>
-          <p className={`text-xs ${currentTheme.textSecondary} mt-1`}>
-            AI Employees
-          </p>
         </div>
 
-        <div
-          className={`${currentTheme.cardBg} border ${currentTheme.border} rounded-xl p-3 md:p-4`}
-        >
-          <div className="flex items-center justify-between mb-2">
-            <RiUserVoiceLine
-              className={`w-5 h-5 ${currentTheme.textSecondary}`}
-            />
+        <div className={`${currentTheme.cardBg} border ${currentTheme.border} rounded-lg p-3 md:p-4`}>
+          <div className="flex items-start space-x-2 md:space-x-3">
+            <div className="p-1.5 md:p-2 bg-gray-50 rounded-lg">
+              <RiUserVoiceLine className="w-4 h-4 md:w-5 md:h-5 text-gray-900" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className={`text-lg md:text-xl font-bold ${currentTheme.text} leading-none`}>
+                {clientStats.liveAIEmployees}
+              </p>
+              <p className={`text-xs md:text-sm ${currentTheme.textSecondary} truncate`}>
+                Active Now
+              </p>
+            </div>
           </div>
-          <p className={`text-2xl md:text-3xl font-bold ${currentTheme.text}`}>
-            {clientStats.liveAIEmployees}
-          </p>
-          <p className={`text-xs ${currentTheme.textSecondary} mt-1`}>
-            Active Now
-          </p>
         </div>
 
-        <div
-          className={`${currentTheme.cardBg} border ${currentTheme.border} rounded-xl p-3 md:p-4`}
-        >
-          <div className="flex items-center justify-between mb-2">
-            <RiPhoneLine className={`w-5 h-5 ${currentTheme.textSecondary}`} />
+        <div className={`${currentTheme.cardBg} border ${currentTheme.border} rounded-lg p-3 md:p-4`}>
+          <div className="flex items-start space-x-2 md:space-x-3">
+            <div className="p-1.5 md:p-2 bg-gray-50 rounded-lg">
+              <RiPhoneLine className="w-4 h-4 md:w-5 md:h-5 text-gray-900" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className={`text-lg md:text-xl font-bold ${currentTheme.text} leading-none`}>
+                {clientStats.totalCalls}
+              </p>
+              <p className={`text-xs md:text-sm ${currentTheme.textSecondary} truncate`}>
+                Total Calls
+              </p>
+            </div>
           </div>
-          <p className={`text-2xl md:text-3xl font-bold ${currentTheme.text}`}>
-            {clientStats.totalCalls}
-          </p>
-          <p className={`text-xs ${currentTheme.textSecondary} mt-1`}>
-            Total Calls
-          </p>
         </div>
 
-        <div
-          className={`${currentTheme.cardBg} border ${currentTheme.border} rounded-xl p-3 md:p-4`}
-        >
-          <div className="flex items-center justify-between mb-2">
-            <RiBankCardLine
-              className={`w-5 h-5 ${currentTheme.textSecondary}`}
-            />
+        <div className={`${currentTheme.cardBg} border ${currentTheme.border} rounded-lg p-3 md:p-4`}>
+          <div className="flex items-start space-x-2 md:space-x-3">
+            <div className="p-1.5 md:p-2 bg-gray-50 rounded-lg">
+              <RiBankCardLine className="w-4 h-4 md:w-5 md:h-5 text-gray-900" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className={`text-lg md:text-xl font-bold ${currentTheme.text} leading-none`}>
+                ${clientStats.totalRevenue.toLocaleString()}
+              </p>
+              <p className={`text-xs md:text-sm ${currentTheme.textSecondary} truncate`}>
+                Revenue
+              </p>
+            </div>
           </div>
-          <p className={`text-2xl md:text-3xl font-bold ${currentTheme.text}`}>
-            ${clientStats.totalRevenue.toLocaleString()}
-          </p>
-          <p className={`text-xs ${currentTheme.textSecondary} mt-1`}>
-            Revenue
-          </p>
         </div>
       </div>
 
-      {/* Tabs */}
-      <div
-        className={`${currentTheme.cardBg} border ${currentTheme.border} rounded-xl shadow-lg`}
-      >
-        <div className={`border-b ${currentTheme.border} px-4 md:px-6`}>
-          <div className="flex gap-1 md:gap-2 overflow-x-auto scrollbar-hide -mb-px">
+      {/* Clean Tabs */}
+      <div className={`${currentTheme.cardBg} border ${currentTheme.border} rounded-lg`}>
+        <div className="border-b border-gray-200 px-2 md:px-4">
+          <div className="flex  space-x-2 md:space-x-4 overflow-x-auto scrollbar-hide">
             {tabs.map((tab) => {
               const Icon = tab.icon;
               return (
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
-                  className={`flex items-center gap-2 px-3 md:px-4 py-3 md:py-4 text-sm font-medium border-b-2 transition-all duration-200 whitespace-nowrap ${
+                  className={`flex items-center space-x-1 md:space-x-2 px-2 md:px-4 py-3 md:py-3 text-[13px] lg:text-[16px] md:text-sm font-medium border-b-2 whitespace-nowrap ${
                     activeTab === tab.id
-                      ? `border-blue-500 ${currentTheme.text}`
-                      : `border-transparent ${currentTheme.textSecondary} hover:${currentTheme.text}`
+                      ? 'border-blue-500 text-blue-600'
+                      : 'border-transparent text-gray-600 hover:text-gray-900'
                   }`}
                 >
-                  <Icon className="w-4 h-4 flex-shrink-0" />
-                  <span className="hidden sm:inline">{tab.label}</span>
+                  <Icon className="w-4 h-4 md:w-4 md:h-4" />
+                  <span>{tab.label}</span>
                 </button>
               );
             })}
@@ -508,36 +862,78 @@ const ClientDetailsPage = () => {
         </div>
 
         {/* Tab Content */}
-        <div className="p-6">
-          {activeTab === "onboarding" && (
-            <OnboardingDataTab
-              key={`onboarding-${client?._id}`}
-              client={client}
-              currentTheme={currentTheme}
-            />
-          )}
-          {activeTab === "details" && (
+        <div className="p-3 md:p-6">
+          <div className={activeTab === "onboarding" ? "block" : "hidden"}>
+            {console.log("🎯 OnboardingDataTab rendering:", {
+              activeTab,
+              isOnboardingTabActive: activeTab === "onboarding",
+              hasClient: !!client,
+              hasOnboardingData: !!onboardingData,
+              onboardingDataKeys: onboardingData ? Object.keys(onboardingData) : [],
+              onboardingDataStructure: onboardingData,
+              isOnboarded,
+              apiCallsInProgress,
+              tabsAvailable: tabs.map(t => t.id)
+            })}
+            
+            {activeTab === "onboarding" && apiCallsInProgress ? (
+              <div className="flex items-center justify-center py-8">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                <span className="ml-3 text-gray-600">Loading onboarding data...</span>
+              </div>
+            ) : activeTab === "onboarding" && !onboardingData ? (
+              <div className="text-center py-8">
+                <div className="text-gray-500 mb-4">
+                  <RiFileTextLine className="w-16 h-16 mx-auto mb-4 text-gray-400" />
+                  <p className="text-lg font-medium mb-2">No Onboarding Data Available</p>
+                  <p className="text-sm">This client hasn't completed the onboarding process yet.</p>
+                </div>
+                <button
+                  onClick={() => window.location.reload()}
+                  className="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-colors text-sm"
+                >
+                  Refresh Data
+                </button>
+              </div>
+            ) : activeTab === "onboarding" && onboardingData ? (
+              <>
+                {console.log("🚀 Rendering OnboardingDataTab with data:", onboardingData)}
+                <OnboardingDataTab
+                  client={client}
+                  onboardingData={onboardingData}
+                  currentTheme={currentTheme}
+                />
+              </>
+            ) : (
+              activeTab === "onboarding" && (
+                <div className="text-center py-8 text-gray-500">
+                  <p>Onboarding tab not active or data loading...</p>
+                  <p className="text-xs mt-2">Active tab: {activeTab}</p>
+                  <p className="text-xs">Has data: {!!onboardingData ? 'Yes' : 'No'}</p>
+                  <p className="text-xs">API in progress: {apiCallsInProgress ? 'Yes' : 'No'}</p>
+                </div>
+              )
+            )}
+          </div>
+          <div className={activeTab === "details" ? "block" : "hidden"}>
             <ClientDetailsTab
-              key={`details-${client?._id}`}
               client={client}
               currentTheme={currentTheme}
             />
-          )}
-          {activeTab === "employees" && (
+          </div>
+          <div className={activeTab === "employees" ? "block" : "hidden"}>
             <AIEmployeesTab
-              key={`employees-${client?._id}-${activeTab}`}
               client={client}
               currentTheme={currentTheme}
               onViewAgent={handleViewAgent}
             />
-          )}
-          {activeTab === "transactions" && (
+          </div>
+          <div className={activeTab === "transactions" ? "block" : "hidden"}>
             <TransactionsTab
-              key={`transactions-${client?._id}`}
               client={client}
               currentTheme={currentTheme}
             />
-          )}
+          </div>
         </div>
       </div>
     </div>
