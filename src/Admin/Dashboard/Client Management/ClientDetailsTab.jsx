@@ -8,156 +8,111 @@ const ClientDetailsTab = ({ client, currentTheme }) => {
     client?.userData?.onboarding?.company_basics ||
     {};
 
+  // Helper function for status text
+  const getStatusText = () => {
+    if (client?.isApproved || userData?.isApproved) return "Approved";
+    if (client?.isRejected || userData?.isRejected) return "Rejected";
+    if (userData?.isActive) return "Active";
+    return "Pending";
+  };
+
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div>
-          <label
-            className={`text-sm ${currentTheme.textSecondary} uppercase block mb-2`}
-          >
+      {/* Main Details Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4">
+        <div className="py-2 border-b border-gray-100">
+          <p className={`text-[11px] uppercase tracking-wide ${currentTheme.textSecondary} mb-1`}>
             Full Name
-          </label>
-          <p className={`${currentTheme.text} font-medium`}>
-            {userData.fullName || userData.name || companyBasics.name || "N/A"}
+          </p>
+          <p className={`text-sm ${currentTheme.text}`}>
+            {userData.fullName || userData.name || companyBasics.name || "—"}
           </p>
         </div>
-        <div>
-          <label
-            className={`text-sm ${currentTheme.textSecondary} uppercase block mb-2`}
-          >
+        <div className="py-2 border-b border-gray-100">
+          <p className={`text-[11px] uppercase tracking-wide ${currentTheme.textSecondary} mb-1`}>
             Email
-          </label>
-          <p className={`${currentTheme.text} font-medium`}>
-            {userData.email || companyBasics.company_email || "N/A"}
+          </p>
+          <p className={`text-sm ${currentTheme.text}`}>
+            {userData.email || companyBasics.company_email || "—"}
           </p>
         </div>
-        <div>
-          <label
-            className={`text-sm ${currentTheme.textSecondary} uppercase block mb-2`}
-          >
+        <div className="py-2 border-b border-gray-100">
+          <p className={`text-[11px] uppercase tracking-wide ${currentTheme.textSecondary} mb-1`}>
             Phone
-          </label>
-          <p className={`${currentTheme.text} font-medium`}>
-            {userData.phone || companyBasics.company_phone || "N/A"}
+          </p>
+          <p className={`text-sm ${currentTheme.text}`}>
+            {userData.phone || companyBasics.company_phone || "—"}
           </p>
         </div>
-        <div>
-          <label
-            className={`text-sm ${currentTheme.textSecondary} uppercase block mb-2`}
-          >
+        <div className="py-2 border-b border-gray-100">
+          <p className={`text-[11px] uppercase tracking-wide ${currentTheme.textSecondary} mb-1`}>
             Website
-          </label>
-          <p className={`${currentTheme.text} font-medium`}>
-            {userData.website || companyBasics.company_website || "N/A"}
+          </p>
+          <p className={`text-sm ${currentTheme.text}`}>
+            {userData.website || companyBasics.company_website || "—"}
           </p>
         </div>
-        <div>
-          <label
-            className={`text-sm ${currentTheme.textSecondary} uppercase block mb-2`}
-          >
+        <div className="py-2 border-b border-gray-100">
+          <p className={`text-[11px] uppercase tracking-wide ${currentTheme.textSecondary} mb-1`}>
             Company Size
-          </label>
-          <p className={`${currentTheme.text} font-medium`}>
-            {userData.companySize || companyBasics.company_size || "N/A"}
+          </p>
+          <p className={`text-sm ${currentTheme.text}`}>
+            {userData.companySize || companyBasics.company_size || "—"}
           </p>
         </div>
-        <div>
-          <label
-            className={`text-sm ${currentTheme.textSecondary} uppercase block mb-2`}
-          >
+        <div className="py-2 border-b border-gray-100">
+          <p className={`text-[11px] uppercase tracking-wide ${currentTheme.textSecondary} mb-1`}>
             Status
-          </label>
-          <span
-            className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-              client?.isApproved || userData?.isApproved
-                ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400"
-                : client?.isRejected || userData?.isRejected
-                  ? "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400"
-                  : userData?.isActive
-                    ? "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400"
-                    : "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400"
-            }`}
-          >
-            {client?.isApproved || userData?.isApproved
-              ? "approved"
-              : client?.isRejected || userData?.isRejected
-                ? "rejected"
-                : userData?.isActive
-                  ? "Active"
-                  : "Pending"}
-          </span>
+          </p>
+          <p className={`text-sm ${currentTheme.text}`}>
+            {getStatusText()}
+          </p>
         </div>
-        <div>
-          <label
-            className={`text-sm ${currentTheme.textSecondary} uppercase block mb-2`}
-          >
+        <div className="py-2 border-b border-gray-100">
+          <p className={`text-[11px] uppercase tracking-wide ${currentTheme.textSecondary} mb-1`}>
             Email Verified
-          </label>
-          <span
-            className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-              userData?.emailVerified
-                ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400"
-                : "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400"
-            }`}
-          >
-            {userData?.emailVerified ? "Verified" : "Not Verified"}
-          </span>
+          </p>
+          <p className={`text-sm ${currentTheme.text}`}>
+            {userData?.emailVerified ? "Yes" : "No"}
+          </p>
         </div>
-        <div>
-          <label
-            className={`text-sm ${currentTheme.textSecondary} uppercase block mb-2`}
-          >
+        <div className="py-2 border-b border-gray-100">
+          <p className={`text-[11px] uppercase tracking-wide ${currentTheme.textSecondary} mb-1`}>
             Onboarded
-          </label>
-          <span
-            className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-              userData?.isOnboarded
-                ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400"
-                : "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400"
-            }`}
-          >
-            {userData?.isOnboarded ? "Completed" : "Pending"}
-          </span>
+          </p>
+          <p className={`text-sm ${currentTheme.text}`}>
+            {userData?.isOnboarded ? "Yes" : "No"}
+          </p>
         </div>
-      </div>
-
-      {/* Additional Details */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div>
-          <label
-            className={`text-sm ${currentTheme.textSecondary} uppercase block mb-2`}
-          >
-            Created At
-          </label>
-          <p className={`${currentTheme.text} font-medium`}>
+        <div className="py-2 border-b border-gray-100">
+          <p className={`text-[11px] uppercase tracking-wide ${currentTheme.textSecondary} mb-1`}>
+            Created
+          </p>
+          <p className={`text-sm ${currentTheme.text}`}>
             {userData?.createdAt
               ? new Date(userData.createdAt).toLocaleDateString()
-              : "N/A"}
+              : "—"}
           </p>
         </div>
-        <div>
-          <label
-            className={`text-sm ${currentTheme.textSecondary} uppercase block mb-2`}
-          >
+        <div className="py-2 border-b border-gray-100">
+          <p className={`text-[11px] uppercase tracking-wide ${currentTheme.textSecondary} mb-1`}>
             Last Login
-          </label>
-          <p className={`${currentTheme.text} font-medium`}>
+          </p>
+          <p className={`text-sm ${currentTheme.text}`}>
             {userData?.lastLoginAt
               ? new Date(userData.lastLoginAt).toLocaleDateString()
-              : "N/A"}
+              : "—"}
           </p>
         </div>
       </div>
 
       {/* Company Address */}
       {(userData?.address || companyBasics?.company_address) && (
-        <div>
-          <label
-            className={`text-sm ${currentTheme.textSecondary} uppercase block mb-2`}
-          >
+        <div className="py-2">
+          <p className={`text-[11px] uppercase tracking-wide ${currentTheme.textSecondary} mb-1`}>
             Company Address
-          </label>
-          <p className={`${currentTheme.text} leading-relaxed`}>
+          </p>
+          <p className={`text-sm ${currentTheme.text}`}>
             {userData?.address || companyBasics?.company_address}
           </p>
         </div>

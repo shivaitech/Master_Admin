@@ -746,7 +746,7 @@ const ClientDetailsPage = () => {
                 </>
               )}
             {client?.onboardingStatus === "approved" && (
-              <div className="flex items-center space-x-1 px-2 py-1 md:px-3 md:py-1.5 bg-green-100 text-green-700 rounded-lg text-xs md:text-sm font-medium">
+              <div className="flex items-center space-x-1 px-2 py-1 md:px-3 md:py-1.5 border border-gray-200 text-gray-700 rounded-lg text-xs md:text-sm font-medium">
                 <RiCheckLine className="w-3 h-3 md:w-4 md:h-4" />
                 <span>Approved</span>
               </div>
@@ -774,8 +774,8 @@ const ClientDetailsPage = () => {
       <div className="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-4">
         <div className={`${currentTheme.cardBg} border ${currentTheme.border} rounded-lg p-3 md:p-4`}>
           <div className="flex items-start space-x-2 md:space-x-3">
-            <div className="p-1.5 md:p-2 bg-gray-50 rounded-lg">
-              <RiRobotLine className="w-4 h-4 md:w-5 md:h-5 text-gray-900" />
+            <div className="p-1.5 md:p-2 border border-gray-200 rounded-lg">
+              <RiRobotLine className="w-4 h-4 md:w-5 md:h-5 text-gray-600" />
             </div>
             <div className="flex-1 min-w-0">
               <p className={`text-lg md:text-xl font-bold ${currentTheme.text} leading-none`}>
@@ -790,8 +790,8 @@ const ClientDetailsPage = () => {
 
         <div className={`${currentTheme.cardBg} border ${currentTheme.border} rounded-lg p-3 md:p-4`}>
           <div className="flex items-start space-x-2 md:space-x-3">
-            <div className="p-1.5 md:p-2 bg-gray-50 rounded-lg">
-              <RiUserVoiceLine className="w-4 h-4 md:w-5 md:h-5 text-gray-900" />
+            <div className="p-1.5 md:p-2 border border-gray-200 rounded-lg">
+              <RiUserVoiceLine className="w-4 h-4 md:w-5 md:h-5 text-gray-600" />
             </div>
             <div className="flex-1 min-w-0">
               <p className={`text-lg md:text-xl font-bold ${currentTheme.text} leading-none`}>
@@ -806,8 +806,8 @@ const ClientDetailsPage = () => {
 
         <div className={`${currentTheme.cardBg} border ${currentTheme.border} rounded-lg p-3 md:p-4`}>
           <div className="flex items-start space-x-2 md:space-x-3">
-            <div className="p-1.5 md:p-2 bg-gray-50 rounded-lg">
-              <RiPhoneLine className="w-4 h-4 md:w-5 md:h-5 text-gray-900" />
+            <div className="p-1.5 md:p-2 border border-gray-200 rounded-lg">
+              <RiPhoneLine className="w-4 h-4 md:w-5 md:h-5 text-gray-600" />
             </div>
             <div className="flex-1 min-w-0">
               <p className={`text-lg md:text-xl font-bold ${currentTheme.text} leading-none`}>
@@ -822,8 +822,8 @@ const ClientDetailsPage = () => {
 
         <div className={`${currentTheme.cardBg} border ${currentTheme.border} rounded-lg p-3 md:p-4`}>
           <div className="flex items-start space-x-2 md:space-x-3">
-            <div className="p-1.5 md:p-2 bg-gray-50 rounded-lg">
-              <RiBankCardLine className="w-4 h-4 md:w-5 md:h-5 text-gray-900" />
+            <div className="p-1.5 md:p-2 border border-gray-200 rounded-lg">
+              <RiBankCardLine className="w-4 h-4 md:w-5 md:h-5 text-gray-600" />
             </div>
             <div className="flex-1 min-w-0">
               <p className={`text-lg md:text-xl font-bold ${currentTheme.text} leading-none`}>

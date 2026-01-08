@@ -218,7 +218,7 @@ const OnboardingDataTab = ({ client, currentTheme }) => {
                         (industry, index) => (
                           <span
                             key={index}
-                            className="bg-blue-100 text-blue-800 px-2 md:px-3 py-1 rounded-full text-xs md:text-sm font-medium capitalize"
+                            className={`border ${currentTheme.border} px-2 md:px-3 py-1 rounded-md text-xs md:text-sm font-medium capitalize ${currentTheme.text}`}
                           >
                             {industry.replace("_", " ")}
                           </span>
@@ -358,7 +358,7 @@ const OnboardingDataTab = ({ client, currentTheme }) => {
                         (channel, index) => (
                           <span
                             key={index}
-                            className="bg-green-100 text-green-800 px-2 md:px-3 py-1 rounded-full text-xs md:text-sm font-medium capitalize"
+                            className={`border ${currentTheme.border} px-2 md:px-3 py-1 rounded-md text-xs md:text-sm font-medium capitalize ${currentTheme.text}`}
                           >
                             {channel.replace("_", " ")}
                           </span>
@@ -438,10 +438,10 @@ const OnboardingDataTab = ({ client, currentTheme }) => {
                     >
                       <div className="flex items-center gap-3 mb-3">
                         <div
-                          className={`w-8 h-8 md:w-10 md:h-10 rounded-lg bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center`}
+                          className={`w-8 h-8 md:w-10 md:h-10 rounded-lg border ${currentTheme.border} flex items-center justify-center`}
                         >
                           <Bot
-                            className={`w-5 h-5 text-blue-600 dark:text-blue-400`}
+                            className={`w-5 h-5 ${currentTheme.textSecondary}`}
                           />
                         </div>
                         <div className="min-w-0 flex-1">
@@ -611,7 +611,7 @@ const OnboardingDataTab = ({ client, currentTheme }) => {
                               {employee.workflows.map((workflow, wIdx) => (
                                 <span
                                   key={wIdx}
-                                  className="bg-purple-100 text-purple-800 px-2 py-1 rounded-md text-xs font-medium"
+                                  className={`border ${currentTheme.border} px-2 py-1 rounded-md text-xs font-medium ${currentTheme.text}`}
                                 >
                                   {workflow.name}
                                 </span>

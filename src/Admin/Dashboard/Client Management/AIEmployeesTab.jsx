@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Bot, Eye } from "lucide-react";
+import { Bot, Eye, ChevronRight } from "lucide-react";
 import { shivaiApiService } from "../../../Redux-config/apisModel/apiService";
 import { languageOptions } from "./constants";
 
@@ -91,11 +91,11 @@ const AIEmployeesTab = ({ client, currentTheme, onViewAgent }) => {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center py-12">
+      <div className="flex items-center justify-center py-16">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
-          <p className={`mt-2 text-sm ${currentTheme.textSecondary}`}>
-            Loading AI employees...
+          <div className="animate-spin rounded-full h-6 w-6 border-2 border-gray-300 border-t-gray-600 mx-auto"></div>
+          <p className={`mt-3 text-sm ${currentTheme.textSecondary}`}>
+            Loading...
           </p>
         </div>
       </div>
@@ -104,118 +104,99 @@ const AIEmployeesTab = ({ client, currentTheme, onViewAgent }) => {
 
   if (error) {
     return (
-      <div
-        className={`text-center py-12 rounded-xl ${currentTheme.cardBg} border ${currentTheme.border}`}
-      >
-        <Bot
-          className={`w-12 h-12 mx-auto mb-3 ${currentTheme.textSecondary} opacity-50`}
-        />
-        <h4 className={`text-lg font-medium ${currentTheme.text} mb-2`}>
-          Error Loading AI Employees
-        </h4>
+      <div className="text-center py-16">
         <p className={`${currentTheme.textSecondary} text-sm`}>{error}</p>
       </div>
     );
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
+      {/* Header */}
+      <div className="flex items-center justify-between pb-2">
+        <div className="flex items-center gap-2">
+          <Bot className="w-4 h-4 text-gray-500" />
+          <span className={`text-sm font-medium ${currentTheme.text}`}>
+            AI Employees ({aiEmployees.length})
+          </span>
+        </div>
+      </div>
+
       {aiEmployees.length === 0 ? (
-        <div
-          className={`text-center py-12 rounded-xl ${currentTheme.cardBg} border ${currentTheme.border}`}
-        >
-          <div className="w-16 h-16 mx-auto mb-4 rounded-xl bg-gray-50 dark:bg-gray-800/50 flex items-center justify-center">
-            <Bot className={`w-8 h-8 ${currentTheme.textSecondary}`} />
-          </div>
-          <h4 className={`text-lg font-medium ${currentTheme.text} mb-2`}>
-            No AI Employees
-          </h4>
-          <p className={`${currentTheme.textSecondary} text-sm`}>
-            This client hasn't created any AI employees yet.
+        <div className="text-center py-12">
+          <Bot className="w-8 h-8 mx-auto mb-3 text-gray-400" />
+          <p className={`text-sm ${currentTheme.textSecondary}`}>
+            No AI employees configured
           </p>
         </div>
       ) : (
-        <div className="grid gap-4">
+        <div className="space-y-3">
           {aiEmployees.map((employee, index) => (
             <div
               key={employee._id || employee.id || index}
-              className={`${currentTheme.cardBg} rounded-xl border ${currentTheme.border} p-4 hover:shadow-sm transition-shadow`}
+              className={`border ${currentTheme.border} rounded-lg p-4 hover:border-gray-300 transition-colors`}
             >
-              <div className="flex items-start justify-between mb-4">
+              {/* Employee Header */}
+              <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-gray-50 dark:bg-gray-800/50 flex items-center justify-center">
-                    <Bot className="w-5 h-5 text-gray-900" />
+                  <div className="w-9 h-9 rounded-lg border border-gray-200 flex items-center justify-center">
+                    <Bot className="w-4 h-4 text-gray-600" />
                   </div>
-                  <div className="min-w-0 flex-1">
-                    <h4 className={`font-medium ${currentTheme.text} truncate`}>
+                  <div>
+                    <h4 className={`text-sm font-medium ${currentTheme.text}`}>
                       {employee.name ||
                         employee.agent_name ||
                         `AI Employee #${index + 1}`}
                     </h4>
-                    <div className="flex items-center gap-2 mt-1">
-                      <div className="w-2 h-2 rounded-full bg-green-500"></div>
-                      <span className={`text-xs ${currentTheme.textSecondary}`}>
-                        Active
-                      </span>
-                    </div>
+                    <p className={`text-xs ${currentTheme.textSecondary}`}>
+                      {employee.template || employee.type || "sales-business-development"}
+                    </p>
                   </div>
                 </div>
+                
                 {onViewAgent && (
                   <button
                     onClick={() => onViewAgent(employee)}
-                    className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
-                    title="View Agent Details"
+                    className={`flex items-center gap-1 text-xs ${currentTheme.textSecondary} hover:text-gray-700 transition-colors`}
                   >
-                    <Eye className="w-4 h-4 text-gray-600" />
+                    <span>View</span>
+                    <ChevronRight className="w-3 h-3" />
                   </button>
                 )}
               </div>
 
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              {/* Employee Details - Clean Table Style */}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-x-6 gap-y-3">
                 <div>
-                  <label
-                    className={`text-xs ${currentTheme.textSecondary} uppercase block mb-1`}
-                  >
+                  <p className={`text-[11px] uppercase tracking-wide ${currentTheme.textSecondary} mb-0.5`}>
+                    Template
+                  </p>
+                  <p className={`text-sm ${currentTheme.text}`}>
+                    {employee.template || "Sales"}
+                  </p>
+                </div>
+                <div>
+                  <p className={`text-[11px] uppercase tracking-wide ${currentTheme.textSecondary} mb-0.5`}>
                     Language
-                  </label>
-                  <p className={`${currentTheme.text} text-sm font-medium`}>
+                  </p>
+                  <p className={`text-sm ${currentTheme.text}`}>
                     {getLanguageDisplay(employee.greeting_message)}
                   </p>
                 </div>
                 <div>
-                  <label
-                    className={`text-xs ${currentTheme.textSecondary} uppercase block mb-1`}
-                  >
+                  <p className={`text-[11px] uppercase tracking-wide ${currentTheme.textSecondary} mb-0.5`}>
                     Personality
-                  </label>
-                  <p
-                    className={`${currentTheme.text} text-sm font-medium capitalize`}
-                  >
-                    {employee.personality || "N/A"}
+                  </p>
+                  <p className={`text-sm ${currentTheme.text} capitalize`}>
+                    {employee.personality || "—"}
                   </p>
                 </div>
                 <div>
-                  <label
-                    className={`text-xs ${currentTheme.textSecondary} uppercase block mb-1`}
-                  >
+                  <p className={`text-[11px] uppercase tracking-wide ${currentTheme.textSecondary} mb-0.5`}>
                     Voice
-                  </label>
-                  <p
-                    className={`${currentTheme.text} text-sm font-medium capitalize`}
-                  >
-                    {employee.voice || "N/A"}
                   </p>
-                </div>
-                <div>
-                  <label
-                    className={`text-xs ${currentTheme.textSecondary} uppercase block mb-1`}
-                  >
-                    Gender
-                  </label>
-                  <p
-                    className={`${currentTheme.text} text-sm font-medium capitalize`}
-                  >
-                    {employee.gender || "N/A"}
+                  <p className={`text-sm ${currentTheme.text} capitalize`}>
+                    {employee.voice || "—"}
                   </p>
                 </div>
               </div>
