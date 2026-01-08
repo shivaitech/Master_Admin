@@ -194,7 +194,7 @@ const DashboardLayoutContent = () => {
 
         <div className="flex items-center gap-4 justify-end">
           {/* Theme Toggle */}
-          <div
+          {/* <div
             onClick={toggleTheme}
             className={` rounded-lg ${currentTheme.hover} transition-all duration-200`}
           >
@@ -205,7 +205,6 @@ const DashboardLayoutContent = () => {
             )}
           </div>
 
-          {/* Notifications */}
           <div
             className={`relative  rounded-lg ${currentTheme.hover} transition-all duration-200`}
           >
@@ -213,10 +212,11 @@ const DashboardLayoutContent = () => {
               className={`w-5 h-5 ${currentTheme.textSecondary}`}
             />
             <span className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full text-xs"></span>
-          </div>
+          </div> */}
 
           {/* User Profile */}
           <div
+          onClick={()=>navigate("/dashboard/settings")}
             className={`p-2 rounded-lg ${currentTheme.hover} transition-all duration-200`}
           >
             <User className={`w-5 h-5 ${currentTheme.textSecondary}`} />

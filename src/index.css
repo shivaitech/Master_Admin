@@ -1,5 +1,22 @@
 @import "tailwindcss";
 
+/* Prevent iOS Safari from auto-linking emails and phone numbers */
+a[href^="mailto"],
+a[href^="tel"],
+a[x-apple-data-detectors] {
+  color: inherit !important;
+  text-decoration: none !important;
+  font-size: inherit !important;
+  font-family: inherit !important;
+  font-weight: inherit !important;
+  line-height: inherit !important;
+}
+
+/* Disable iOS auto-detection styling */
+.no-auto-detect {
+  -webkit-text-size-adjust: none;
+}
+
 /* Hide scrollbar for mobile tab navigation */
 .scrollbar-hide {
   -ms-overflow-style: none;  /* Internet Explorer 10+ */
