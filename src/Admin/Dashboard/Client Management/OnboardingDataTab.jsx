@@ -1,43 +1,20 @@
 import React, { useState, useEffect } from "react";
-import { 
-  FileText, 
-  Building2, 
-  CreditCard, 
-  Rocket, 
-  Bot 
-} from "lucide-react";
+import { FileText, Building2, CreditCard, Rocket, Bot } from "lucide-react";
 import { shivaiApiService } from "../../../Redux-config/apisModel/apiService";
 import { templateOptions } from "./constants";
 
-const OnboardingDataTab = ({ client, currentTheme }) => {
+const OnboardingDataTab = ({ client, currentTheme, clientId }) => {
   const [onboardingData, setOnboardingData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  // Fetch onboarding data using the API
   useEffect(() => {
     const fetchOnboardingData = async () => {
-      const userId =
-        client?.userData?._id ||
-        client?._id ||
-        client?.userData?.id ||
-        client?.id;
-
-      if (!userId) {
-        console.warn("⚠️ No user ID found for fetching onboarding data");
-        setLoading(false);
-        return;
-      }
-
       try {
         setLoading(true);
         setError(null);
-        console.log("🔍 Fetching onboarding data for user ID:", userId);
-
-        const response = await shivaiApiService.getOnboardingByUserId(userId);
+        const response = await shivaiApiService.getOnboardingByUserId(clientId);
         console.log("✅ Onboarding data fetched:", response);
-
-        // Handle different response structures
         const data =
           response?.data?.onboarding ||
           response?.onboarding ||
@@ -83,6 +60,7 @@ const OnboardingDataTab = ({ client, currentTheme }) => {
       </div>
     );
   }
+  console.warn("📋 Onboarding Data:", onboardingData);
 
   return (
     <div className="space-y-4 md:space-y-6">
@@ -313,7 +291,7 @@ const OnboardingDataTab = ({ client, currentTheme }) => {
                           </p>
                         </div>
                       )}
-                      {onboardingData.plan_details.billing_contact.phone && (
+                      {/* {onboardingData.plan_details.billing_contact.phone && (
                         <div>
                           <label
                             className={`text-xs ${currentTheme.textSecondary} uppercase block mb-1`}
@@ -324,7 +302,7 @@ const OnboardingDataTab = ({ client, currentTheme }) => {
                             {onboardingData.plan_details.billing_contact.phone}
                           </p>
                         </div>
-                      )}
+                      )} */}
                     </div>
                   </div>
                 )}

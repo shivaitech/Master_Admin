@@ -3,7 +3,7 @@ import { Bot, Eye, ChevronRight } from "lucide-react";
 import { shivaiApiService } from "../../../Redux-config/apisModel/apiService";
 import { languageOptions } from "./constants";
 
-const AIEmployeesTab = ({ client, currentTheme, onViewAgent }) => {
+const AIEmployeesTab = ({ client, currentTheme, onViewAgent,clientId }) => {
   const [aiEmployees, setAiEmployees] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -15,21 +15,6 @@ const AIEmployeesTab = ({ client, currentTheme, onViewAgent }) => {
         setLoading(true);
         setError(null);
 
-        const clientId =
-          client?._id ||
-          client?.id ||
-          client?.userData?._id ||
-          client?.userData?.id;
-
-        if (!clientId) {
-          console.error("❌ No client ID found");
-          setError("No client ID available");
-          return;
-        }
-
-        console.log("🔍 Fetching AI employees for client:", clientId);
-
-        // Try to fetch agents using the API
         const response = await shivaiApiService.getAgentsById(clientId);
         console.log("✅ AI employees fetched:", response);
 

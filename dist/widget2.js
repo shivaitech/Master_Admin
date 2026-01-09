@@ -367,12 +367,11 @@
     }
   }
   
-  // Enhanced microphone permission handler - FORCE request with timeout
+  // Enhanced microphone permission handler with retry logic and device compatibility
   async function requestMicrophonePermission(retryCount = 0) {
-    const MAX_RETRIES = 1;
-    const REQUEST_TIMEOUT = 10000; // 10 second timeout
+    const MAX_RETRIES = 2;
     
-    console.log(`🎤 FORCE requesting microphone permission (attempt ${retryCount + 1}/${MAX_RETRIES + 1})...`);
+    console.log(`🎤 Requesting microphone permission (attempt ${retryCount + 1}/${MAX_RETRIES + 1})...`);
     console.log(`📱 Device info: ${navigator.userAgent}`);
     console.log(`🔒 Secure context: ${window.isSecureContext}`);
     
@@ -390,88 +389,159 @@
       return false;
     }
     
-    // Log current permission state (for debugging only)
+    // Check current permission state if available (not all browsers support this)
     try {
       if (navigator.permissions && navigator.permissions.query) {
         const permissionStatus = await navigator.permissions.query({ name: 'microphone' });
         console.log(`🎤 Current permission state: ${permissionStatus.state}`);
+        
+        if (permissionStatus.state === 'denied') {
+          console.warn("⚠️ Microphone permission was previously denied");
+          showMicPermissionError("previously-denied");
+          return false;
+        }
       }
     } catch (permErr) {
-      console.log("📍 Permission query not supported");
+      // Some browsers don't support permission query for microphone
+      console.log("📍 Permission query not supported, proceeding with getUserMedia");
     }
     
-    // FORCE request microphone with timeout - simplest constraint for max compatibility
+    // Define audio constraints from most specific to most basic
+    const audioConstraintLevels = [
+      // Level 1: Basic constraints (most compatible)
+      { audio: true },
+      // Level 2: Simple constraints
+      { 
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true
+        }
+      },
+      // Level 3: Standard constraints
+      {
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
+          channelCount: 1
+        }
+      },
+      // Level 4: Advanced constraints (may not work on all devices)
+      {
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: false,
+          channelCount: 1,
+          sampleRate: 48000,
+          sampleSize: 16
+        }
+      }
+    ];
+    
+    // Try constraints from most basic to more advanced
+    for (let level = 0; level < audioConstraintLevels.length; level++) {
+      const constraints = audioConstraintLevels[level];
+      console.log(`🎤 Trying constraint level ${level + 1}/${audioConstraintLevels.length}:`, JSON.stringify(constraints));
+      
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia(constraints);
+        
+        console.log(`✅ Microphone permission granted with constraint level ${level + 1}!`);
+        console.log("📍 Stream tracks:", stream.getTracks().length);
+        
+        // Verify we actually got an audio track
+        const audioTracks = stream.getAudioTracks();
+        if (audioTracks.length === 0) {
+          console.warn("⚠️ No audio tracks in stream, trying next level");
+          stream.getTracks().forEach(track => track.stop());
+          continue;
+        }
+        
+        console.log("📍 Audio track info:", {
+          label: audioTracks[0].label,
+          enabled: audioTracks[0].enabled,
+          muted: audioTracks[0].muted,
+          readyState: audioTracks[0].readyState
+        });
+        
+        // Stop the test stream immediately
+        stream.getTracks().forEach(track => track.stop());
+        
+        return true;
+        
+      } catch (error) {
+        console.warn(`⚠️ Constraint level ${level + 1} failed:`, error.name, error.message);
+        
+        // If it's a permission error, don't try other constraint levels
+        if (error.name === "NotAllowedError" || error.name === "PermissionDeniedError") {
+          console.error("❌ Permission denied - stopping constraint attempts");
+          break;
+        }
+        
+        // If it's the last level and still failing with OverconstrainedError, 
+        // the basic level should have worked
+        if (level === audioConstraintLevels.length - 1) {
+          console.error("❌ All constraint levels failed");
+        }
+      }
+    }
+    
+    // If we get here, all constraint levels failed - handle the error
+    console.error(`❌ Microphone permission attempt ${retryCount + 1} failed after all constraint levels`);
+    
+    // Try one more time with just { audio: true } and handle the specific error
     try {
-      console.log(`🎤 FORCE getUserMedia({ audio: true }) - waiting for user response...`);
-      
-      // Create a promise that rejects after timeout
-      const timeoutPromise = new Promise((_, reject) => {
-        setTimeout(() => reject(new Error('TIMEOUT')), REQUEST_TIMEOUT);
-      });
-      
-      // Race between getUserMedia and timeout
-      const stream = await Promise.race([
-        navigator.mediaDevices.getUserMedia({ audio: true }),
-        timeoutPromise
-      ]);
-      
-      console.log(`✅ Microphone permission GRANTED!`);
-      
-      // Verify we got audio track
-      const audioTracks = stream.getAudioTracks();
-      if (audioTracks.length > 0) {
-        console.log("📍 Audio track:", audioTracks[0].label);
-      }
-      
-      // Keep the stream for immediate use (don't stop it)
-      // Store it globally so LiveKit can use it
-      window._shivaiMicStream = stream;
-      
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      stream.getTracks().forEach(track => track.stop());
       return true;
-      
     } catch (error) {
-      console.error(`❌ Microphone request failed:`, error.name || error.message);
+      console.error("❌ Final microphone attempt failed:", error.name, error.message);
       
-      // Handle timeout
-      if (error.message === 'TIMEOUT') {
-        console.error("❌ Microphone request timed out - user didn't respond");
-        if (retryCount < MAX_RETRIES) {
-          return await showMicRetryPromptWithDirectRequest(retryCount, MAX_RETRIES);
-        }
-        showMicPermissionError("timeout");
-        return false;
-      }
-      
-      // Handle permission denied
+      // Handle different error types
       if (error.name === "NotAllowedError" || error.name === "PermissionDeniedError") {
+        // Permission denied
         if (retryCount < MAX_RETRIES) {
-          return await showMicRetryPromptWithDirectRequest(retryCount, MAX_RETRIES);
+          // Show inline UI prompt instead of confirm() which may be blocked on mobile
+          const shouldRetry = await showMicRetryPrompt(retryCount, MAX_RETRIES);
+          
+          if (shouldRetry) {
+            // Wait a bit and retry
+            await new Promise(resolve => setTimeout(resolve, 800));
+            return await requestMicrophonePermission(retryCount + 1);
+          } else {
+            console.log("❌ User cancelled microphone permission retry");
+            return false;
+          }
+        } else {
+          // Max retries reached
+          showMicPermissionError("denied-final");
+          return false;
         }
-        showMicPermissionError("denied-final");
-        return false;
-      }
-      
-      // Handle no microphone
-      if (error.name === "NotFoundError" || error.name === "DevicesNotFoundError") {
+      } else if (error.name === "NotFoundError" || error.name === "DevicesNotFoundError") {
         showMicPermissionError("not-found");
         return false;
-      }
-      
-      // Handle mic in use
-      if (error.name === "NotReadableError" || error.name === "TrackStartError") {
+      } else if (error.name === "NotSupportedError") {
+        showMicPermissionError("not-supported");
+        return false;
+      } else if (error.name === "NotReadableError" || error.name === "TrackStartError") {
         showMicPermissionError("in-use");
         return false;
+      } else if (error.name === "OverconstrainedError") {
+        showMicPermissionError("overconstrained");
+        return false;
+      } else if (error.name === "AbortError") {
+        showMicPermissionError("aborted");
+        return false;
+      } else {
+        showMicPermissionError("unknown", error.message);
+        return false;
       }
-      
-      // Other errors
-      showMicPermissionError("unknown", error.message || error.name);
-      return false;
     }
   }
   
-  // Show microphone retry prompt AND request permission directly in click handler
-  // This is critical - getUserMedia MUST be called directly in user gesture on some browsers
-  function showMicRetryPromptWithDirectRequest(attempt, maxAttempts) {
+  // Show microphone retry prompt (works better on mobile than confirm())
+  function showMicRetryPrompt(attempt, maxAttempts) {
     return new Promise((resolve) => {
       // Create overlay
       const overlay = document.createElement('div');
@@ -494,7 +564,7 @@
         background: white;
         border-radius: 16px;
         padding: 24px;
-        max-width: 340px;
+        max-width: 320px;
         margin: 16px;
         text-align: center;
         box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
@@ -503,35 +573,12 @@
       dialog.innerHTML = `
         <div style="font-size: 48px; margin-bottom: 16px;">🎤</div>
         <h3 style="margin: 0 0 12px 0; font-size: 18px; color: #1f2937;">Microphone Access Required</h3>
-        <p style="margin: 0 0 8px 0; font-size: 14px; color: #6b7280; line-height: 1.5;">
-          Voice calls need microphone access to work.
+        <p style="margin: 0 0 20px 0; font-size: 14px; color: #6b7280; line-height: 1.5;">
+          Please allow microphone access when prompted by your browser.
+          <br><br>
+          <strong>Attempt ${attempt + 1} of ${maxAttempts + 1}</strong>
         </p>
-        <p style="margin: 0 0 20px 0; font-size: 13px; color: #9ca3af; line-height: 1.5;">
-          Click <strong>"Allow Microphone"</strong> below, then click <strong>"Allow"</strong> when your browser asks.
-        </p>
-        <div style="display: flex; flex-direction: column; gap: 12px;">
-          <button id="mic-allow-btn" style="
-            padding: 14px 24px;
-            border: none;
-            background: #3b82f6;
-            border-radius: 8px;
-            font-size: 15px;
-            font-weight: 600;
-            color: white;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 8px;
-          ">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path>
-              <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
-              <line x1="12" y1="19" x2="12" y2="23"></line>
-              <line x1="8" y1="23" x2="16" y2="23"></line>
-            </svg>
-            Allow Microphone
-          </button>
+        <div style="display: flex; gap: 12px; justify-content: center;">
           <button id="mic-cancel-btn" style="
             padding: 12px 24px;
             border: 1px solid #e5e7eb;
@@ -541,11 +588,18 @@
             font-weight: 500;
             color: #6b7280;
             cursor: pointer;
-          ">Cancel Call</button>
+          ">Cancel</button>
+          <button id="mic-retry-btn" style="
+            padding: 12px 24px;
+            border: none;
+            background: #3b82f6;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 500;
+            color: white;
+            cursor: pointer;
+          ">Try Again</button>
         </div>
-        <p style="margin: 16px 0 0 0; font-size: 11px; color: #9ca3af;">
-          Attempt ${attempt + 2} of ${maxAttempts + 1}
-        </p>
       `;
       
       overlay.appendChild(dialog);
@@ -555,69 +609,9 @@
         overlay.remove();
       };
       
-      // CRITICAL: Request microphone DIRECTLY in click handler - not async
-      dialog.querySelector('#mic-allow-btn').onclick = async function(e) {
-        e.preventDefault();
-        e.stopPropagation();
-        
-        const btn = this;
-        btn.disabled = true;
-        btn.innerHTML = `
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="animation: spin 1s linear infinite;">
-            <circle cx="12" cy="12" r="10" stroke-dasharray="32" stroke-dashoffset="32"></circle>
-          </svg>
-          Requesting...
-        `;
-        btn.style.background = '#6b7280';
-        
-        try {
-          // Request permission DIRECTLY in this click handler
-          console.log("🎤 Requesting mic directly in click handler...");
-          const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-          
-          console.log("✅ Microphone granted via click handler!");
-          stream.getTracks().forEach(track => track.stop());
-          
-          cleanup();
-          resolve(true);
-        } catch (err) {
-          console.error("❌ Mic request in click handler failed:", err.name, err.message);
-          
-          btn.disabled = false;
-          btn.innerHTML = `
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path>
-              <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
-              <line x1="12" y1="19" x2="12" y2="23"></line>
-              <line x1="8" y1="23" x2="16" y2="23"></line>
-            </svg>
-            Try Again
-          `;
-          btn.style.background = '#ef4444';
-          
-          // If this was the last attempt, show final error
-          if (attempt >= maxAttempts - 1) {
-            setTimeout(() => {
-              cleanup();
-              showMicPermissionError("denied-final");
-              resolve(false);
-            }, 1500);
-          } else {
-            // Reset button after a moment
-            setTimeout(() => {
-              btn.style.background = '#3b82f6';
-              btn.innerHTML = `
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path>
-                  <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
-                  <line x1="12" y1="19" x2="12" y2="23"></line>
-                  <line x1="8" y1="23" x2="16" y2="23"></line>
-                </svg>
-                Allow Microphone
-              `;
-            }, 2000);
-          }
-        }
+      dialog.querySelector('#mic-retry-btn').onclick = () => {
+        cleanup();
+        resolve(true);
       };
       
       dialog.querySelector('#mic-cancel-btn').onclick = () => {
@@ -672,11 +666,6 @@
         title: "Microphone In Use",
         message: "Your microphone is being used by another application. Please close other apps using the microphone and try again.",
         icon: "📱"
-      },
-      "timeout": {
-        title: "No Response",
-        message: "The microphone permission request timed out. Please click the call button again and allow microphone access when prompted.",
-        icon: "⏱️"
       },
       "overconstrained": {
         title: "Microphone Error",

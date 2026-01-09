@@ -64,10 +64,8 @@ const apiService = {
 
 // Extended API service with specific methods for user and onboarding management
 const shivaiApiService = {
-  // Basic API methods
   ...apiService,
 
-  // User management methods
   getAllUsers: async () => {
     try {
       console.log("🔍 Fetching all users...");
@@ -104,11 +102,24 @@ const shivaiApiService = {
     }
   },
 
+  // Get client by user ID
+  getClientByUserId: async (userId) => {
+    try {
+      console.log(`🔍 Fetching client with user ID: ${userId}`);
+      const response = await apiClient.get(`/v1/users/${userId}`);
+      console.log("✅ Client fetched successfully:", response.data);
+      return response.data;
+    } catch (error) {
+      console.error("❌ Error fetching client by user ID:", error);
+      throw error;
+    }
+  },
+
   // Onboarding data methods
   getOnboardingByUserId: async (userId) => {
     try {
       console.log(`🔍 Fetching onboarding data for user: ${userId}`);
-      const response = await apiClient.get(`/v1/onboarding/${userId}`);
+      const response = await apiClient.get(`/v1/onboarding/user/${userId}`);
       console.log("✅ Onboarding data fetched successfully:", response.data);
       return response.data;
     } catch (error) {

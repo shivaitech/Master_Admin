@@ -92,6 +92,7 @@ import ClientDetailsTab from "./ClientDetailsTab";
 import AIEmployeesTab from "./AIEmployeesTab";
 import TransactionsTab from "./TransactionsTab";
 import AgentDetailsView from "./AgentDetailsView";
+import DeleteConfirmationModal from "../components/common/DeleteConfirmationModal";
 
 // Industry options from onboarding (Step 3)
 const industryOptions = [
@@ -248,6 +249,10 @@ const ClientManagement = () => {
   const [actionLoading, setActionLoading] = useState(false);
   const [error, setError] = useState(null);
   const [isEditing, setIsEditing] = useState(false); // Track if fields are editable
+
+  // Delete modal state
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [clientToDelete, setClientToDelete] = useState(null);
 
   // Industry dropdown state
   const [showIndustryDropdown, setShowIndustryDropdown] = useState(false);
@@ -593,157 +598,44 @@ const ClientManagement = () => {
     }
   };
 
-  const handleEditClient = async (client) => {
-    try {
-      console.log("🔍 handleEditClient called with client:", client);
-      setLoading(true);
-      setSelectedClient(client);
-
-      if (client?.id) {
-        console.log(`🚀 Fetching onboarding data for user: ${client.id}`);
-        const onboardingResponse = await shivaiApiService.getOnboardingByUserId(
-          client.id
-        );
-        console.log("✅ Onboarding data response:", onboardingResponse);
-
-        let clientWithDetails = client;
-        if (onboardingResponse?.data) {
-          clientWithDetails = {
-            ...client,
-            onboardingDetails: onboardingResponse.data,
-          };
-        } else {
-          clientWithDetails = {
-            ...client,
-            onboardingDetails: { onboarding: null },
-          };
-        }
-
-        // Create edit data structure
-        const mappedEditData = {
-          _id: clientWithDetails._id,
-          company_basics: {
-            name:
-              clientWithDetails?.onboardingDetails?.onboarding?.company_basics
-                ?.name ||
-              clientWithDetails?.company_basics?.name ||
-              "",
-            description:
-              clientWithDetails?.onboardingDetails?.onboarding?.company_basics
-                ?.description ||
-              clientWithDetails?.company_basics?.description ||
-              "",
-            company_email:
-              clientWithDetails?.onboardingDetails?.onboarding?.company_basics
-                ?.company_email ||
-              clientWithDetails?.company_basics?.company_email ||
-              "",
-            company_phone:
-              clientWithDetails?.onboardingDetails?.onboarding?.company_basics
-                ?.company_phone ||
-              clientWithDetails?.company_basics?.company_phone ||
-              "",
-            website:
-              clientWithDetails?.onboardingDetails?.onboarding?.company_basics
-                ?.website ||
-              clientWithDetails?.company_basics?.website ||
-              "",
-            address:
-              clientWithDetails?.onboardingDetails?.onboarding?.company_basics
-                ?.address ||
-              clientWithDetails?.company_basics?.address ||
-              "",
-            company_size:
-              clientWithDetails?.onboardingDetails?.onboarding?.company_basics
-                ?.company_size ||
-              clientWithDetails?.company_basics?.company_size ||
-              "",
-            industry:
-              clientWithDetails?.onboardingDetails?.onboarding?.company_basics
-                ?.industry ||
-              clientWithDetails?.company_basics?.industry ||
-              [],
-            linkedin_profile:
-              clientWithDetails?.onboardingDetails?.onboarding?.company_basics
-                ?.linkedin_profile ||
-              clientWithDetails?.company_basics?.linkedin_profile ||
-              "",
-            primary_region: {
-              countries:
-                clientWithDetails?.onboardingDetails?.onboarding?.company_basics
-                  ?.primary_region?.countries || [],
-              states:
-                clientWithDetails?.onboardingDetails?.onboarding?.company_basics
-                  ?.primary_region?.states || [],
-              cities:
-                clientWithDetails?.onboardingDetails?.onboarding?.company_basics
-                  ?.primary_region?.cities || [],
-            },
-          },
-          ai_employees: (
-            clientWithDetails?.onboardingDetails?.onboarding?.ai_employees ||
-            clientWithDetails?.ai_employees ||
-            []
-          ).map((emp) => ({
-            ...emp,
-            knowledge_sources: {
-              faqs_text: emp?.knowledge_sources?.faqs_text || "",
-              uploaded_files: emp?.knowledge_sources?.uploaded_files || [],
-              website_url: emp?.knowledge_sources?.website_url || "",
-              social_links: emp?.knowledge_sources?.social_links || {},
-              additional_sources: Array.isArray(emp?.knowledge_sources)
-                ? emp.knowledge_sources
-                : emp?.knowledge_sources?.additional_sources || [],
-            },
-          })),
-          plan_details:
-            clientWithDetails?.onboardingDetails?.onboarding?.plan_details ||
-            clientWithDetails?.plan_details ||
-            {},
-          deployment_targets:
-            clientWithDetails?.onboardingDetails?.onboarding
-              ?.deployment_targets ||
-            clientWithDetails?.deployment_targets ||
-            {},
-          deployment_service:
-            clientWithDetails?.onboardingDetails?.onboarding
-              ?.deployment_service ||
-            clientWithDetails?.deployment_service ||
-            {},
-          consent_options:
-            clientWithDetails?.onboardingDetails?.onboarding?.consent_options ||
-            clientWithDetails?.consent_options ||
-            {},
-          instructions:
-            clientWithDetails?.onboardingDetails?.onboarding?.instructions ||
-            clientWithDetails?.instructions ||
-            {},
-          targets:
-            clientWithDetails?.onboardingDetails?.onboarding?.targets ||
-            clientWithDetails?.targets ||
-            {},
-          userData: clientWithDetails?.userData,
-        };
-
-        setEditData(mappedEditData);
-        setViewMode("edit");
-        setIsEditing(false);
-      } else {
-        console.error("❌ No client._id available:", client);
-        setError("Client ID not found");
-      }
-    } catch (error) {
-      console.error("❌ Error fetching onboarding data:", error);
-      setError(`Failed to fetch client data: ${error.message}`);
-    } finally {
-      setLoading(false);
+  const handleEditClient = (client) => {
+    console.log("🔍 handleEditClient called with client:", client);
+    
+    if (!client?.id) {
+      console.error("❌ No client.id available:", client);
+      setError("Client ID not found");
+      return;
     }
+
+    setSelectedClient(client);
+    // Set basic edit data - child components will fetch their own detailed data
+    setEditData({
+      _id: client._id || client.id,
+      userData: client,
+    });
+    setViewMode("edit");
+    setIsEditing(false);
   };
 
-  const handleDeleteClient = async (client) => {
+  // Open delete confirmation modal
+  const openDeleteModal = (client) => {
+    setClientToDelete(client);
+    setDeleteModalOpen(true);
+  };
+
+  // Close delete modal
+  const closeDeleteModal = () => {
+    setDeleteModalOpen(false);
+    setClientToDelete(null);
+  };
+
+  // Handle delete confirmation
+  const handleDeleteClient = async () => {
+    if (!clientToDelete) return;
+    
     try {
-      const clientId = client?.id;
-      const clientName = client?.fullName || client?.name || "this client";
+      const clientId = clientToDelete?.id;
+      const clientName = clientToDelete?.fullName || clientToDelete?.name || "this client";
 
       console.log(`🗑️ Deleting client: ${clientName} (ID: ${clientId})`);
       if (!clientId) {
@@ -1086,7 +978,7 @@ const ClientManagement = () => {
                       <RiEditLine className="w-4 h-4" />
                     </button>
                     <button
-                      onClick={() => handleDeleteClient(client?.userData)}
+                      onClick={() => openDeleteModal(client?.userData)}
                       className={`p-2 flex items-center justify-center text-red-500 rounded-lg hover:bg-red-50 hover:scale-105 transition-all duration-200`}
                       title="Delete Client"
                     >
@@ -1213,6 +1105,17 @@ const ClientManagement = () => {
           </div>
         )}
       </div>
+
+      {/* Delete Confirmation Modal */}
+      <DeleteConfirmationModal
+        isOpen={deleteModalOpen}
+        onClose={closeDeleteModal}
+        onConfirm={handleDeleteClient}
+        title="Delete Client"
+        itemName={clientToDelete?.fullName || clientToDelete?.name || clientToDelete?.email || ""}
+        itemType="client"
+        warningMessage="All associated data including AI employees, transactions, and settings will be permanently deleted."
+      />
     </div>
   );
 };
