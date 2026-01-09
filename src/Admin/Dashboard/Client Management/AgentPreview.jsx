@@ -446,7 +446,7 @@ const AgentPreview = ({ agent, onBack, currentTheme, onClose }) => {
       <div className="flex items-start justify-center flex-1 p-3">
         <iframe
           ref={iframeRef}
-          className="w-full h-[60vh] lg:h-[60vh] border-0 overflow-auto"
+          className="w-full h-[70vh] lg:h-[60vh] border-0 overflow-auto"
           title="Widget Preview"
           sandbox="allow-scripts allow-same-origin allow-forms"
         />
