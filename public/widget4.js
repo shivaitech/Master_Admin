@@ -14,8 +14,8 @@
     // For production, only allow callshivai.com on home page and /landing
     const isCallShivAI =
       currentHostname === "callshivai.com" ||
-      currentHostname === "master.admin.callshivai.com" ||
       currentHostname === "www.callshivai.com";
+    const isMasterAdmin = currentHostname === "master.admin.callshivai.com";
     const isAllowedPath =
       currentPath === "/" ||
       currentPath === "/landing" ||
@@ -23,7 +23,8 @@
       currentPath === "/dashboard" || 
       currentPath === "/dashboard/clients/";
 
-    const isAllowed = isCallShivAI && isAllowedPath;
+    // Allow all paths on master.admin subdomain, specific paths on main domain
+    const isAllowed = isMasterAdmin || (isCallShivAI && isAllowedPath);
 
     if (!isAllowed) {
       console.warn(
