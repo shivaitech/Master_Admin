@@ -14,11 +14,14 @@
     // For production, only allow callshivai.com on home page and /landing
     const isCallShivAI =
       currentHostname === "callshivai.com" ||
+      currentHostname === "master.admin.callshivai.com" ||
       currentHostname === "www.callshivai.com";
     const isAllowedPath =
       currentPath === "/" ||
       currentPath === "/landing" ||
-      currentPath === "/landing/";
+      currentPath === "/landing/" || 
+      currentPath === "/dashboard" || 
+      currentPath === "/dashboard/clients/";
 
     const isAllowed = isCallShivAI && isAllowedPath;
 
@@ -403,46 +406,44 @@
       delay += 100;
     });
   }
-async function getClientIP() {
-  console.log('🌐 Starting IP detection...');
-  
-  const services = [
-    { url: 'https://api.ipify.org?format=json', extract: (d) => d.ip },
-    { url: 'https://ipapi.co/json/', extract: (d) => d.ip },
-    { url: 'https://api.ip.sb/jsonip', extract: (d) => d.ip },
-    { url: 'https://ipinfo.io/json', extract: (d) => d.ip },
-  ];
+  async function getClientIP() {
+    console.log("🌐 Starting IP detection...");
 
-  for (const service of services) {
-    try {
-      console.log(`📡 Trying ${service.url}...`);
-      const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 3000);
-      
-      const response = await fetch(service.url, { 
-        signal: controller.signal,
-        mode: 'cors'
-      });
-      clearTimeout(timeout);
-      
-      if (response.ok) {
-        const data = await response.json();
-        const ip = service.extract(data);
-        if (ip && ip !== 'unknown') {
-          console.log(`✅ Got IP from ${service.url}: ${ip}`);
-          return ip;
+    const services = [
+      { url: "https://api.ipify.org?format=json", extract: (d) => d.ip },
+      { url: "https://ipapi.co/json/", extract: (d) => d.ip },
+      { url: "https://api.ip.sb/jsonip", extract: (d) => d.ip },
+      { url: "https://ipinfo.io/json", extract: (d) => d.ip },
+    ];
+
+    for (const service of services) {
+      try {
+        console.log(`📡 Trying ${service.url}...`);
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 3000);
+
+        const response = await fetch(service.url, {
+          signal: controller.signal,
+          mode: "cors",
+        });
+        clearTimeout(timeout);
+
+        if (response.ok) {
+          const data = await response.json();
+          const ip = service.extract(data);
+          if (ip && ip !== "unknown") {
+            console.log(`✅ Got IP from ${service.url}: ${ip}`);
+            return ip;
+          }
         }
+      } catch (e) {
+        console.warn(`❌ ${service.url} failed: ${e.message}`);
       }
-    } catch (e) {
-      console.warn(`❌ ${service.url} failed: ${e.message}`);
     }
+
+    console.warn('⚠️ All IP services failed, returning "unknown"');
+    return "unknown";
   }
-
-  console.warn('⚠️ All IP services failed, returning "unknown"');
-  return 'unknown';
-}
- 
-
 
   function generateTone(frequency, duration, volume = 0.1) {
     if (!soundContext) return;
@@ -2923,7 +2924,6 @@ async function getClientIP() {
             handleFileUpload(files, "image");
           });
         }
-
       }
     }
   }
@@ -2936,19 +2936,28 @@ async function getClientIP() {
       const maxSize = 10 * 1024 * 1024; // 10MB limit
 
       if (file.size > maxSize) {
-        addMessage("system", `❌ File "${file.name}" is too large. Maximum size is 10MB.`);
+        addMessage(
+          "system",
+          `❌ File "${file.name}" is too large. Maximum size is 10MB.`
+        );
         return;
       }
 
-      console.log(`📎 Uploading file: ${file.name} (${file.type}) - ${(file.size / 1024).toFixed(1)} KB`);
+      console.log(
+        `📎 Uploading file: ${file.name} (${file.type}) - ${(file.size / 1024).toFixed(1)} KB`
+      );
 
       // Create preview for images/videos
-      if (type === "image" || file.type.startsWith("image/") || file.type.startsWith("video/")) {
+      if (
+        type === "image" ||
+        file.type.startsWith("image/") ||
+        file.type.startsWith("video/")
+      ) {
         const reader = new FileReader();
         reader.onload = function (e) {
           const isVideo = file.type.startsWith("video/");
           let mediaPreview;
-          
+
           if (isVideo) {
             mediaPreview = `
               <div class="file-upload-preview" style="margin: 4px 0; max-width: 220px; background: #f0f2f5; border-radius: 12px; overflow: hidden;">
@@ -2976,7 +2985,7 @@ async function getClientIP() {
               </div>
             `;
           }
-          
+
           addMessage("user", mediaPreview, { isFile: true });
           sendFileToAI(file, e.target.result);
         };
@@ -2987,7 +2996,7 @@ async function getClientIP() {
         reader.onload = function (e) {
           const fileIcon = getFileIcon(file.type);
           const fileColor = getFileColor(file.type);
-          
+
           const fileMessage = `
             <div class="file-upload-preview" style="display: flex; align-items: center; padding: 12px 14px; background: ${fileColor.bg}; border: 1px solid #e5e7eb; border-radius: 12px; margin: 4px 0; max-width: 280px; cursor: pointer; transition: all 0.2s ease;" onmouseover="this.style.transform='scale(1.02)'; this.style.boxShadow='0 2px 8px rgba(0,0,0,0.08)'" onmouseout="this.style.transform='scale(1)'; this.style.boxShadow='none'">
               <div style="width: 40px; height: 40px; border-radius: 8px; background: ${fileColor.icon}; border: 1px solid ${fileColor.iconBorder}; display: flex; align-items: center; justify-content: center; margin-right: 12px; flex-shrink: 0;">
@@ -3011,7 +3020,7 @@ async function getClientIP() {
               </div>
             </div>
           `;
-          
+
           addMessage("user", fileMessage, { isFile: true });
           sendFileToAI(file, e.target.result);
         };
@@ -3044,18 +3053,17 @@ async function getClientIP() {
           name: file.name,
           type: file.type,
           size: file.size,
-          data: dataUrl
+          data: dataUrl,
         },
-        timestamp: Date.now()
+        timestamp: Date.now(),
       };
 
       // Send via LiveKit data channel
       const encoder = new TextEncoder();
       const data = encoder.encode(JSON.stringify(filePayload));
-      
+
       room.localParticipant.publishData(data, { reliable: true });
       console.log(`✅ File sent to AI: ${file.name}`);
-      
     } catch (error) {
       console.error("❌ Error sending file to AI:", error);
       addMessage("system", `❌ Failed to send file: ${error.message}`);
@@ -3065,21 +3073,65 @@ async function getClientIP() {
   // Get file color scheme based on type
   function getFileColor(fileType) {
     if (fileType.includes("pdf")) {
-      return { bg: "#ffffff", bgEnd: "#f9fafb", icon: "#ffffff", iconBorder: "#e5e7eb", iconText: "#ef4444" };
+      return {
+        bg: "#ffffff",
+        bgEnd: "#f9fafb",
+        icon: "#ffffff",
+        iconBorder: "#e5e7eb",
+        iconText: "#ef4444",
+      };
     }
     if (fileType.includes("word") || fileType.includes("document")) {
-      return { bg: "#ffffff", bgEnd: "#f9fafb", icon: "#ffffff", iconBorder: "#e5e7eb", iconText: "#3b82f6" };
+      return {
+        bg: "#ffffff",
+        bgEnd: "#f9fafb",
+        icon: "#ffffff",
+        iconBorder: "#e5e7eb",
+        iconText: "#3b82f6",
+      };
     }
-    if (fileType.includes("spreadsheet") || fileType.includes("excel") || fileType.includes("csv")) {
-      return { bg: "#ffffff", bgEnd: "#f9fafb", icon: "#ffffff", iconBorder: "#e5e7eb", iconText: "#22c55e" };
+    if (
+      fileType.includes("spreadsheet") ||
+      fileType.includes("excel") ||
+      fileType.includes("csv")
+    ) {
+      return {
+        bg: "#ffffff",
+        bgEnd: "#f9fafb",
+        icon: "#ffffff",
+        iconBorder: "#e5e7eb",
+        iconText: "#22c55e",
+      };
     }
     if (fileType.includes("presentation") || fileType.includes("powerpoint")) {
-      return { bg: "#ffffff", bgEnd: "#f9fafb", icon: "#ffffff", iconBorder: "#e5e7eb", iconText: "#f59e0b" };
+      return {
+        bg: "#ffffff",
+        bgEnd: "#f9fafb",
+        icon: "#ffffff",
+        iconBorder: "#e5e7eb",
+        iconText: "#f59e0b",
+      };
     }
-    if (fileType.includes("zip") || fileType.includes("rar") || fileType.includes("archive")) {
-      return { bg: "#ffffff", bgEnd: "#f9fafb", icon: "#ffffff", iconBorder: "#e5e7eb", iconText: "#8b5cf6" };
+    if (
+      fileType.includes("zip") ||
+      fileType.includes("rar") ||
+      fileType.includes("archive")
+    ) {
+      return {
+        bg: "#ffffff",
+        bgEnd: "#f9fafb",
+        icon: "#ffffff",
+        iconBorder: "#e5e7eb",
+        iconText: "#8b5cf6",
+      };
     }
-    return { bg: "#ffffff", bgEnd: "#f9fafb", icon: "#ffffff", iconBorder: "#e5e7eb", iconText: "#6b7280" };
+    return {
+      bg: "#ffffff",
+      bgEnd: "#f9fafb",
+      icon: "#ffffff",
+      iconBorder: "#e5e7eb",
+      iconText: "#6b7280",
+    };
   }
 
   // Format file size
@@ -3092,10 +3144,13 @@ async function getClientIP() {
   // Get human-readable file type name
   function getFileTypeName(fileType) {
     if (fileType.includes("pdf")) return "PDF";
-    if (fileType.includes("word") || fileType.includes("document")) return "Word";
-    if (fileType.includes("spreadsheet") || fileType.includes("excel")) return "Excel";
+    if (fileType.includes("word") || fileType.includes("document"))
+      return "Word";
+    if (fileType.includes("spreadsheet") || fileType.includes("excel"))
+      return "Excel";
     if (fileType.includes("csv")) return "CSV";
-    if (fileType.includes("presentation") || fileType.includes("powerpoint")) return "PowerPoint";
+    if (fileType.includes("presentation") || fileType.includes("powerpoint"))
+      return "PowerPoint";
     if (fileType.includes("text")) return "Text";
     if (fileType.includes("json")) return "JSON";
     if (fileType.includes("xml")) return "XML";
@@ -3639,7 +3694,7 @@ async function getClientIP() {
     const labelDiv = document.createElement("div");
     labelDiv.className = "message-label";
     labelDiv.textContent = role === "user" ? "You" : "AI Employee";
-    
+
     // Handle document/link messages
     if (options.type === "document" || options.isLink) {
       const docDiv = document.createElement("div");
@@ -3663,33 +3718,37 @@ async function getClientIP() {
       docDiv.onmouseout = () => {
         docDiv.style.background = "#f0f0f0";
       };
-      
+
       // Extract filename and get file extension
       let filename = options.title || "Document";
       let fileExtension = "";
       if (options.url) {
         const urlObj = new URL(options.url);
         const pathname = urlObj.pathname;
-        filename = pathname.substring(pathname.lastIndexOf('/') + 1) || filename;
+        filename =
+          pathname.substring(pathname.lastIndexOf("/") + 1) || filename;
         filename = decodeURIComponent(filename);
-        fileExtension = filename.substring(filename.lastIndexOf('.') + 1).toUpperCase();
+        fileExtension = filename
+          .substring(filename.lastIndexOf(".") + 1)
+          .toUpperCase();
       }
-      
+
       // Content container
       const contentDiv = document.createElement("div");
       contentDiv.style.cssText = "color: #222; flex: 1; min-width: 0;";
-      
+
       const filenameDiv = document.createElement("div");
-      filenameDiv.style.cssText = "font-weight: 600; font-size: 13px; word-break: break-word; line-height: 1.3;";
+      filenameDiv.style.cssText =
+        "font-weight: 600; font-size: 13px; word-break: break-word; line-height: 1.3;";
       filenameDiv.textContent = filename;
-      
+
       contentDiv.appendChild(filenameDiv);
-      
+
       // File icon
       const iconDiv = document.createElement("div");
       iconDiv.style.cssText = "font-size: 24px; flex-shrink: 0;";
       iconDiv.textContent = "📄";
-      
+
       // View button
       const viewBtn = document.createElement("button");
       viewBtn.style.cssText = `
@@ -3721,11 +3780,11 @@ async function getClientIP() {
         e.stopPropagation();
         window.open(options.url || text, "_blank");
       };
-      
+
       docDiv.appendChild(iconDiv);
       docDiv.appendChild(contentDiv);
       docDiv.appendChild(viewBtn);
-      
+
       messageDiv.appendChild(labelDiv);
       messageDiv.appendChild(docDiv);
     } else if (options.isFile) {
@@ -3742,7 +3801,7 @@ async function getClientIP() {
       messageDiv.appendChild(labelDiv);
       messageDiv.appendChild(textDiv);
     }
-    
+
     messagesDiv.appendChild(messageDiv);
     messagesDiv.scrollTop = messagesDiv.scrollHeight;
     if (clearBtn) {
@@ -4440,17 +4499,21 @@ async function getClientIP() {
                 console.log("📋 Parsed JSON data:", jsonData);
 
                 // 🎯 Handle special message types (documents, links, etc.)
-                if (jsonData.type === "link" && jsonData.url && jsonData.title) {
+                if (
+                  jsonData.type === "link" &&
+                  jsonData.url &&
+                  jsonData.title
+                ) {
                   console.log("📨 Document/Link detected:", {
                     title: jsonData.title,
                     url: jsonData.url,
-                    timestamp: jsonData.timestamp
+                    timestamp: jsonData.timestamp,
                   });
                   addMessage("assistant", jsonData.url, {
                     type: "document",
                     isLink: true,
                     url: jsonData.url,
-                    title: jsonData.title
+                    title: jsonData.title,
                   });
                   return;
                 }
