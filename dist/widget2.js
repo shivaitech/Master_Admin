@@ -389,17 +389,14 @@
       return false;
     }
     
-    // Check current permission state if available (not all browsers support this)
+    // Check current permission state if available (for logging only - don't block based on this)
+    // Some browsers return "denied" by default until actually prompted
     try {
       if (navigator.permissions && navigator.permissions.query) {
         const permissionStatus = await navigator.permissions.query({ name: 'microphone' });
         console.log(`🎤 Current permission state: ${permissionStatus.state}`);
-        
-        if (permissionStatus.state === 'denied') {
-          console.warn("⚠️ Microphone permission was previously denied");
-          showMicPermissionError("previously-denied");
-          return false;
-        }
+        // Don't block here - always try getUserMedia to trigger the actual prompt
+        // The browser may show "denied" even on first visit until user is prompted
       }
     } catch (permErr) {
       // Some browsers don't support permission query for microphone
