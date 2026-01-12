@@ -19,8 +19,8 @@
     const isAllowedPath =
       currentPath === "/" ||
       currentPath === "/landing" ||
-      currentPath === "/landing/" || 
-      currentPath === "/dashboard" || 
+      currentPath === "/landing/" ||
+      currentPath === "/dashboard" ||
       currentPath === "/dashboard/clients/";
 
     // Allow all paths on master.admin subdomain, specific paths on main domain
@@ -525,10 +525,6 @@
 
       // Use the higher of RMS or speech-focused average
       const audioLevel = Math.max(rms, speechAverage * 0.8);
-
-      console.log(
-        `🎤 Audio Level: ${audioLevel.toFixed(2)} (threshold: ${SPEECH_THRESHOLD})`
-      );
 
       if (audioLevel > SPEECH_THRESHOLD) {
         // User is speaking
@@ -2930,10 +2926,10 @@
   }
 
   // Handle file uploads (images and documents)
-  function handleFileUpload(files, type) {
+  async function handleFileUpload(files, type) {
     if (!files || files.length === 0) return;
 
-    Array.from(files).forEach((file) => {
+    for (const file of Array.from(files)) {
       const maxSize = 10 * 1024 * 1024; // 10MB limit
 
       if (file.size > maxSize) {
@@ -2941,28 +2937,35 @@
           "system",
           `❌ File "${file.name}" is too large. Maximum size is 10MB.`
         );
-        return;
+        continue;
       }
 
       console.log(
         `📎 Uploading file: ${file.name} (${file.type}) - ${(file.size / 1024).toFixed(1)} KB`
       );
 
-      // Create preview for images/videos
-      if (
-        type === "image" ||
-        file.type.startsWith("image/") ||
-        file.type.startsWith("video/")
-      ) {
-        const reader = new FileReader();
-        reader.onload = function (e) {
+      try {
+        // Read file once for both preview and sending
+        const dataUrl = await new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = (e) => resolve(e.target.result);
+          reader.onerror = () => reject(new Error("Failed to read file"));
+          reader.readAsDataURL(file);
+        });
+
+        // Create preview for images/videos
+        if (
+          type === "image" ||
+          file.type.startsWith("image/") ||
+          file.type.startsWith("video/")
+        ) {
           const isVideo = file.type.startsWith("video/");
           let mediaPreview;
 
           if (isVideo) {
             mediaPreview = `
               <div class="file-upload-preview" style="margin: 4px 0; max-width: 220px; background: #f0f2f5; border-radius: 12px; overflow: hidden;">
-                <video src="${e.target.result}" controls style="max-width: 100%; height: auto; display: block; border-radius: 12px 12px 0 0;"></video>
+                <video src="${dataUrl}" controls style="max-width: 100%; height: auto; display: block; border-radius: 12px 12px 0 0;"></video>
                 <div style="padding: 8px 12px; display: flex; align-items: center; gap: 8px;">
                   <span style="font-size: 16px;">🎥</span>
                   <div style="flex: 1; min-width: 0;">
@@ -2974,8 +2977,8 @@
             `;
           } else {
             mediaPreview = `
-              <div class="file-upload-preview" style="margin: 4px 0; max-width: 220px; background: #f0f2f5; border-radius: 12px; overflow: hidden; cursor: pointer;" onclick="window.open('${e.target.result}', '_blank')">
-                <img src="${e.target.result}" alt="${file.name}" style="max-width: 100%; height: auto; display: block;">
+              <div class="file-upload-preview" style="margin: 4px 0; max-width: 220px; background: #f0f2f5; border-radius: 12px; overflow: hidden; cursor: pointer;" onclick="window.open('${dataUrl}', '_blank')">
+                <img src="${dataUrl}" alt="${file.name}" style="max-width: 100%; height: auto; display: block;">
                 <div style="padding: 8px 12px; display: flex; align-items: center; gap: 8px;">
                   <span style="font-size: 16px;">📷</span>
                   <div style="flex: 1; min-width: 0;">
@@ -2988,13 +2991,8 @@
           }
 
           addMessage("user", mediaPreview, { isFile: true });
-          sendFileToAI(file, e.target.result);
-        };
-        reader.readAsDataURL(file);
-      } else {
-        // Handle documents and other files
-        const reader = new FileReader();
-        reader.onload = function (e) {
+        } else {
+          // Handle documents and other files
           const fileIcon = getFileIcon(file.type);
           const fileColor = getFileColor(file.type);
 
@@ -3023,11 +3021,15 @@
           `;
 
           addMessage("user", fileMessage, { isFile: true });
-          sendFileToAI(file, e.target.result);
-        };
-        reader.readAsDataURL(file);
+        }
+
+        // Send file to AI (reads file again internally)
+        await sendFileToAI(file);
+      } catch (error) {
+        console.error("❌ Error handling file upload:", error);
+        addMessage("system", `❌ Failed to upload: ${file.name}`);
       }
-    });
+    }
 
     // Clear the file inputs
     const fileInput = document.getElementById("shivai-file-input");
@@ -3038,8 +3040,8 @@
     if (cameraInput) cameraInput.value = "";
   }
 
-  // Send file to AI via LiveKit data channel
-  function sendFileToAI(file, dataUrl) {
+  // Send file to AI via LiveKit data channel (base64 JSON format - same as test.html)
+  async function sendFileToAI(file) {
     if (!room || !isConnected) {
       console.warn("⚠️ Cannot send file - not connected to room");
       addMessage("system", "⚠️ Please start a call first to send files.");
@@ -3047,28 +3049,45 @@
     }
 
     try {
-      // Prepare file metadata
-      const filePayload = {
+      // Read file as base64 (matching test.html exactly)
+      const base64Data = await readFileAsBase64(file);
+
+      // Create message object matching test.html format
+      const message = {
         type: "file_upload",
-        file: {
-          name: file.name,
-          type: file.type,
-          size: file.size,
-          data: dataUrl,
-        },
+        filename: file.name,
+        data: base64Data,
+        size: file.size,
         timestamp: Date.now(),
       };
 
-      // Send via LiveKit data channel
+      // Encode and send via LiveKit data channel
       const encoder = new TextEncoder();
-      const data = encoder.encode(JSON.stringify(filePayload));
+      const messageString = JSON.stringify(message);
+      const messageBytes = encoder.encode(messageString);
 
-      room.localParticipant.publishData(data, { reliable: true });
-      console.log(`✅ File sent to AI: ${file.name}`);
+      await room.localParticipant.publishData(messageBytes, { reliable: true });
+
+      console.log(
+        `✅ File sent to AI (base64 JSON): ${file.name} - ${(file.size / 1024).toFixed(1)} KB`
+      );
     } catch (error) {
       console.error("❌ Error sending file to AI:", error);
       addMessage("system", `❌ Failed to send file: ${error.message}`);
     }
+  }
+
+  // Helper function to read file as base64 (matching test.html)
+  function readFileAsBase64(file) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const base64 = reader.result.split(",")[1];
+        resolve(base64);
+      };
+      reader.onerror = () => reject(new Error("Failed to read file"));
+      reader.readAsDataURL(file);
+    });
   }
 
   // Get file color scheme based on type
@@ -3905,6 +3924,18 @@
     }
   }
 
+  /**
+   * ✅ MICROPHONE PERMISSION FLOW (CRITICAL)
+   * 
+   * Rules:
+   * 1. NEVER auto-request microphone
+   * 2. Only request when user EXPLICITLY clicks "Start Call" button
+   * 3. Check permission state FIRST - STOP if denied
+   * 4. NEVER retry if permission is denied
+   * 5. Show clear instructions if denied
+   * 
+   * This function is ONLY called from handleConnectClick() when user clicks the button.
+   */
   async function startConversation() {
     try {
       // Check if connection was cancelled before starting
@@ -3913,45 +3944,46 @@
         return;
       }
 
-      // 🎤 Request microphone permission FIRST before anything else
-      console.log("🎤 Requesting microphone permission...");
+      // ✅ CRITICAL: Check permission state FIRST - never auto-request
+      console.log("🔍 Checking microphone permission state...");
       console.log("📍 Browser:", navigator.userAgent);
       console.log("📍 Secure context:", window.isSecureContext);
       console.log("📍 MediaDevices available:", !!navigator.mediaDevices);
-      console.log(
-        "📍 getUserMedia available:",
-        !!navigator.mediaDevices?.getUserMedia
-      );
 
       // Check if we're in a secure context (HTTPS)
       if (!window.isSecureContext) {
         console.error(
           "❌ Not in secure context - HTTPS required for microphone access"
         );
+        updateStatus("❌ HTTPS required", "disconnected");
         alert(
-          "Microphone access requires HTTPS. Please access this page using HTTPS."
+          "🔒 Microphone access requires HTTPS.\n\nPlease access this page using a secure HTTPS connection."
         );
+        isConnecting = false;
+        connectBtn.disabled = false;
         return;
       }
 
       // Check if mediaDevices API is available
       if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
         console.error("❌ MediaDevices API not available");
+        updateStatus("❌ Browser not supported", "disconnected");
         alert(
-          "Microphone API is not available in your browser. Please use a modern browser with HTTPS."
+          "❌ Microphone API not available.\n\nPlease use a modern browser (Chrome, Firefox, Safari, Edge)."
         );
+        isConnecting = false;
+        connectBtn.disabled = false;
         return;
       }
 
-      // Check current permission state first
+      // ✅ CRITICAL: Check permission state - STOP if denied
+      let permissionState = "prompt";
       try {
         const permissionStatus = await navigator.permissions.query({
           name: "microphone",
         });
-        console.log(
-          "📍 Current microphone permission state:",
-          permissionStatus.state
-        );
+        permissionState = permissionStatus.state;
+        console.log("📍 Microphone permission state:", permissionState);
 
         // Check if connection was cancelled during permission check
         if (!isConnecting) {
@@ -3959,86 +3991,107 @@
           return;
         }
 
-        if (permissionStatus.state === "denied") {
+        // ✅ CRITICAL: If DENIED, STOP immediately - never retry
+        if (permissionState === "denied") {
+          console.error("❌ Microphone permission DENIED - stopping");
+          updateStatus("❌ Microphone blocked", "disconnected");
+          
+          // Show detailed instructions - DO NOT retry
           alert(
-            "Microphone access was previously denied. Please click the microphone icon in your browser's address bar to reset permissions, then try again."
+            "🎤 Microphone Access Blocked\n\n" +
+            "To enable microphone:\n\n" +
+            "Chrome/Edge:\n" +
+            "1. Click the 🔒 lock icon in the address bar\n" +
+            "2. Find 'Microphone' and select 'Allow'\n" +
+            "3. Refresh the page\n\n" +
+            "Firefox:\n" +
+            "1. Click the 🔒 icon in the address bar\n" +
+            "2. Click the arrow next to 'Blocked Temporarily'\n" +
+            "3. Select 'Allow'\n\n" +
+            "Safari:\n" +
+            "1. Go to Safari → Settings → Websites → Microphone\n" +
+            "2. Find this website and select 'Allow'\n" +
+            "3. Refresh the page"
           );
+          
+          // Reset connection state - DO NOT proceed
+          isConnecting = false;
+          connectBtn.disabled = false;
+          connectBtn.innerHTML =
+            '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path></svg>';
+          connectBtn.classList.remove("connected");
           return;
         }
       } catch (permError) {
-        console.warn("⚠️ Could not check permission state:", permError);
+        console.warn("⚠️ Could not query permission state:", permError);
+        // Continue - some browsers don't support permissions API
       }
 
-      // Show status to user that permission is being requested
-      updateStatus("🎤 Please allow microphone access...", "connecting");
+      // ✅ Show status - requesting permission
+      updateStatus("🎤 Requesting microphone...", "connecting");
 
-      // Check if connection was cancelled before requesting mic access
+      // Check if connection was cancelled
       if (!isConnecting) {
         console.log("❌ Connection cancelled before requesting microphone");
         return;
       }
 
+      // ✅ CRITICAL: ONE explicit request, ONCE, on user action
       try {
-        console.log("📍 About to request getUserMedia...");
+        console.log("🎤 Requesting getUserMedia (user clicked button)...");
         const stream = await navigator.mediaDevices.getUserMedia({
           audio: {
-            // Optimized for close voice and feedback prevention
             echoCancellation: true,
             noiseSuppression: true,
-            autoGainControl: false, // Disable AGC to prevent pumping
-
-            // High quality capture
+            autoGainControl: false,
             channelCount: 1,
             sampleRate: 48000,
             sampleSize: 16,
-
-            // Additional constraints for close proximity detection
-            volume: 0.6, // Reduced input level for close voices only
-            latency: 0.05, // Low latency
-            facingMode: "user", // Use front-facing mic
-
-            // Advanced constraints for sensitivity
-            googEchoCancellation: true, // Google-specific echo cancellation
-            googAutoGainControl: false, // Disable Google AGC
-            googNoiseSuppression: true, // Google noise suppression
-            googHighpassFilter: true, // Remove low-frequency noise
-            googAudioMirroring: false, // Disable audio mirroring
           },
         });
-        console.log("✅ Microphone permission granted");
-        console.log("📍 Stream tracks:", stream.getTracks().length);
-        updateStatus("✅ Microphone access granted", "connecting");
+        
+        console.log("✅ Microphone permission GRANTED");
+        updateStatus("✅ Microphone enabled", "connecting");
 
-        // Stop the stream immediately - LiveKit will create its own
+        // Stop the test stream immediately - LiveKit will create its own
         stream.getTracks().forEach((track) => track.stop());
+        
       } catch (micError) {
-        console.error("❌ Microphone permission denied:", micError);
-        console.error("📍 Error details:", {
-          name: micError.name,
-          message: micError.message,
-          stack: micError.stack,
-        });
-        updateStatus("❌ Microphone access denied", "disconnected");
+        console.error("❌ Microphone request failed:", micError);
+        updateStatus("❌ Microphone denied", "disconnected");
 
-        // More detailed error handling
+        // ✅ CRITICAL: Handle denial - DO NOT retry
         if (micError.name === "NotAllowedError") {
           alert(
-            "Microphone access was denied. Please click the microphone icon in your browser's address bar to allow access, then try again."
+            "🎤 Microphone Access Denied\n\n" +
+            "You clicked 'Block' or 'Deny'.\n\n" +
+            "To fix:\n" +
+            "1. Click the 🔒 lock icon in your browser's address bar\n" +
+            "2. Find 'Microphone' permission\n" +
+            "3. Change it to 'Allow'\n" +
+            "4. Refresh the page and try again"
           );
         } else if (micError.name === "NotFoundError") {
           alert(
-            "No microphone found. Please connect a microphone and try again."
-          );
-        } else if (micError.name === "NotSupportedError") {
-          alert(
-            "Microphone access is not supported by your browser. Please use a modern browser."
+            "❌ No Microphone Found\n\n" +
+            "Please:\n" +
+            "1. Connect a microphone to your device\n" +
+            "2. Check your system sound settings\n" +
+            "3. Try again"
           );
         } else {
           alert(
-            `Microphone access error: ${micError.message}. Please check your browser settings and try again.`
+            `❌ Microphone Error\n\n${micError.message}\n\nPlease check your browser settings.`
           );
         }
-        return; // Exit early if microphone permission denied
+        
+        // Reset state - DO NOT proceed
+        isConnecting = false;
+        connectBtn.disabled = false;
+        connectBtn.innerHTML =
+          '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path></svg>';
+        connectBtn.classList.remove("connected");
+        return;
       }
 
       // Check if connection was cancelled after microphone permission

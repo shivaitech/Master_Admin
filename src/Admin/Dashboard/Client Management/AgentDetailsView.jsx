@@ -27,7 +27,6 @@ import {
   SkipForward,
   Volume2,
   VolumeX,
-  Download,
   Loader2,
   Users,
   Mail,
@@ -911,7 +910,7 @@ const AgentDetailsView = ({ agent, onBack, currentTheme }) => {
                               onTimeUpdate={handleTimeUpdate}
                               onLoadedMetadata={handleLoadedMetadata}
                               onEnded={() => setIsPlaying(false)}
-                              src={selectedSession.recordingUrl || "#"}
+                              src={selectedSession?.recording?.url || selectedSession?.recordingUrl || selectedSession?.recording_url || "#"}
                             />
 
                             {/* Progress bar */}
@@ -1006,24 +1005,13 @@ const AgentDetailsView = ({ agent, onBack, currentTheme }) => {
                                     />
                                   )}
                                 </button>
-
-                                <button
-                                  className={`p-1.5 hover:${currentTheme.searchBg} rounded transition-colors`}
-                                  title="Download recording"
-                                >
-                                  <Download
-                                    className={`w-5 h-5 ${currentTheme.textSecondary}`}
-                                  />
-                                </button>
                               </div>
 
                               {/* Duration */}
                               <span
                                 className={`text-xs ${currentTheme.textSecondary} w-10 text-right`}
                               >
-                                {formatTimeDisplay(
-                                  duration || selectedSession.duration || 0
-                                )}
+                                {formatTimeDisplay(duration || 0)}
                               </span>
                             </div>
                           </div>

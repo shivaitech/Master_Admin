@@ -65,7 +65,6 @@ const AnalyticsOptimized = () => {
 
   return (
     <div className="space-y-6">
-      {/* Clean Metrics Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {metrics.map((metric, index) => (
           <div key={index} className={`${currentTheme?.cardBg || 'bg-white'} border ${currentTheme?.border || 'border-gray-200'} rounded-lg p-4`}>

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import { useTheme } from "../contexts/ThemeContext";
 import listingService from "../../../Redux-config/apisModel/lisitingService";
+import toast from "react-hot-toast";
 import {
   Users,
   Eye,
@@ -28,7 +29,6 @@ import {
   VolumeX,
   SkipBack,
   SkipForward,
-  Download,
   FileText,
   ThumbsUp,
   ThumbsDown,
@@ -461,7 +461,7 @@ const AIEmployeeStatsMain = ({ onViewEmployee }) => {
               session.session_id ||
               session.id,
             // Recording URL for playback
-            recordingUrl: session.recording_url || session.recordingUrl || null,
+            recordingUrl: session.recording?.url || session.recording_url || session.recordingUrl || null,
             // Token usage data
             tokenUsage: session.token_usage || session.tokenUsage || null,
           })
@@ -2477,24 +2477,13 @@ const AIEmployeeStatsMain = ({ onViewEmployee }) => {
                                 />
                               )}
                             </button>
-
-                            <button
-                              className={`p-1.5 hover:${currentTheme.searchBg} rounded transition-colors`}
-                              title="Download recording"
-                            >
-                              <Download
-                                className={`w-4 h-4 ${currentTheme.textSecondary}`}
-                              />
-                            </button>
                           </div>
 
                           {/* Duration */}
                           <span
                             className={`text-xs ${currentTheme.textSecondary} w-10 text-right`}
                           >
-                            {formatTimeDisplay(
-                              duration || selectedSession.duration || 0
-                            )}
+                            {formatTimeDisplay(duration || 0)}
                           </span>
                         </div>
                       </div>
