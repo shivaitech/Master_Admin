@@ -36,9 +36,9 @@
   }
 
   // Exit early if domain is not allowed
-  if (!isAllowedDomain()) {
-    return;
-  }
+  // if (!isAllowedDomain()) {
+  //   return;
+  // }
 
   // Real-time URL monitoring to unload widget if URL changes to unauthorized page
   let lastCheckedUrl = window.location.href;
@@ -1159,21 +1159,22 @@
       <!-- Compact Attachment Menu Popup -->
       <div id="shivai-attachment-menu" class="attachment-menu" style="position: absolute !important; bottom: 60px !important; left: 12px !important; background: #ffffff !important; border-radius: 12px !important; box-shadow: 0 2px 12px rgba(0,0,0,0.15) !important; padding: 6px !important; display: none !important; z-index: 1000 !important; min-width: 170px !important; animation: slideUp 0.2s ease !important;">
         
-        <div class="attachment-option" id="shivai-attach-image" style="display: flex !important; align-items: center !important; padding: 8px 10px !important; cursor: pointer !important; border-radius: 8px !important; transition: background 0.15s ease !important; margin-bottom: 2px !important;" onmouseover="this.style.background='#f0f2f5'" onmouseout="this.style.background='transparent'">
-          <div style="width: 32px !important; height: 32px !important; border-radius: 50% !important; background: linear-gradient(135deg, #bf59cf 0%, #a855f7 100%) !important; display: flex !important; align-items: center !important; justify-content: center !important; margin-right: 10px !important;">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2">
+        <!-- Photos & Videos option disabled -->
+        <div class="attachment-option" id="shivai-attach-image" style="display: flex !important; align-items: center !important; padding: 8px 10px !important; cursor: not-allowed !important; border-radius: 8px !important; margin-bottom: 2px !important; opacity: 0.5 !important; pointer-events: none !important;">
+          <div style="width: 32px !important; height: 32px !important; border-radius: 50% !important; background: #d1d5db !important; display: flex !important; align-items: center !important; justify-content: center !important; margin-right: 10px !important;">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" stroke-width="2">
               <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
               <circle cx="9" cy="9" r="2"></circle>
               <path d="M21 15l-3.086-3.086a2 2 0 0 0-2.828 0L6 21"></path>
             </svg>
           </div>
           <div>
-            <span style="font-size: 13px !important; color: #111b21 !important; font-weight: 500 !important; display: block !important; line-height: 1.2 !important;">Photos & Videos</span>
-            <span style="font-size: 11px !important; color: #8696a0 !important;">Images and videos</span>
+            <span style="font-size: 13px !important; color: #9ca3af !important; font-weight: 500 !important; display: block !important; line-height: 1.2 !important;">Photos & Videos</span>
+            <span style="font-size: 11px !important; color: #d1d5db !important;">Coming soon</span>
           </div>
         </div>
         
-        <div class="attachment-option" id="shivai-attach-document" style="display: flex !important; align-items: center !important; padding: 8px 10px !important; cursor: pointer !important; border-radius: 8px !important; transition: background 0.15s ease !important;" onmouseover="this.style.background='#f0f2f5'" onmouseout="this.style.background='transparent'">
+        <div class="attachment-option" id="shivai-attach-document" style="display: flex !important; align-items: center !important; padding: 8px 10px !important; cursor: pointer !important; border-radius: 8px !important; transition: background 0.15s ease !important; margin-bottom: 0 !important;" onmouseover="this.style.background='#f0f2f5'" onmouseout="this.style.background='transparent'">
           <div style="width: 32px !important; height: 32px !important; border-radius: 50% !important; background: linear-gradient(135deg, #5b5fc7 0%, #3b82f6 100%) !important; display: flex !important; align-items: center !important; justify-content: center !important; margin-right: 10px !important;">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2">
               <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
@@ -2768,6 +2769,12 @@
         width: 16px;
         height: 16px;
       }
+      
+      /* Upload spinner animation */
+      @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+      }
     `;
     const styleSheet = document.createElement("style");
     styleSheet.textContent = styles;
@@ -2925,17 +2932,42 @@
     }
   }
 
-  // Handle file uploads (images and documents)
+  // File upload validation constants
+  const MAX_FILE_SIZE = 25 * 1024 * 1024; // 25MB
+  const MAX_TEXT_LENGTH = 100000; // 100k characters
+  const SUPPORTED_EXT = ['.pdf', '.docx', '.doc', '.txt', '.md', '.csv'];
+
+  // Handle file uploads (documents only - images in development)
   async function handleFileUpload(files, type) {
     if (!files || files.length === 0) return;
 
     for (const file of Array.from(files)) {
-      const maxSize = 10 * 1024 * 1024; // 10MB limit
-
-      if (file.size > maxSize) {
+      // Check if file is image or video and reject it
+      const isImageOrVideo = file.type.startsWith('image/') || file.type.startsWith('video/');
+      
+      if (isImageOrVideo) {
         addMessage(
           "system",
-          `❌ File "${file.name}" is too large. Maximum size is 10MB.`
+          "📸 Image and video uploads are currently disabled. Please upload documents (.pdf, .docx, .doc, .txt, .md, .csv) only."
+        );
+        continue;
+      }
+
+      // Validate file size (25MB max for documents)
+      if (file.size > MAX_FILE_SIZE) {
+        addMessage(
+          "system",
+          `❌ File "${file.name}" is too large. Maximum size is 25MB.`
+        );
+        continue;
+      }
+
+      // Validate file extension
+      const fileExt = '.' + file.name.toLowerCase().split('.').pop();
+      if (!SUPPORTED_EXT.includes(fileExt)) {
+        addMessage(
+          "system",
+          `❌ File type "${fileExt}" is not supported. Please upload: ${SUPPORTED_EXT.join(', ')}`
         );
         continue;
       }
@@ -2945,59 +2977,14 @@
       );
 
       try {
-        // Read file once for both preview and sending
-        const dataUrl = await new Promise((resolve, reject) => {
-          const reader = new FileReader();
-          reader.onload = (e) => resolve(e.target.result);
-          reader.onerror = () => reject(new Error("Failed to read file"));
-          reader.readAsDataURL(file);
-        });
+        // Handle documents only
+        const fileIcon = getFileIcon(file.type);
+        const fileColor = getFileColor(file.type);
 
-        // Create preview for images/videos
-        if (
-          type === "image" ||
-          file.type.startsWith("image/") ||
-          file.type.startsWith("video/")
-        ) {
-          const isVideo = file.type.startsWith("video/");
-          let mediaPreview;
-
-          if (isVideo) {
-            mediaPreview = `
-              <div class="file-upload-preview" style="margin: 4px 0; max-width: 220px; background: #f0f2f5; border-radius: 12px; overflow: hidden;">
-                <video src="${dataUrl}" controls style="max-width: 100%; height: auto; display: block; border-radius: 12px 12px 0 0;"></video>
-                <div style="padding: 8px 12px; display: flex; align-items: center; gap: 8px;">
-                  <span style="font-size: 16px;">🎥</span>
-                  <div style="flex: 1; min-width: 0;">
-                    <p style="font-size: 13px; color: #111b21; font-weight: 500; margin: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${file.name}</p>
-                    <p style="font-size: 11px; color: #8696a0; margin: 2px 0 0 0;">${(file.size / 1024).toFixed(1)} KB</p>
-                  </div>
-                </div>
-              </div>
-            `;
-          } else {
-            mediaPreview = `
-              <div class="file-upload-preview" style="margin: 4px 0; max-width: 220px; background: #f0f2f5; border-radius: 12px; overflow: hidden; cursor: pointer;" onclick="window.open('${dataUrl}', '_blank')">
-                <img src="${dataUrl}" alt="${file.name}" style="max-width: 100%; height: auto; display: block;">
-                <div style="padding: 8px 12px; display: flex; align-items: center; gap: 8px;">
-                  <span style="font-size: 16px;">📷</span>
-                  <div style="flex: 1; min-width: 0;">
-                    <p style="font-size: 13px; color: #111b21; font-weight: 500; margin: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${file.name}</p>
-                    <p style="font-size: 11px; color: #8696a0; margin: 2px 0 0 0;">${(file.size / 1024).toFixed(1)} KB</p>
-                  </div>
-                </div>
-              </div>
-            `;
-          }
-
-          addMessage("user", mediaPreview, { isFile: true });
-        } else {
-          // Handle documents and other files
-          const fileIcon = getFileIcon(file.type);
-          const fileColor = getFileColor(file.type);
-
-          const fileMessage = `
-            <div class="file-upload-preview" style="display: flex; align-items: center; padding: 12px 14px; background: ${fileColor.bg}; border: 1px solid #e5e7eb; border-radius: 12px; margin: 4px 0; max-width: 280px; cursor: pointer; transition: all 0.2s ease;" onmouseover="this.style.transform='scale(1.02)'; this.style.boxShadow='0 2px 8px rgba(0,0,0,0.08)'" onmouseout="this.style.transform='scale(1)'; this.style.boxShadow='none'">
+        // Create file preview with uploading status
+        const filePreviewId = `file-preview-${Date.now()}`;
+        const fileMessage = `
+            <div id="${filePreviewId}" class="file-upload-preview" style="display: flex; align-items: center; padding: 12px 14px; background: ${fileColor.bg}; border: 1px solid #e5e7eb; border-radius: 12px; margin: 4px 0; max-width: 280px; cursor: pointer; transition: all 0.2s ease;" onmouseover="this.style.transform='scale(1.02)'; this.style.boxShadow='0 2px 8px rgba(0,0,0,0.08)'" onmouseout="this.style.transform='scale(1)'; this.style.boxShadow='none'">
               <div style="width: 40px; height: 40px; border-radius: 8px; background: ${fileColor.icon}; border: 1px solid ${fileColor.iconBorder}; display: flex; align-items: center; justify-content: center; margin-right: 12px; flex-shrink: 0;">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="${fileColor.iconText}" stroke-width="2">
                   <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
@@ -3008,23 +2995,34 @@
               </div>
               <div style="flex: 1; min-width: 0;">
                 <div style="font-weight: 600; color: #111b21; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${file.name}</div>
-                <div style="font-size: 12px; color: #667781; margin-top: 2px;">${formatFileSize(file.size)} • ${getFileTypeName(file.type)}</div>
-              </div>
-              <div style="margin-left: 8px; color: #667781;">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
-                  <polyline points="15 3 21 3 21 9"></polyline>
-                  <line x1="10" y1="14" x2="21" y2="3"></line>
-                </svg>
+                <div class="upload-status" style="font-size: 12px; color: #667781; margin-top: 2px;">
+                  <span class="upload-spinner" style="display: inline-block; width: 12px; height: 12px; border: 2px solid #e5e7eb; border-top-color: #3b82f6; border-radius: 50%; animation: spin 0.6s linear infinite; margin-right: 4px;"></span>
+                  Uploading...
+                </div>
               </div>
             </div>
           `;
 
-          addMessage("user", fileMessage, { isFile: true });
-        }
+        addMessage("user", fileMessage, { isFile: true });
 
-        // Send file to AI (reads file again internally)
-        await sendFileToAI(file);
+        // Small delay to ensure DOM is updated before sending
+        await new Promise(resolve => setTimeout(resolve, 50));
+
+        // Send file to AI with chunking
+        const success = await sendFileToAI(file, filePreviewId);
+        
+        // Update status based on result
+        const previewEl = document.getElementById(filePreviewId);
+        if (previewEl) {
+          const statusEl = previewEl.querySelector('.upload-status');
+          if (statusEl) {
+            if (success) {
+              statusEl.innerHTML = `${formatFileSize(file.size)} • ${getFileTypeName(file.type)} • <span style="color: #10b981;">✓ Sent</span>`;
+            } else {
+              statusEl.innerHTML = `${formatFileSize(file.size)} • ${getFileTypeName(file.type)} • <span style="color: #ef4444;">✗ Failed</span>`;
+            }
+          }
+        }
       } catch (error) {
         console.error("❌ Error handling file upload:", error);
         addMessage("system", `❌ Failed to upload: ${file.name}`);
@@ -3040,54 +3038,112 @@
     if (cameraInput) cameraInput.value = "";
   }
 
-  // Send file to AI via LiveKit data channel (base64 JSON format - same as test.html)
-  async function sendFileToAI(file) {
+  // Send file to AI via LiveKit data channel with chunking (LiveKit limit: 64KB)
+  async function sendFileToAI(file, previewId) {
     if (!room || !isConnected) {
       console.warn("⚠️ Cannot send file - not connected to room");
       addMessage("system", "⚠️ Please start a call first to send files.");
-      return;
+      return false;
     }
 
+    const CHUNK_SIZE = 45000; // 45KB per chunk (safe limit for base64 + JSON)
+    const encoder = new TextEncoder();
+
     try {
-      // Read file as base64 (matching test.html exactly)
-      const base64Data = await readFileAsBase64(file);
+      // Read file as ArrayBuffer
+      const fileBuffer = await file.arrayBuffer();
+      const fileId = Date.now().toString();
+      
+      // Calculate total chunks
+      const totalChunks = Math.ceil(fileBuffer.byteLength / CHUNK_SIZE);
+      
+      console.log(`📤 Sending file in ${totalChunks} chunks: ${file.name} (${formatFileSize(file.size)})`);
 
-      // Create message object matching test.html format
-      const message = {
-        type: "file_upload",
-        filename: file.name,
-        data: base64Data,
-        size: file.size,
-        timestamp: Date.now(),
-      };
-
-      // Encode and send via LiveKit data channel
-      const encoder = new TextEncoder();
-      const messageString = JSON.stringify(message);
-      const messageBytes = encoder.encode(messageString);
-
-      await room.localParticipant.publishData(messageBytes, { reliable: true });
-
-      console.log(
-        `✅ File sent to AI (base64 JSON): ${file.name} - ${(file.size / 1024).toFixed(1)} KB`
+      // 1. Send file_start
+      await room.localParticipant.publishData(
+        encoder.encode(JSON.stringify({
+          type: 'file_start',
+          fileId: fileId,
+          filename: file.name,
+          totalChunks: totalChunks,
+          totalSize: fileBuffer.byteLength
+        })),
+        { reliable: true }
       );
+      
+      console.log(`✅ Sent file_start for ${file.name}`);
+
+      // 2. Send chunks
+      for (let i = 0; i < totalChunks; i++) {
+        const start = i * CHUNK_SIZE;
+        const end = Math.min(start + CHUNK_SIZE, fileBuffer.byteLength);
+        const chunk = fileBuffer.slice(start, end);
+        const base64Chunk = btoa(String.fromCharCode(...new Uint8Array(chunk)));
+        
+        await room.localParticipant.publishData(
+          encoder.encode(JSON.stringify({
+            type: 'file_chunk',
+            fileId: fileId,
+            chunkIndex: i,
+            data: base64Chunk
+          })),
+          { reliable: true }
+        );
+        
+        // Update progress in UI
+        const progress = Math.round(((i + 1) / totalChunks) * 100);
+        updateUploadProgress(previewId, progress, i + 1, totalChunks);
+        
+        console.log(`📦 Sent chunk ${i + 1}/${totalChunks} (${progress}%)`);
+        
+        // Small delay to prevent overwhelming the channel
+        await new Promise(r => setTimeout(r, 30));
+      }
+
+      // 3. Send file_end
+      await room.localParticipant.publishData(
+        encoder.encode(JSON.stringify({
+          type: 'file_end',
+          fileId: fileId
+        })),
+        { reliable: true }
+      );
+      
+      console.log(`✅ File upload complete: ${file.name}`);
+      return true;
+      
     } catch (error) {
       console.error("❌ Error sending file to AI:", error);
       addMessage("system", `❌ Failed to send file: ${error.message}`);
+      return false;
     }
   }
 
-  // Helper function to read file as base64 (matching test.html)
-  function readFileAsBase64(file) {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => {
-        const base64 = reader.result.split(",")[1];
-        resolve(base64);
-      };
-      reader.onerror = () => reject(new Error("Failed to read file"));
-      reader.readAsDataURL(file);
-    });
+  // Update upload progress in the UI
+  function updateUploadProgress(previewId, progress, currentChunk, totalChunks) {
+    if (!previewId) return;
+    
+    const previewEl = document.getElementById(previewId);
+    if (previewEl) {
+      const statusEl = previewEl.querySelector('.upload-status');
+      if (statusEl) {
+        statusEl.innerHTML = `
+          <span class="upload-spinner" style="display: inline-block; width: 12px; height: 12px; border: 2px solid #e5e7eb; border-top-color: #3b82f6; border-radius: 50%; animation: spin 0.6s linear infinite; margin-right: 4px;"></span>
+          Uploading... ${progress}% (${currentChunk}/${totalChunks})
+        `;
+      }
+    }
+  }
+
+  // Helper function to convert ArrayBuffer to base64
+  function arrayBufferToBase64(buffer) {
+    let binary = '';
+    const bytes = new Uint8Array(buffer);
+    const len = bytes.byteLength;
+    for (let i = 0; i < len; i++) {
+      binary += String.fromCharCode(bytes[i]);
+    }
+    return btoa(binary);
   }
 
   // Get file color scheme based on type
