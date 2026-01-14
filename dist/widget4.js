@@ -2977,11 +2977,10 @@
       );
 
       try {
-        // Handle documents only
         const fileIcon = getFileIcon(file.type);
+        
         const fileColor = getFileColor(file.type);
 
-        // Create file preview with uploading status
         const filePreviewId = `file-preview-${Date.now()}`;
         const fileMessage = `
             <div id="${filePreviewId}" class="file-upload-preview" style="display: flex; align-items: center; padding: 12px 14px; background: ${fileColor.bg}; border: 1px solid #e5e7eb; border-radius: 12px; margin: 4px 0; max-width: 280px; cursor: pointer; transition: all 0.2s ease;" onmouseover="this.style.transform='scale(1.02)'; this.style.boxShadow='0 2px 8px rgba(0,0,0,0.08)'" onmouseout="this.style.transform='scale(1)'; this.style.boxShadow='none'">
