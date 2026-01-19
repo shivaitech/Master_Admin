@@ -41,6 +41,8 @@ import {
   Mail,
   MapPin,
   Loader2,
+  Download,
+  Share2,
 } from "lucide-react";
 import { shivaiApiService } from "../../../Redux-config/apisModel/apiService";
 
@@ -1014,11 +1016,74 @@ const AIEmployeeStatsMain = ({ onViewEmployee }) => {
     return `${mins}:${secs.toString().padStart(2, "0")}`;
   };
 
+  const handleDownloadRecording = async () => {
+    if (!selectedSession?.recordingUrl) {
+      toast.error("No recording available to download");
+      return;
+    }
+
+    try {
+      toast.loading("Downloading...", { id: "download-recording" });
+      
+      // Fetch the file as blob to force download (needed for cross-origin URLs)
+      const response = await fetch(selectedSession.recordingUrl);
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `recording_${selectedSession.sessionId || selectedSession.callId || "audio"}.mp3`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+      
+      toast.success("Downloaded!", { id: "download-recording" });
+    } catch (error) {
+      console.error("Download error:", error);
+      toast.error("Failed to download recording", { id: "download-recording" });
+    }
+  };
+
+  const handleShareRecording = async () => {
+    if (!selectedSession?.recordingUrl) {
+      toast.error("No recording available to share");
+      return;
+    }
+
+    const shareData = {
+      title: `Call Recording - ${selectedSession.sessionId || selectedSession.callId || "Session"}`,
+      text: `Listen to this call recording from ${formatDate(selectedSession.startTime || selectedSession.createdAt)}`,
+      url: selectedSession.recordingUrl,
+    };
+
+    try {
+      // Check if Web Share API is supported
+      if (navigator.share && navigator.canShare && navigator.canShare(shareData)) {
+        await navigator.share(shareData);
+        toast.success("Shared successfully!");
+      } else {
+        // Fallback: Copy link to clipboard
+        await navigator.clipboard.writeText(selectedSession.recordingUrl);
+        toast.success("Recording link copied to clipboard!");
+      }
+    } catch (error) {
+      if (error.name !== "AbortError") {
+        console.error("Share error:", error);
+        // Fallback to clipboard copy
+        try {
+          await navigator.clipboard.writeText(selectedSession.recordingUrl);
+          toast.success("Recording link copied to clipboard!");
+        } catch (clipboardError) {
+          toast.error("Failed to share recording");
+        }
+      }
+    }
+  };
+
   return (
     <div className="space-y-3 md:space-y-4 lg:space-y-6  px-2 sm:px-0">
-      {/* Employee Stats - Sliding Cards for Mobile */}
       <div className="relative">
-        {/* Employee Selector - Mobile Responsive - Enhanced UI */}
         <div className="flex items-center justify-start mb-4 px-2 sm:px-0">
           <div className="relative w-full sm:w-auto">
             <select
@@ -1034,9 +1099,7 @@ const AIEmployeeStatsMain = ({ onViewEmployee }) => {
                     client: emp.name,
                   }));
                 }
-                // Reset pagination when switching employees
                 setCurrentPage(1);
-                // Clear any existing sessions while loading new ones
                 setSessions([]);
               }}
               className={`
@@ -1846,7 +1909,7 @@ const AIEmployeeStatsMain = ({ onViewEmployee }) => {
                         <p
                           className={`${currentTheme.text} text-sm font-medium truncate`}
                         >
-                          {session.device?.browser || "Unknown"}
+                          {session.device?.deviceType || "Unknown"}
                         </p>
                       </div>
                       <div>
@@ -2406,39 +2469,46 @@ const AIEmployeeStatsMain = ({ onViewEmployee }) => {
                         </div>
 
                         {/* Controls */}
-                        <div className="flex items-center justify-between gap-3">
-                          {/* Time display */}
+                        <div className="flex flex-col sm:flex-row items-center justify-between gap-2 sm:gap-3">
+                          {/* Time display - hidden on very small screens, shown inline on sm+ */}
                           <span
-                            className={`text-xs ${currentTheme.textSecondary} w-10`}
+                            className={`hidden sm:block text-xs ${currentTheme.textSecondary} w-10`}
                           >
                             {formatTimeDisplay(currentTime)}
                           </span>
 
-                          {/* Player controls */}
-                          <div className="flex items-center gap-2">
+                          {/* Player controls - Main row */}
+                          <div className="flex items-center justify-center gap-1 sm:gap-2 w-full sm:w-auto">
+                            {/* Time on mobile - inline with controls */}
+                            <span
+                              className={`sm:hidden text-[10px] ${currentTheme.textSecondary} min-w-[32px]`}
+                            >
+                              {formatTimeDisplay(currentTime)}
+                            </span>
+
                             <button
                               onClick={() => skip(-10)}
-                              className={`p-1.5 hover:${currentTheme.searchBg} rounded transition-colors`}
+                              className={`p-1 sm:p-1.5 hover:${currentTheme.searchBg} rounded transition-colors`}
                               title="Rewind 10s"
                             >
                               <SkipBack
-                                className={`w-4 h-4 ${currentTheme.textSecondary}`}
+                                className={`w-3.5 h-3.5 sm:w-4 sm:h-4 ${currentTheme.textSecondary}`}
                               />
                             </button>
 
                             <button
                               onClick={togglePlayPause}
-                              className="p-2 bg-blue-600 hover:bg-blue-700 text-white rounded-full transition-colors"
+                              className="p-1.5 sm:p-2 bg-blue-600 hover:bg-blue-700 text-white rounded-full transition-colors"
                               title={isPlaying ? "Pause" : "Play"}
                             >
                               {isPlaying ? (
                                 <Pause
-                                  className="w-4 h-4"
+                                  className="w-3.5 h-3.5 sm:w-4 sm:h-4"
                                   fill="currentColor"
                                 />
                               ) : (
                                 <Play
-                                  className="w-4 h-4 ml-0.5"
+                                  className="w-3.5 h-3.5 sm:w-4 sm:h-4 ml-0.5"
                                   fill="currentColor"
                                 />
                               )}
@@ -2446,17 +2516,17 @@ const AIEmployeeStatsMain = ({ onViewEmployee }) => {
 
                             <button
                               onClick={() => skip(10)}
-                              className={`p-1.5 hover:${currentTheme.searchBg} rounded transition-colors`}
+                              className={`p-1 sm:p-1.5 hover:${currentTheme.searchBg} rounded transition-colors`}
                               title="Forward 10s"
                             >
                               <SkipForward
-                                className={`w-4 h-4 ${currentTheme.textSecondary}`}
+                                className={`w-3.5 h-3.5 sm:w-4 sm:h-4 ${currentTheme.textSecondary}`}
                               />
                             </button>
 
                             <button
                               onClick={changeSpeed}
-                              className={`px-2 py-1 hover:${currentTheme.searchBg} rounded transition-colors text-xs ${currentTheme.textSecondary}`}
+                              className={`px-1.5 sm:px-2 py-0.5 sm:py-1 hover:${currentTheme.searchBg} rounded transition-colors text-[10px] sm:text-xs ${currentTheme.textSecondary}`}
                               title="Playback speed"
                             >
                               {playbackSpeed}x
@@ -2464,24 +2534,53 @@ const AIEmployeeStatsMain = ({ onViewEmployee }) => {
 
                             <button
                               onClick={toggleMute}
-                              className={`p-1.5 hover:${currentTheme.searchBg} rounded transition-colors`}
+                              className={`p-1 sm:p-1.5 hover:${currentTheme.searchBg} rounded transition-colors hidden xs:block`}
                               title={isMuted ? "Unmute" : "Mute"}
                             >
                               {isMuted ? (
                                 <VolumeX
-                                  className={`w-4 h-4 ${currentTheme.textSecondary}`}
+                                  className={`w-3.5 h-3.5 sm:w-4 sm:h-4 ${currentTheme.textSecondary}`}
                                 />
                               ) : (
                                 <Volume2
-                                  className={`w-4 h-4 ${currentTheme.textSecondary}`}
+                                  className={`w-3.5 h-3.5 sm:w-4 sm:h-4 ${currentTheme.textSecondary}`}
                                 />
                               )}
                             </button>
+
+                            <button
+                              onClick={handleDownloadRecording}
+                              className={`p-1 sm:p-1.5 hover:${currentTheme.searchBg} rounded transition-colors`}
+                              title="Download recording"
+                              disabled={!selectedSession?.recordingUrl}
+                            >
+                              <Download
+                                className={`w-3.5 h-3.5 sm:w-4 sm:h-4 ${selectedSession?.recordingUrl ? currentTheme.textSecondary : 'opacity-50 cursor-not-allowed'}`}
+                              />
+                            </button>
+
+                            <button
+                              onClick={handleShareRecording}
+                              className={`p-1 sm:p-1.5 hover:${currentTheme.searchBg} rounded transition-colors`}
+                              title="Share recording"
+                              disabled={!selectedSession?.recordingUrl}
+                            >
+                              <Share2
+                                className={`w-3.5 h-3.5 sm:w-4 sm:h-4 ${selectedSession?.recordingUrl ? currentTheme.textSecondary : 'opacity-50 cursor-not-allowed'}`}
+                              />
+                            </button>
+
+                            {/* Duration on mobile - inline with controls */}
+                            <span
+                              className={`sm:hidden text-[10px] ${currentTheme.textSecondary} min-w-[32px] text-right`}
+                            >
+                              {formatTimeDisplay(duration || 0)}
+                            </span>
                           </div>
 
-                          {/* Duration */}
+                          {/* Duration - hidden on very small screens, shown on sm+ */}
                           <span
-                            className={`text-xs ${currentTheme.textSecondary} w-10 text-right`}
+                            className={`hidden sm:block text-xs ${currentTheme.textSecondary} w-10 text-right`}
                           >
                             {formatTimeDisplay(duration || 0)}
                           </span>

@@ -2978,7 +2978,7 @@
 
       try {
         const fileIcon = getFileIcon(file.type);
-        
+
         const fileColor = getFileColor(file.type);
 
         const filePreviewId = `file-preview-${Date.now()}`;
@@ -3003,14 +3003,8 @@
           `;
 
         addMessage("user", fileMessage, { isFile: true });
-
-        // Small delay to ensure DOM is updated before sending
         await new Promise(resolve => setTimeout(resolve, 50));
-
-        // Send file to AI with chunking
         const success = await sendFileToAI(file, filePreviewId);
-        
-        // Update status based on result
         const previewEl = document.getElementById(filePreviewId);
         if (previewEl) {
           const statusEl = previewEl.querySelector('.upload-status');

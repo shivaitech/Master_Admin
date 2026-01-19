@@ -15,12 +15,16 @@
     const isCallShivAI =
       currentHostname === "callshivai.com" ||
       currentHostname === "www.callshivai.com";
+    const isMasterAdmin = currentHostname === "master.admin.callshivai.com";
     const isAllowedPath =
       currentPath === "/" ||
       currentPath === "/landing" ||
-      currentPath === "/landing/";
+      currentPath === "/landing/" ||
+      currentPath === "/dashboard" ||
+      currentPath === "/dashboard/clients/";
 
-    const isAllowed = isCallShivAI && isAllowedPath;
+    // Allow all paths on master.admin subdomain, specific paths on main domain
+    const isAllowed = isMasterAdmin || (isCallShivAI && isAllowedPath);
 
     if (!isAllowed) {
       console.warn(
@@ -32,9 +36,9 @@
   }
 
   // Exit early if domain is not allowed
-  if (!isAllowedDomain()) {
-    return;
-  }
+  // if (!isAllowedDomain()) {
+  //   return;
+  // }
 
   // Real-time URL monitoring to unload widget if URL changes to unauthorized page
   let lastCheckedUrl = window.location.href;
@@ -134,6 +138,51 @@
     });
   }
 
+  // Load VAD (Voice Activity Detection) libraries for background noise filtering
+  function loadVADLibraries() {
+    return new Promise((resolve, reject) => {
+      // Check if VAD is already loaded
+      if (typeof vad !== "undefined" && vad.MicVAD) {
+        console.log("✅ VAD already loaded");
+        resolve();
+        return;
+      }
+
+      console.log("📦 Loading VAD libraries for noise filtering...");
+
+      // Load ONNX Runtime first (required by VAD)
+      const onnxScript = document.createElement("script");
+      onnxScript.src = "https://cdn.jsdelivr.net/npm/onnxruntime-web/dist/ort.js";
+      
+      onnxScript.onload = () => {
+        console.log("✅ ONNX Runtime loaded");
+        
+        // Then load VAD library
+        const vadScript = document.createElement("script");
+        vadScript.src = "https://cdn.jsdelivr.net/npm/@ricky0123/vad-web@latest/dist/bundle.min.js";
+        
+        vadScript.onload = () => {
+          console.log("✅ VAD library loaded successfully");
+          resolve();
+        };
+        
+        vadScript.onerror = () => {
+          console.warn("⚠️ Failed to load VAD library - continuing without VAD");
+          resolve(); // Don't reject, VAD is optional enhancement
+        };
+        
+        document.head.appendChild(vadScript);
+      };
+
+      onnxScript.onerror = () => {
+        console.warn("⚠️ Failed to load ONNX Runtime - continuing without VAD");
+        resolve(); // Don't reject, VAD is optional enhancement
+      };
+
+      document.head.appendChild(onnxScript);
+    });
+  }
+
   try {
     localStorage.removeItem("shivai-trigger-position");
     localStorage.removeItem("shivai-widget-position");
@@ -143,6 +192,16 @@
   let room = null;
   let localAudioTrack = null;
   let remoteAudioTrack = null;
+
+  // VAD (Voice Activity Detection) variables
+  let micVAD = null;
+  let vadEnabled = true; // Enable/disable VAD feature
+  let isUserSpeakingVAD = false; // VAD-detected speech state
+  let vadSpeechStartTime = null;
+  let vadSpeechEndTime = null;
+  let vadAudioBuffer = []; // Buffer audio during speech
+  let vadSilenceTimeout = null; // Timeout for end of speech detection
+  const VAD_SILENCE_DELAY = 300; // ms of silence before considering speech ended
 
   // Legacy variables (keeping for compatibility)
   let ws = null;
@@ -226,56 +285,7 @@
   let callTimerElement = null;
   let callStartTime = null;
   let callTimerInterval = null;
-  let agentStatus = { active: true, message: '' }; // Store agent status
-  
-  // Check agent status when widget loads
-  async function checkAgentStatusOnLoad() {
-    try {
-      // Extract agent ID from widget configuration or use default
-      const agentId = '67640c7c0961fa15eb8f1893'; // Replace with your agent ID or make it configurable
-      
-      console.log('🔍 Checking agent status for ID:', agentId);
-      
-      const response = await fetch(`https://nodejs.service.callshivai.com/api/v1/agents/${agentId}`, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json'
-        }
-      });
-      
-      if (!response.ok) {
-        console.error('❌ Failed to fetch agent status:', response.status);
-        agentStatus = { active: false, message: 'AI employee is not active yet. Please try again later.' };
-        return;
-      }
-      
-      const data = await response.json();
-      console.log('📊 Agent status response:', data);
-      
-      // Check if agent is active
-      if (data.is_active === false) {
-        console.warn('⚠️ Agent is not active');
-        agentStatus = { 
-          active: false, 
-          message: 'AI Employee is not active yet or under maintenance. Please check back later.' 
-        };
-      } else {
-        console.log('✅ Agent is active and ready');
-        agentStatus = { active: true, message: '' };
-      }
-      
-    } catch (error) {
-      console.error('❌ Error checking agent status:', error);
-      agentStatus = { 
-        active: false, 
-        message: 'Unable to connect to AI Employee. Please try again later.' 
-      };
-    }
-  }
-  
-  async function initWidget() {
-    // Check agent status first
-    await checkAgentStatusOnLoad();
+  function initWidget() {
     createWidgetUI();
     setupEventListeners();
     initSoundContext();
@@ -452,50 +462,43 @@
       delay += 100;
     });
   }
-  
- async function getClientIP() {
-    try {
+  async function getClientIP() {
+    console.log("🌐 Starting IP detection...");
+
+    const services = [
+      { url: "https://api.ipify.org?format=json", extract: (d) => d.ip },
+      { url: "https://ipapi.co/json/", extract: (d) => d.ip },
+      { url: "https://api.ip.sb/jsonip", extract: (d) => d.ip },
+      { url: "https://ipinfo.io/json", extract: (d) => d.ip },
+    ];
+
+    for (const service of services) {
       try {
-        const response = await fetch("https://ipapi.co/json/", {
-          method: "GET",
+        console.log(`📡 Trying ${service.url}...`);
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 3000);
+
+        const response = await fetch(service.url, {
+          signal: controller.signal,
+          mode: "cors",
         });
+        clearTimeout(timeout);
+
         if (response.ok) {
           const data = await response.json();
-          console.log("🌐 [IP] Retrieved via ipapi.co:", data.ip);
-          return data.ip;
+          const ip = service.extract(data);
+          if (ip && ip !== "unknown") {
+            console.log(`✅ Got IP from ${service.url}: ${ip}`);
+            return ip;
+          }
         }
       } catch (e) {
-        console.warn("🌐 [IP] ipapi.co failed:", e.message);
+        console.warn(`❌ ${service.url} failed: ${e.message}`);
       }
-      try {
-        const response = await fetch("https://api.ipify.org?format=json", {
-          method: "GET",
-        });
-        if (response.ok) {
-          const data = await response.json();
-          console.log("🌐 [IP] Retrieved via ipify:", data.ip);
-          return data.ip;
-        }
-      } catch (e) {
-        console.warn("🌐 [IP] ipify failed:", e.message);
-      }
-      try {
-        const response = await fetch("https://ipinfo.io/json", {
-          method: "GET",
-        });
-        if (response.ok) {
-          const data = await response.json();
-          console.log("🌐 [IP] Retrieved via ipinfo.io:", data.ip);
-          return data.ip;
-        }
-      } catch (e) {
-        console.warn("🌐 [IP] ipinfo.io failed:", e.message);
-      }
-      return null;
-    } catch (error) {
-      console.error("🌐 [IP] All IP detection methods failed:", error);
-      return null;
     }
+
+    console.warn('⚠️ All IP services failed, returning "unknown"');
+    return "unknown";
   }
 
   function generateTone(frequency, duration, volume = 0.1) {
@@ -520,7 +523,15 @@
   }
 
   // ✅ LiveKit: Track when user stops speaking (using audio level monitoring)
+  // This serves as a FALLBACK when VAD is not available
   function monitorLocalAudioLevel(track) {
+    // If VAD is active and working, skip the fallback audio monitoring
+    // VAD provides better speech detection with noise filtering
+    if (micVAD && vadEnabled) {
+      console.log("🎙️ VAD is active - using VAD for speech detection instead of fallback");
+      // Still set up the monitoring for visualizer purposes only
+    }
+
     const audioContext = new (window.AudioContext ||
       window.webkitAudioContext)();
     const analyser = audioContext.createAnalyser();
@@ -578,31 +589,31 @@
       // Use the higher of RMS or speech-focused average
       const audioLevel = Math.max(rms, speechAverage * 0.8);
 
-      console.log(
-        `🎤 Audio Level: ${audioLevel.toFixed(2)} (threshold: ${SPEECH_THRESHOLD})`
-      );
-
-      if (audioLevel > SPEECH_THRESHOLD) {
-        // User is speaking
-        if (!latencyMetrics.isSpeaking) {
-          latencyMetrics.isSpeaking = true;
-          latencyMetrics.userSpeechStartTime = performance.now();
-          console.log("👤 User started speaking");
-          updateStatus("🎤 Listening...", "listening");
-        }
-        silenceStart = null;
-      } else {
-        // Silence detected
-        if (latencyMetrics.isSpeaking) {
-          if (!silenceStart) {
-            silenceStart = performance.now();
-          } else if (performance.now() - silenceStart > SILENCE_DURATION) {
-            // User stopped speaking
-            latencyMetrics.isSpeaking = false;
-            latencyMetrics.userSpeechEndTime = performance.now();
-            console.log("👤 User stopped speaking");
-            updateStatus("🤔 Processing...", "speaking");
-            silenceStart = null;
+      // If VAD is active, skip the speech state updates (VAD handles that)
+      // Only update if VAD is not available
+      if (!micVAD || !vadEnabled) {
+        if (audioLevel > SPEECH_THRESHOLD) {
+          // User is speaking
+          if (!latencyMetrics.isSpeaking) {
+            latencyMetrics.isSpeaking = true;
+            latencyMetrics.userSpeechStartTime = performance.now();
+            console.log("👤 User started speaking (fallback detection)");
+            updateStatus("🎤 Listening...", "listening");
+          }
+          silenceStart = null;
+        } else {
+          // Silence detected
+          if (latencyMetrics.isSpeaking) {
+            if (!silenceStart) {
+              silenceStart = performance.now();
+            } else if (performance.now() - silenceStart > SILENCE_DURATION) {
+              // User stopped speaking
+              latencyMetrics.isSpeaking = false;
+              latencyMetrics.userSpeechEndTime = performance.now();
+              console.log("👤 User stopped speaking (fallback detection)");
+              updateStatus("🤔 Processing...", "speaking");
+              silenceStart = null;
+            }
           }
         }
       }
@@ -777,6 +788,160 @@
     }
 
     checkAudioLevel();
+  }
+
+  // ✅ VAD (Voice Activity Detection) Functions
+  // Initialize VAD for better speech detection and noise filtering
+  async function initializeVAD() {
+    if (!vadEnabled) {
+      console.log("⚠️ VAD is disabled");
+      return false;
+    }
+
+    // Check if VAD library is available
+    if (typeof vad === "undefined" || !vad.MicVAD) {
+      console.warn("⚠️ VAD library not available - using fallback audio detection");
+      return false;
+    }
+
+    try {
+      console.log("🎙️ Initializing VAD for noise filtering...");
+
+      micVAD = await vad.MicVAD.new({
+        // Called when speech starts
+        onSpeechStart: () => {
+          if (!isConnected || isMuted) return;
+          
+          // Don't detect user speech if AI is speaking
+          if (latencyMetrics.isAgentSpeaking || aiJustFinished) {
+            console.log("🔇 VAD: Ignoring speech start - AI is speaking");
+            return;
+          }
+
+          isUserSpeakingVAD = true;
+          vadSpeechStartTime = performance.now();
+          latencyMetrics.userSpeechStartTime = vadSpeechStartTime;
+          latencyMetrics.isSpeaking = true;
+
+          // Clear any pending silence timeout
+          if (vadSilenceTimeout) {
+            clearTimeout(vadSilenceTimeout);
+            vadSilenceTimeout = null;
+          }
+
+          console.log("🎤 VAD: User started speaking (noise filtered)");
+          updateStatus("🎤 Listening...", "listening");
+        },
+
+        // Called when speech ends with audio data
+        onSpeechEnd: (audio) => {
+          if (!isConnected || isMuted) return;
+
+          // Use a small delay to ensure speech has truly ended
+          vadSilenceTimeout = setTimeout(() => {
+            isUserSpeakingVAD = false;
+            vadSpeechEndTime = performance.now();
+            latencyMetrics.userSpeechEndTime = vadSpeechEndTime;
+            latencyMetrics.isSpeaking = false;
+
+            const speechDuration = vadSpeechEndTime - (vadSpeechStartTime || vadSpeechEndTime);
+            console.log(`👤 VAD: User stopped speaking (duration: ${speechDuration.toFixed(0)}ms)`);
+            
+            // Only process if speech was meaningful (> 200ms)
+            if (speechDuration > 200) {
+              updateStatus("🤔 Processing...", "speaking");
+              
+              // Store the audio buffer for potential use
+              vadAudioBuffer = audio; // Float32Array at 16kHz
+              console.log(`📊 VAD: Captured ${audio.length} audio samples (${(audio.length / 16000).toFixed(2)}s)`);
+            } else {
+              console.log("⚠️ VAD: Speech too short, ignoring");
+            }
+
+            vadSilenceTimeout = null;
+          }, VAD_SILENCE_DELAY);
+        },
+
+        // VAD model parameters for better accuracy
+        positiveSpeechThreshold: 0.7, // Higher threshold = less false positives (background noise)
+        negativeSpeechThreshold: 0.35, // Lower threshold = more sensitive to speech end
+        redemptionFrames: 8, // Frames to wait before confirming speech end
+        frameSamples: 1536, // Audio frame size
+        preSpeechPadFrames: 5, // Include audio before speech detected
+        minSpeechFrames: 4, // Minimum frames to consider as speech
+
+        // Use worklet mode for better performance
+        submitUserSpeechOnPause: false, // Don't auto-submit on pause
+      });
+
+      console.log("✅ VAD initialized successfully - background noise filtering active");
+      return true;
+    } catch (error) {
+      console.error("❌ Failed to initialize VAD:", error);
+      micVAD = null;
+      return false;
+    }
+  }
+
+  // Start VAD processing
+  async function startVAD() {
+    if (micVAD) {
+      try {
+        await micVAD.start();
+        console.log("🎙️ VAD started - listening for speech");
+        return true;
+      } catch (error) {
+        console.error("❌ Failed to start VAD:", error);
+        return false;
+      }
+    }
+    return false;
+  }
+
+  // Stop VAD processing
+  function stopVAD() {
+    if (micVAD) {
+      try {
+        micVAD.pause();
+        console.log("🛑 VAD paused");
+      } catch (error) {
+        console.warn("⚠️ Error pausing VAD:", error);
+      }
+    }
+
+    // Clear VAD state
+    isUserSpeakingVAD = false;
+    vadSpeechStartTime = null;
+    vadSpeechEndTime = null;
+    vadAudioBuffer = [];
+
+    if (vadSilenceTimeout) {
+      clearTimeout(vadSilenceTimeout);
+      vadSilenceTimeout = null;
+    }
+  }
+
+  // Destroy VAD instance
+  function destroyVAD() {
+    stopVAD();
+    if (micVAD) {
+      try {
+        micVAD.destroy();
+        console.log("🗑️ VAD destroyed");
+      } catch (error) {
+        console.warn("⚠️ Error destroying VAD:", error);
+      }
+      micVAD = null;
+    }
+  }
+
+  // Check if user is currently speaking (VAD-based)
+  function isUserSpeaking() {
+    if (micVAD && vadEnabled) {
+      return isUserSpeakingVAD;
+    }
+    // Fallback to latency metrics if VAD not available
+    return latencyMetrics.isSpeaking;
   }
 
   function makeDraggable(element) {
@@ -1098,9 +1263,12 @@
             <option value="tr">🇹🇷 Turkish</option>
           </select>
         </div>
-        <div id="landing-action-area">
-          <!-- This will be populated based on agent status -->
-        </div>
+        <button class="start-call-btn mx-auto mb-4" id="start-call-btn">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path>
+          </svg>
+          Start Call
+        </button>
         <div class="privacy-text">By using this service you agree to our <span class="privacy-link">T&C</span></div>
       </div>
       <div class="widget-footer" style="padding: 0; margin: 0; background-color: #f9fafb;">
@@ -1183,15 +1351,15 @@
         <div class="input-field-container" style="flex: 1 !important; position: relative !important; display: flex !important; align-items: center !important; background: white !important; border-radius: 8px !important; border: 1px solid #e1e5ea !important; padding: 8px 16px !important; min-height: 30px  !important; max-height: 120px !important; height:36px !important;  ">
            <div>
 
-        <button id="shivai-attach-btn" class="attach-btn" title="Coming soon..." style="  color: #ccc !important; cursor: not-allowed !important; margin-right: 12px !important; background: transparent !important; border: none !important; display: flex !important; align-items: center !important; justify-content: center !important; padding: 0 !important; opacity: 0.5 !important;" disabled>
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <button id="shivai-attach-btn" class="attach-btn" title="Attach files" style="color: #54656f !important; cursor: pointer !important; margin-right: 8px !important; background: transparent !important; border: none !important; display: flex !important; align-items: center !important; justify-content: center !important; padding: 4px !important; border-radius: 50% !important; transition: all 0.2s ease !important;">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"></path>
           </svg>
         </button>
         
         <!-- Hidden file inputs -->
-        <input type="file" id="shivai-file-input" accept="image/*,video/*,.pdf,.doc,.docx,.txt" style="display: none !important;" multiple>
-        <input type="file" id="shivai-image-input" accept="image/*" style="display: none !important;" multiple>
+        <input type="file" id="shivai-file-input" accept=".pdf,.doc,.docx,.txt,.xls,.xlsx,.ppt,.pptx,.csv,.json,.xml,.zip,.rar" style="display: none !important;" multiple>
+        <input type="file" id="shivai-image-input" accept="image/*,video/*" style="display: none !important;" multiple>
         
         </div>
 
@@ -1209,31 +1377,37 @@
         
       </div>
       
-      <!-- Simplified Attachment Menu Popup -->
-      <div id="shivai-attachment-menu" class="attachment-menu" style="position: absolute !important; bottom: 70px !important; left: 16px !important; background: white !important; border-radius: 12px !important; box-shadow: 0 4px 12px rgba(0,0,0,0.15) !important; padding: 8px !important; display: none !important; z-index: 1000 !important; min-width: 180px !important;">
+      <!-- Compact Attachment Menu Popup -->
+      <div id="shivai-attachment-menu" class="attachment-menu" style="position: absolute !important; bottom: 60px !important; left: 12px !important; background: #ffffff !important; border-radius: 12px !important; box-shadow: 0 2px 12px rgba(0,0,0,0.15) !important; padding: 6px !important; display: none !important; z-index: 1000 !important; min-width: 170px !important; animation: slideUp 0.2s ease !important;">
         
-        <div class="attachment-option" id="shivai-attach-image" style="display: flex !important; align-items: center !important; padding: 12px !important; cursor: pointer !important; border-radius: 8px !important; transition: background 0.2s ease !important;">
-          <div style="width: 36px !important; height: 36px !important; border-radius: 50% !important; background: #7c3aed !important; display: flex !important; align-items: center !important; justify-content: center !important; margin-right: 12px !important;">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="white" stroke="white" stroke-width="2">
+        <!-- Photos & Videos option disabled -->
+        <div class="attachment-option" id="shivai-attach-image" style="display: flex !important; align-items: center !important; padding: 8px 10px !important; cursor: not-allowed !important; border-radius: 8px !important; margin-bottom: 2px !important; opacity: 0.5 !important; pointer-events: none !important;">
+          <div style="width: 32px !important; height: 32px !important; border-radius: 50% !important; background: #d1d5db !important; display: flex !important; align-items: center !important; justify-content: center !important; margin-right: 10px !important;">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" stroke-width="2">
               <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
               <circle cx="9" cy="9" r="2"></circle>
               <path d="M21 15l-3.086-3.086a2 2 0 0 0-2.828 0L6 21"></path>
             </svg>
           </div>
-          <span style="font-size: 14px !important; color: #111b21 !important; font-weight: 500 !important;">Photos & Videos</span>
+          <div>
+            <span style="font-size: 13px !important; color: #9ca3af !important; font-weight: 500 !important; display: block !important; line-height: 1.2 !important;">Photos & Videos</span>
+            <span style="font-size: 11px !important; color: #d1d5db !important;">Coming soon</span>
+          </div>
         </div>
         
-        <div class="attachment-option" id="shivai-attach-document" style="display: flex !important; align-items: center !important; padding: 12px !important; cursor: pointer !important; border-radius: 8px !important; transition: background 0.2s ease !important;">
-          <div style="width: 36px !important; height: 36px !important; border-radius: 50% !important; background: #0ea5e9 !important; display: flex !important; align-items: center !important; justify-content: center !important; margin-right: 12px !important;">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="white" stroke="white" stroke-width="2">
+        <div class="attachment-option" id="shivai-attach-document" style="display: flex !important; align-items: center !important; padding: 8px 10px !important; cursor: pointer !important; border-radius: 8px !important; transition: background 0.15s ease !important; margin-bottom: 0 !important;" onmouseover="this.style.background='#f0f2f5'" onmouseout="this.style.background='transparent'">
+          <div style="width: 32px !important; height: 32px !important; border-radius: 50% !important; background: linear-gradient(135deg, #5b5fc7 0%, #3b82f6 100%) !important; display: flex !important; align-items: center !important; justify-content: center !important; margin-right: 10px !important;">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2">
               <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
               <polyline points="14,2 14,8 20,8"></polyline>
               <line x1="16" y1="13" x2="8" y2="13"></line>
               <line x1="16" y1="17" x2="8" y2="17"></line>
-              <polyline points="10,9 9,9 8,9"></polyline>
             </svg>
           </div>
-          <span style="font-size: 14px !important; color: #111b21 !important; font-weight: 500 !important;">Documents</span>
+          <div>
+            <span style="font-size: 13px !important; color: #111b21 !important; font-weight: 500 !important; display: block !important; line-height: 1.2 !important;">Documents</span>
+            <span style="font-size: 11px !important; color: #8696a0 !important;">PDF, DOC, XLS, etc.</span>
+          </div>
         </div>
         
       </div>
@@ -1303,63 +1477,7 @@
     }, 100);
 
     setDefaultLanguage();
-    updateLandingViewBasedOnStatus();
   }
-  function updateLandingViewBasedOnStatus() {
-    const actionArea = document.getElementById('landing-action-area');
-    const privacyText = document.querySelector('.privacy-text');
-    if (!actionArea) return;
-    
-    if (agentStatus.active) {
-      // Show normal Start Call button
-      actionArea.innerHTML = `
-        <button class="start-call-btn mx-auto mb-4" id="start-call-btn">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path>
-          </svg>
-          Start Call
-        </button>
-      `;
-      
-      // Show privacy text
-      if (privacyText) {
-        privacyText.style.display = 'block';
-      }
-      
-      // Re-attach event listener for Start Call button
-      const startCallBtn = document.getElementById('start-call-btn');
-      if (startCallBtn) {
-        startCallBtn.addEventListener('click', () => {
-          switchToCallView();
-        });
-      }
-    } else {
-      // Show inactive/maintenance message
-      actionArea.innerHTML = `
-        <div class="agent-inactive-message" style="
-          background: #f3f4f6;
-          border: 1px solid #fecaca;
-          border-radius: 8px;
-          padding: 12px 16px;
-          margin: 12px 0;
-          text-align: center;
-        ">
-          <div style="font-size: 14px; font-weight: 600; color: #374151; margin-bottom: 4px;">
-            Our AI Employee is currently offline.
-          </div>
-          <div style="font-size: 13px; color: #6b7280; line-height: 1.4;">
-            We're getting things ready and will be back shortly to assist you.
-          </div>
-        </div>
-      `;
-      
-      // Hide privacy text when agent is not active
-      if (privacyText) {
-        privacyText.style.display = 'none';
-      }
-    }
-  }
-  
   function setDefaultLanguage() {
     const languageMap = {
       ar: "ar",
@@ -2762,8 +2880,12 @@
       }
       
       .shivai-widget .attach-btn:hover {
-        background: #008069 !important;
-        transform: scale(1.05) !important;
+        background: rgba(0, 0, 0, 0.05) !important;
+        color: #00a884 !important;
+      }
+      
+      .shivai-widget .attach-btn:active {
+        transform: scale(0.95) !important;
       }
 
       .shivai-widget .send-btn:hover {
@@ -2783,6 +2905,28 @@
       .shivai-widget .message-input::placeholder {
         color: #8696a0 !important;
         font-size: 12px !important;
+      }
+
+      /* File upload preview styles */
+      .shivai-widget .message-file {
+        margin-top: 4px;
+      }
+      
+      .shivai-widget .message-file .file-upload-preview {
+        box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+        transition: all 0.2s ease;
+      }
+      
+      .shivai-widget .message-file .file-upload-preview:hover {
+        box-shadow: 0 2px 8px rgba(0,0,0,0.12);
+      }
+      
+      .shivai-widget .message-file img {
+        border-radius: 8px 8px 0 0;
+      }
+      
+      .shivai-widget .message-file video {
+        border-radius: 8px 8px 0 0;
       }
 
       .shivai-widget .attachment-menu {
@@ -2846,6 +2990,12 @@
         width: 16px;
         height: 16px;
       }
+      
+      /* Upload spinner animation */
+      @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+      }
     `;
     const styleSheet = document.createElement("style");
     styleSheet.textContent = styles;
@@ -2857,9 +3007,20 @@
     closeButtons.forEach((btn) => {
       btn.addEventListener("click", closeWidget);
     });
-    
-    // Start Call button listener will be added dynamically in updateLandingViewBasedOnStatus
-    
+    const startCallBtn = document.getElementById("start-call-btn");
+    if (startCallBtn) {
+      startCallBtn.addEventListener("click", async (e) => {
+        e.preventDefault();
+        const landingLanguageSelect = document.getElementById(
+          "shivai-language-landing"
+        );
+        if (landingLanguageSelect && languageSelect) {
+          languageSelect.value = landingLanguageSelect.value;
+        }
+        switchToCallView();
+        await handleConnectClick(e);
+      });
+    }
     const backBtn = document.getElementById("back-btn");
     if (backBtn) {
       backBtn.addEventListener("click", switchToLandingView);
@@ -2992,53 +3153,302 @@
     }
   }
 
-  // Handle file uploads (images and documents)
-  function handleFileUpload(files, type) {
+  // File upload validation constants
+  const MAX_FILE_SIZE = 25 * 1024 * 1024; // 25MB
+  const MAX_TEXT_LENGTH = 100000; // 100k characters
+  const SUPPORTED_EXT = ['.pdf', '.docx', '.doc', '.txt', '.md', '.csv'];
+
+  // Handle file uploads (documents only - images in development)
+  async function handleFileUpload(files, type) {
     if (!files || files.length === 0) return;
 
-    files.forEach((file) => {
-      const maxSize = 10 * 1024 * 1024; // 10MB limit
-
-      if (file.size > maxSize) {
-        alert(`File "${file.name}" is too large. Maximum size is 10MB.`);
-        return;
+    for (const file of Array.from(files)) {
+      // Check if file is image or video and reject it
+      const isImageOrVideo = file.type.startsWith('image/') || file.type.startsWith('video/');
+      
+      if (isImageOrVideo) {
+        addMessage(
+          "system",
+          "📸 Image and video uploads are currently disabled. Please upload documents (.pdf, .docx, .doc, .txt, .md, .csv) only."
+        );
+        continue;
       }
 
-      // Create preview for images
-      if (type === "image" && file.type.startsWith("image/")) {
-        const reader = new FileReader();
-        reader.onload = function (e) {
-          const imagePreview = `
-            <div style="margin: 8px 0; max-width: 200px;">
-              <img src="${e.target.result}" alt="${file.name}" style="max-width: 100%; height: auto; border-radius: 8px; cursor: pointer;" onclick="window.open('${e.target.result}', '_blank')">
-              <p style="font-size: 12px; color: #8696a0; margin: 4px 0;">${file.name} (${(file.size / 1024).toFixed(1)} KB)</p>
+      // Validate file size (25MB max for documents)
+      if (file.size > MAX_FILE_SIZE) {
+        addMessage(
+          "system",
+          `❌ File "${file.name}" is too large. Maximum size is 25MB.`
+        );
+        continue;
+      }
+
+      // Validate file extension
+      const fileExt = '.' + file.name.toLowerCase().split('.').pop();
+      if (!SUPPORTED_EXT.includes(fileExt)) {
+        addMessage(
+          "system",
+          `❌ File type "${fileExt}" is not supported. Please upload: ${SUPPORTED_EXT.join(', ')}`
+        );
+        continue;
+      }
+
+      console.log(
+        `📎 Uploading file: ${file.name} (${file.type}) - ${(file.size / 1024).toFixed(1)} KB`
+      );
+
+      try {
+        const fileIcon = getFileIcon(file.type);
+
+        const fileColor = getFileColor(file.type);
+
+        const filePreviewId = `file-preview-${Date.now()}`;
+        const fileMessage = `
+            <div id="${filePreviewId}" class="file-upload-preview" style="display: flex; align-items: center; padding: 12px 14px; background: ${fileColor.bg}; border: 1px solid #e5e7eb; border-radius: 12px; margin: 4px 0; max-width: 280px; cursor: pointer; transition: all 0.2s ease;" onmouseover="this.style.transform='scale(1.02)'; this.style.boxShadow='0 2px 8px rgba(0,0,0,0.08)'" onmouseout="this.style.transform='scale(1)'; this.style.boxShadow='none'">
+              <div style="width: 40px; height: 40px; border-radius: 8px; background: ${fileColor.icon}; border: 1px solid ${fileColor.iconBorder}; display: flex; align-items: center; justify-content: center; margin-right: 12px; flex-shrink: 0;">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="${fileColor.iconText}" stroke-width="2">
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                  <polyline points="14 2 14 8 20 8"></polyline>
+                  <line x1="16" y1="13" x2="8" y2="13"></line>
+                  <line x1="16" y1="17" x2="8" y2="17"></line>
+                </svg>
+              </div>
+              <div style="flex: 1; min-width: 0;">
+                <div style="font-weight: 600; color: #111b21; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${file.name}</div>
+                <div class="upload-status" style="font-size: 12px; color: #667781; margin-top: 2px;">
+                  <span class="upload-spinner" style="display: inline-block; width: 12px; height: 12px; border: 2px solid #e5e7eb; border-top-color: #3b82f6; border-radius: 50%; animation: spin 0.6s linear infinite; margin-right: 4px;"></span>
+                  Uploading...
+                </div>
+              </div>
             </div>
           `;
-          addMessage("user", imagePreview, "image");
-        };
-        reader.readAsDataURL(file);
-      } else {
-        // Handle documents and other files
-        const fileIcon = getFileIcon(file.type);
-        const fileMessage = `
-          <div style="display: flex; align-items: center; padding: 12px; border: 1px solid #e1e5ea; border-radius: 8px; background: #f8f9fa; margin: 8px 0; max-width: 300px;">
-            <div style="margin-right: 12px; font-size: 24px;">${fileIcon}</div>
-            <div style="flex: 1;">
-              <div style="font-weight: 500; color: #111b21; font-size: 14px;">${file.name}</div>
-              <div style="font-size: 12px; color: #8696a0;">${(file.size / 1024).toFixed(1)} KB • ${file.type || "Unknown type"}</div>
-            </div>
-          </div>
-        `;
-        addMessage("user", fileMessage, "document");
-      }
-    });
 
-    // Clear the file input
-    if (type === "image") {
-      document.getElementById("shivai-image-input").value = "";
-    } else {
-      document.getElementById("shivai-file-input").value = "";
+        addMessage("user", fileMessage, { isFile: true });
+        await new Promise(resolve => setTimeout(resolve, 50));
+        const success = await sendFileToAI(file, filePreviewId);
+        const previewEl = document.getElementById(filePreviewId);
+        if (previewEl) {
+          const statusEl = previewEl.querySelector('.upload-status');
+          if (statusEl) {
+            if (success) {
+              statusEl.innerHTML = `${formatFileSize(file.size)} • ${getFileTypeName(file.type)} • <span style="color: #10b981;">✓ Sent</span>`;
+            } else {
+              statusEl.innerHTML = `${formatFileSize(file.size)} • ${getFileTypeName(file.type)} • <span style="color: #ef4444;">✗ Failed</span>`;
+            }
+          }
+        }
+      } catch (error) {
+        console.error("❌ Error handling file upload:", error);
+        addMessage("system", `❌ Failed to upload: ${file.name}`);
+      }
     }
+
+    // Clear the file inputs
+    const fileInput = document.getElementById("shivai-file-input");
+    const imageInput = document.getElementById("shivai-image-input");
+    const cameraInput = document.getElementById("shivai-camera-input");
+    if (fileInput) fileInput.value = "";
+    if (imageInput) imageInput.value = "";
+    if (cameraInput) cameraInput.value = "";
+  }
+
+  // Send file to AI via LiveKit data channel with chunking (LiveKit limit: 64KB)
+  async function sendFileToAI(file, previewId) {
+    if (!room || !isConnected) {
+      console.warn("⚠️ Cannot send file - not connected to room");
+      addMessage("system", "⚠️ Please start a call first to send files.");
+      return false;
+    }
+
+    const CHUNK_SIZE = 45000; // 45KB per chunk (safe limit for base64 + JSON)
+    const encoder = new TextEncoder();
+
+    try {
+      // Read file as ArrayBuffer
+      const fileBuffer = await file.arrayBuffer();
+      const fileId = Date.now().toString();
+      
+      // Calculate total chunks
+      const totalChunks = Math.ceil(fileBuffer.byteLength / CHUNK_SIZE);
+      
+      console.log(`📤 Sending file in ${totalChunks} chunks: ${file.name} (${formatFileSize(file.size)})`);
+
+      // 1. Send file_start
+      await room.localParticipant.publishData(
+        encoder.encode(JSON.stringify({
+          type: 'file_start',
+          fileId: fileId,
+          filename: file.name,
+          totalChunks: totalChunks,
+          totalSize: fileBuffer.byteLength
+        })),
+        { reliable: true }
+      );
+      
+      console.log(`✅ Sent file_start for ${file.name}`);
+
+      // 2. Send chunks
+      for (let i = 0; i < totalChunks; i++) {
+        const start = i * CHUNK_SIZE;
+        const end = Math.min(start + CHUNK_SIZE, fileBuffer.byteLength);
+        const chunk = fileBuffer.slice(start, end);
+        const base64Chunk = btoa(String.fromCharCode(...new Uint8Array(chunk)));
+        
+        await room.localParticipant.publishData(
+          encoder.encode(JSON.stringify({
+            type: 'file_chunk',
+            fileId: fileId,
+            chunkIndex: i,
+            data: base64Chunk
+          })),
+          { reliable: true }
+        );
+        
+        // Update progress in UI
+        const progress = Math.round(((i + 1) / totalChunks) * 100);
+        updateUploadProgress(previewId, progress, i + 1, totalChunks);
+        
+        console.log(`📦 Sent chunk ${i + 1}/${totalChunks} (${progress}%)`);
+        
+        // Small delay to prevent overwhelming the channel
+        await new Promise(r => setTimeout(r, 30));
+      }
+
+      // 3. Send file_end
+      await room.localParticipant.publishData(
+        encoder.encode(JSON.stringify({
+          type: 'file_end',
+          fileId: fileId
+        })),
+        { reliable: true }
+      );
+      
+      console.log(`✅ File upload complete: ${file.name}`);
+      return true;
+      
+    } catch (error) {
+      console.error("❌ Error sending file to AI:", error);
+      addMessage("system", `❌ Failed to send file: ${error.message}`);
+      return false;
+    }
+  }
+
+  // Update upload progress in the UI
+  function updateUploadProgress(previewId, progress, currentChunk, totalChunks) {
+    if (!previewId) return;
+    
+    const previewEl = document.getElementById(previewId);
+    if (previewEl) {
+      const statusEl = previewEl.querySelector('.upload-status');
+      if (statusEl) {
+        statusEl.innerHTML = `
+          <span class="upload-spinner" style="display: inline-block; width: 12px; height: 12px; border: 2px solid #e5e7eb; border-top-color: #3b82f6; border-radius: 50%; animation: spin 0.6s linear infinite; margin-right: 4px;"></span>
+          Uploading... ${progress}% (${currentChunk}/${totalChunks})
+        `;
+      }
+    }
+  }
+
+  // Helper function to convert ArrayBuffer to base64
+  function arrayBufferToBase64(buffer) {
+    let binary = '';
+    const bytes = new Uint8Array(buffer);
+    const len = bytes.byteLength;
+    for (let i = 0; i < len; i++) {
+      binary += String.fromCharCode(bytes[i]);
+    }
+    return btoa(binary);
+  }
+
+  // Get file color scheme based on type
+  function getFileColor(fileType) {
+    if (fileType.includes("pdf")) {
+      return {
+        bg: "#ffffff",
+        bgEnd: "#f9fafb",
+        icon: "#ffffff",
+        iconBorder: "#e5e7eb",
+        iconText: "#ef4444",
+      };
+    }
+    if (fileType.includes("word") || fileType.includes("document")) {
+      return {
+        bg: "#ffffff",
+        bgEnd: "#f9fafb",
+        icon: "#ffffff",
+        iconBorder: "#e5e7eb",
+        iconText: "#3b82f6",
+      };
+    }
+    if (
+      fileType.includes("spreadsheet") ||
+      fileType.includes("excel") ||
+      fileType.includes("csv")
+    ) {
+      return {
+        bg: "#ffffff",
+        bgEnd: "#f9fafb",
+        icon: "#ffffff",
+        iconBorder: "#e5e7eb",
+        iconText: "#22c55e",
+      };
+    }
+    if (fileType.includes("presentation") || fileType.includes("powerpoint")) {
+      return {
+        bg: "#ffffff",
+        bgEnd: "#f9fafb",
+        icon: "#ffffff",
+        iconBorder: "#e5e7eb",
+        iconText: "#f59e0b",
+      };
+    }
+    if (
+      fileType.includes("zip") ||
+      fileType.includes("rar") ||
+      fileType.includes("archive")
+    ) {
+      return {
+        bg: "#ffffff",
+        bgEnd: "#f9fafb",
+        icon: "#ffffff",
+        iconBorder: "#e5e7eb",
+        iconText: "#8b5cf6",
+      };
+    }
+    return {
+      bg: "#ffffff",
+      bgEnd: "#f9fafb",
+      icon: "#ffffff",
+      iconBorder: "#e5e7eb",
+      iconText: "#6b7280",
+    };
+  }
+
+  // Format file size
+  function formatFileSize(bytes) {
+    if (bytes < 1024) return bytes + " B";
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + " KB";
+    return (bytes / (1024 * 1024)).toFixed(1) + " MB";
+  }
+
+  // Get human-readable file type name
+  function getFileTypeName(fileType) {
+    if (fileType.includes("pdf")) return "PDF";
+    if (fileType.includes("word") || fileType.includes("document"))
+      return "Word";
+    if (fileType.includes("spreadsheet") || fileType.includes("excel"))
+      return "Excel";
+    if (fileType.includes("csv")) return "CSV";
+    if (fileType.includes("presentation") || fileType.includes("powerpoint"))
+      return "PowerPoint";
+    if (fileType.includes("text")) return "Text";
+    if (fileType.includes("json")) return "JSON";
+    if (fileType.includes("xml")) return "XML";
+    if (fileType.includes("zip")) return "ZIP";
+    if (fileType.includes("rar")) return "RAR";
+    if (fileType.includes("image")) return "Image";
+    if (fileType.includes("video")) return "Video";
+    return "File";
   }
 
   // Get appropriate icon for file type
@@ -3402,6 +3812,17 @@
     }
   }
   function handleMuteClick(e) {
+    // Pause/resume VAD based on mute state
+    if (!isMuted && micVAD) {
+      // About to mute - pause VAD
+      stopVAD();
+      console.log("🔇 VAD paused (microphone muted)");
+    } else if (isMuted && micVAD) {
+      // About to unmute - resume VAD
+      startVAD();
+      console.log("🎙️ VAD resumed (microphone unmuted)");
+    }
+
     e.stopPropagation();
     if (!isConnected || !room) return;
 
@@ -3499,51 +3920,6 @@
       "0"
     )}:${String(seconds).padStart(2, "0")}`;
   }
-  
-  // Check if agent is active before starting conversation
-  async function checkAgentStatus() {
-    try {
-      // Extract agent ID from widget configuration or use default
-      const agentId = '6937bff1222bfd06ebdf0194'; // Replace with your agent ID or make it configurable
-      
-      console.log('🔍 Checking agent status for ID:', agentId);
-      
-      const response = await fetch(`https://nodejs.service.callshivai.com/api/v1/agents/${agentId}`, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json'
-        }
-      });
-      
-      if (!response.ok) {
-        console.error('❌ Failed to fetch agent status:', response.status);
-        return { active: false, message: 'AI employee is not active yet. Please try again later.' };
-      }
-      
-      const data = await response.json();
-      console.log('📊 Agent status response:', data);
-      
-      // Check if agent is active
-      if (data.is_active === false) {
-        console.warn('⚠️ Agent is not active');
-        return { 
-          active: false, 
-          message: 'AI Employee is not active yet or under maintenance. Please check back later.' 
-        };
-      }
-      
-      console.log('✅ Agent is active and ready');
-      return { active: true };
-      
-    } catch (error) {
-      console.error('❌ Error checking agent status:', error);
-      return { 
-        active: false, 
-        message: 'Unable to connect to AI Employee. Please try again later.' 
-      };
-    }
-  }
-  
   async function showProgressiveConnectionStates() {
     const wasWarmedUp = false;
     const hasPreloadedAudio = audioContext !== null;
@@ -3597,10 +3973,11 @@
       }
     }
   }
-  function addMessage(role, text) {
+  function addMessage(role, text, options = {}) {
     console.log("🔍 addMessage called:", {
       role,
       text,
+      options,
       caller: new Error().stack.split("\n")[2],
     });
 
@@ -3618,11 +3995,114 @@
     const labelDiv = document.createElement("div");
     labelDiv.className = "message-label";
     labelDiv.textContent = role === "user" ? "You" : "AI Employee";
-    const textDiv = document.createElement("div");
-    textDiv.className = "message-text";
-    textDiv.textContent = text;
-    messageDiv.appendChild(labelDiv);
-    messageDiv.appendChild(textDiv);
+
+    // Handle document/link messages
+    if (options.type === "document" || options.isLink) {
+      const docDiv = document.createElement("div");
+      docDiv.className = "message-document";
+      docDiv.style.cssText = `
+        background: #f0f0f0;
+        border-radius: 8px;
+        padding: 12px;
+        margin-top: 8px;
+        cursor: pointer;
+        transition: all 0.2s;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        max-width: 280px;
+        border: 1px solid #d1d5db;
+      `;
+      docDiv.onmouseover = () => {
+        docDiv.style.background = "#e8e8e8";
+      };
+      docDiv.onmouseout = () => {
+        docDiv.style.background = "#f0f0f0";
+      };
+
+      // Extract filename and get file extension
+      let filename = options.title || "Document";
+      let fileExtension = "";
+      if (options.url) {
+        const urlObj = new URL(options.url);
+        const pathname = urlObj.pathname;
+        filename =
+          pathname.substring(pathname.lastIndexOf("/") + 1) || filename;
+        filename = decodeURIComponent(filename);
+        fileExtension = filename
+          .substring(filename.lastIndexOf(".") + 1)
+          .toUpperCase();
+      }
+
+      // Content container
+      const contentDiv = document.createElement("div");
+      contentDiv.style.cssText = "color: #222; flex: 1; min-width: 0;";
+
+      const filenameDiv = document.createElement("div");
+      filenameDiv.style.cssText =
+        "font-weight: 600; font-size: 13px; word-break: break-word; line-height: 1.3;";
+      filenameDiv.textContent = filename;
+
+      contentDiv.appendChild(filenameDiv);
+
+      // File icon
+      const iconDiv = document.createElement("div");
+      iconDiv.style.cssText = "font-size: 24px; flex-shrink: 0;";
+      iconDiv.textContent = "📄";
+
+      // View button
+      const viewBtn = document.createElement("button");
+      viewBtn.style.cssText = `
+        background: white;
+        border: 1px solid #d1d5db;
+        color: #1f2937;
+        padding: 6px 12px;
+        border-radius: 6px;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 12px;
+        font-weight: 500;
+        transition: all 0.2s;
+        flex-shrink: 0;
+      `;
+      viewBtn.textContent = "View";
+      viewBtn.title = "View";
+      viewBtn.onmouseover = () => {
+        viewBtn.style.background = "#f3f4f6";
+        viewBtn.style.borderColor = "#9ca3af";
+      };
+      viewBtn.onmouseout = () => {
+        viewBtn.style.background = "white";
+        viewBtn.style.borderColor = "#d1d5db";
+      };
+      viewBtn.onclick = (e) => {
+        e.stopPropagation();
+        window.open(options.url || text, "_blank");
+      };
+
+      docDiv.appendChild(iconDiv);
+      docDiv.appendChild(contentDiv);
+      docDiv.appendChild(viewBtn);
+
+      messageDiv.appendChild(labelDiv);
+      messageDiv.appendChild(docDiv);
+    } else if (options.isFile) {
+      // Handle file upload previews (render HTML)
+      const fileDiv = document.createElement("div");
+      fileDiv.className = "message-file";
+      fileDiv.innerHTML = text;
+      messageDiv.appendChild(labelDiv);
+      messageDiv.appendChild(fileDiv);
+    } else {
+      const textDiv = document.createElement("div");
+      textDiv.className = "message-text";
+      textDiv.textContent = text;
+      messageDiv.appendChild(labelDiv);
+      messageDiv.appendChild(textDiv);
+    }
+
     messagesDiv.appendChild(messageDiv);
     messagesDiv.scrollTop = messagesDiv.scrollHeight;
     if (clearBtn) {
@@ -3725,6 +4205,18 @@
     }
   }
 
+  /**
+   * ✅ MICROPHONE PERMISSION FLOW (CRITICAL)
+   * 
+   * Rules:
+   * 1. NEVER auto-request microphone
+   * 2. Only request when user EXPLICITLY clicks "Start Call" button
+   * 3. Check permission state FIRST - STOP if denied
+   * 4. NEVER retry if permission is denied
+   * 5. Show clear instructions if denied
+   * 
+   * This function is ONLY called from handleConnectClick() when user clicks the button.
+   */
   async function startConversation() {
     try {
       // Check if connection was cancelled before starting
@@ -3733,45 +4225,46 @@
         return;
       }
 
-      // 🎤 Request microphone permission FIRST before anything else
-      console.log("🎤 Requesting microphone permission...");
+      // ✅ CRITICAL: Check permission state FIRST - never auto-request
+      console.log("🔍 Checking microphone permission state...");
       console.log("📍 Browser:", navigator.userAgent);
       console.log("📍 Secure context:", window.isSecureContext);
       console.log("📍 MediaDevices available:", !!navigator.mediaDevices);
-      console.log(
-        "📍 getUserMedia available:",
-        !!navigator.mediaDevices?.getUserMedia
-      );
 
       // Check if we're in a secure context (HTTPS)
       if (!window.isSecureContext) {
         console.error(
           "❌ Not in secure context - HTTPS required for microphone access"
         );
+        updateStatus("❌ HTTPS required", "disconnected");
         alert(
-          "Microphone access requires HTTPS. Please access this page using HTTPS."
+          "🔒 Microphone access requires HTTPS.\n\nPlease access this page using a secure HTTPS connection."
         );
+        isConnecting = false;
+        connectBtn.disabled = false;
         return;
       }
 
       // Check if mediaDevices API is available
       if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
         console.error("❌ MediaDevices API not available");
+        updateStatus("❌ Browser not supported", "disconnected");
         alert(
-          "Microphone API is not available in your browser. Please use a modern browser with HTTPS."
+          "❌ Microphone API not available.\n\nPlease use a modern browser (Chrome, Firefox, Safari, Edge)."
         );
+        isConnecting = false;
+        connectBtn.disabled = false;
         return;
       }
 
-      // Check current permission state first
+      // ✅ CRITICAL: Check permission state - STOP if denied
+      let permissionState = "prompt";
       try {
         const permissionStatus = await navigator.permissions.query({
           name: "microphone",
         });
-        console.log(
-          "📍 Current microphone permission state:",
-          permissionStatus.state
-        );
+        permissionState = permissionStatus.state;
+        console.log("📍 Microphone permission state:", permissionState);
 
         // Check if connection was cancelled during permission check
         if (!isConnecting) {
@@ -3779,86 +4272,107 @@
           return;
         }
 
-        if (permissionStatus.state === "denied") {
+        // ✅ CRITICAL: If DENIED, STOP immediately - never retry
+        if (permissionState === "denied") {
+          console.error("❌ Microphone permission DENIED - stopping");
+          updateStatus("❌ Microphone blocked", "disconnected");
+          
+          // Show detailed instructions - DO NOT retry
           alert(
-            "Microphone access was previously denied. Please click the microphone icon in your browser's address bar to reset permissions, then try again."
+            "🎤 Microphone Access Blocked\n\n" +
+            "To enable microphone:\n\n" +
+            "Chrome/Edge:\n" +
+            "1. Click the 🔒 lock icon in the address bar\n" +
+            "2. Find 'Microphone' and select 'Allow'\n" +
+            "3. Refresh the page\n\n" +
+            "Firefox:\n" +
+            "1. Click the 🔒 icon in the address bar\n" +
+            "2. Click the arrow next to 'Blocked Temporarily'\n" +
+            "3. Select 'Allow'\n\n" +
+            "Safari:\n" +
+            "1. Go to Safari → Settings → Websites → Microphone\n" +
+            "2. Find this website and select 'Allow'\n" +
+            "3. Refresh the page"
           );
+          
+          // Reset connection state - DO NOT proceed
+          isConnecting = false;
+          connectBtn.disabled = false;
+          connectBtn.innerHTML =
+            '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path></svg>';
+          connectBtn.classList.remove("connected");
           return;
         }
       } catch (permError) {
-        console.warn("⚠️ Could not check permission state:", permError);
+        console.warn("⚠️ Could not query permission state:", permError);
+        // Continue - some browsers don't support permissions API
       }
 
-      // Show status to user that permission is being requested
-      updateStatus("🎤 Please allow microphone access...", "connecting");
+      // ✅ Show status - requesting permission
+      updateStatus("🎤 Requesting microphone...", "connecting");
 
-      // Check if connection was cancelled before requesting mic access
+      // Check if connection was cancelled
       if (!isConnecting) {
         console.log("❌ Connection cancelled before requesting microphone");
         return;
       }
 
+      // ✅ CRITICAL: ONE explicit request, ONCE, on user action
       try {
-        console.log("📍 About to request getUserMedia...");
+        console.log("🎤 Requesting getUserMedia (user clicked button)...");
         const stream = await navigator.mediaDevices.getUserMedia({
           audio: {
-            // Optimized for close voice and feedback prevention
             echoCancellation: true,
             noiseSuppression: true,
-            autoGainControl: false, // Disable AGC to prevent pumping
-
-            // High quality capture
+            autoGainControl: false,
             channelCount: 1,
             sampleRate: 48000,
             sampleSize: 16,
-
-            // Additional constraints for close proximity detection
-            volume: 0.6, // Reduced input level for close voices only
-            latency: 0.05, // Low latency
-            facingMode: "user", // Use front-facing mic
-
-            // Advanced constraints for sensitivity
-            googEchoCancellation: true, // Google-specific echo cancellation
-            googAutoGainControl: false, // Disable Google AGC
-            googNoiseSuppression: true, // Google noise suppression
-            googHighpassFilter: true, // Remove low-frequency noise
-            googAudioMirroring: false, // Disable audio mirroring
           },
         });
-        console.log("✅ Microphone permission granted");
-        console.log("📍 Stream tracks:", stream.getTracks().length);
-        updateStatus("✅ Microphone access granted", "connecting");
+        
+        console.log("✅ Microphone permission GRANTED");
+        updateStatus("✅ Microphone enabled", "connecting");
 
-        // Stop the stream immediately - LiveKit will create its own
+        // Stop the test stream immediately - LiveKit will create its own
         stream.getTracks().forEach((track) => track.stop());
+        
       } catch (micError) {
-        console.error("❌ Microphone permission denied:", micError);
-        console.error("📍 Error details:", {
-          name: micError.name,
-          message: micError.message,
-          stack: micError.stack,
-        });
-        updateStatus("❌ Microphone access denied", "disconnected");
+        console.error("❌ Microphone request failed:", micError);
+        updateStatus("❌ Microphone denied", "disconnected");
 
-        // More detailed error handling
+        // ✅ CRITICAL: Handle denial - DO NOT retry
         if (micError.name === "NotAllowedError") {
           alert(
-            "Microphone access was denied. Please click the microphone icon in your browser's address bar to allow access, then try again."
+            "🎤 Microphone Access Denied\n\n" +
+            "You clicked 'Block' or 'Deny'.\n\n" +
+            "To fix:\n" +
+            "1. Click the 🔒 lock icon in your browser's address bar\n" +
+            "2. Find 'Microphone' permission\n" +
+            "3. Change it to 'Allow'\n" +
+            "4. Refresh the page and try again"
           );
         } else if (micError.name === "NotFoundError") {
           alert(
-            "No microphone found. Please connect a microphone and try again."
-          );
-        } else if (micError.name === "NotSupportedError") {
-          alert(
-            "Microphone access is not supported by your browser. Please use a modern browser."
+            "❌ No Microphone Found\n\n" +
+            "Please:\n" +
+            "1. Connect a microphone to your device\n" +
+            "2. Check your system sound settings\n" +
+            "3. Try again"
           );
         } else {
           alert(
-            `Microphone access error: ${micError.message}. Please check your browser settings and try again.`
+            `❌ Microphone Error\n\n${micError.message}\n\nPlease check your browser settings.`
           );
         }
-        return; // Exit early if microphone permission denied
+        
+        // Reset state - DO NOT proceed
+        isConnecting = false;
+        connectBtn.disabled = false;
+        connectBtn.innerHTML =
+          '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path></svg>';
+        connectBtn.classList.remove("connected");
+        return;
       }
 
       // Check if connection was cancelled after microphone permission
@@ -3959,6 +4473,16 @@
         }
       }
 
+      // Load VAD libraries for noise filtering (non-blocking)
+      try {
+        updateStatus("Loading noise filter...", "connecting");
+        await loadVADLibraries();
+        console.log("✅ VAD libraries loaded");
+      } catch (vadError) {
+        console.warn("⚠️ VAD libraries failed to load - continuing without noise filter:", vadError);
+        // Continue without VAD - it's an optional enhancement
+      }
+
       updateStatus("Connecting...", "connecting");
 
       // Check if connection was cancelled before token request
@@ -3970,7 +4494,7 @@
       // Get LiveKit token from backend
       const callId = `call_${Date.now()}`;
       window.currentCallId = callId;
-
+      let clientIp = await getClientIP();
       const response = await fetch(
         "https://python.service.callshivai.com/token",
         {
@@ -3980,9 +4504,9 @@
             agent_id: "6937bff1222bfd06ebdf0194",
             language: selectedLanguage,
             call_id: callId,
-          device: deviceType,
+            device: deviceType,
             user_agent: navigator.userAgent,
-            ip: await getClientIP(),
+            ip: clientIp,
           }),
         }
       );
@@ -4207,6 +4731,19 @@
         // Stop connecting sound
         stopConnectingSound();
 
+        // Initialize and start VAD for noise filtering
+        try {
+          const vadInitialized = await initializeVAD();
+          if (vadInitialized) {
+            await startVAD();
+            console.log("🎙️ VAD noise filtering is now active");
+          } else {
+            console.log("⚠️ VAD not available - using standard audio detection");
+          }
+        } catch (vadError) {
+          console.warn("⚠️ VAD initialization failed - continuing without noise filter:", vadError);
+        }
+
         // Simplified flow - microphone stays enabled
         console.log(
           "✅ Connection established - microphone ready for conversation"
@@ -4318,6 +4855,26 @@
               try {
                 const jsonData = JSON.parse(text);
                 console.log("📋 Parsed JSON data:", jsonData);
+
+                // 🎯 Handle special message types (documents, links, etc.)
+                if (
+                  jsonData.type === "link" &&
+                  jsonData.url &&
+                  jsonData.title
+                ) {
+                  console.log("📨 Document/Link detected:", {
+                    title: jsonData.title,
+                    url: jsonData.url,
+                    timestamp: jsonData.timestamp,
+                  });
+                  addMessage("assistant", jsonData.url, {
+                    type: "document",
+                    isLink: true,
+                    url: jsonData.url,
+                    title: jsonData.title,
+                  });
+                  return;
+                }
 
                 // Look for ANY text field that might contain transcript
                 const possibleTextFields = [
@@ -4636,6 +5193,10 @@
 
     // Stop connecting sound immediately
     stopConnectingSound();
+
+    // Stop and destroy VAD
+    destroyVAD();
+    console.log("🛑 VAD stopped and destroyed");
 
     isConnected = false;
     isConnecting = false;
