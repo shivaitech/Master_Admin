@@ -37,6 +37,8 @@ import {
   Trash2,
   Download,
   Share2,
+  Copy,
+  Code,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import { shivaiApiService } from "../../../Redux-config/apisModel/apiService";
@@ -296,8 +298,11 @@ const AgentDetailsView = ({ agent, onBack, currentTheme }) => {
   };
 
   const handleDownloadRecording = async () => {
-    const recordingUrl = selectedSession?.recording?.url || selectedSession?.recordingUrl || selectedSession?.recording_url;
-    
+    const recordingUrl =
+      selectedSession?.recording?.url ||
+      selectedSession?.recordingUrl ||
+      selectedSession?.recording_url;
+
     if (!recordingUrl) {
       toast.error("No recording available to download");
       return;
@@ -305,11 +310,11 @@ const AgentDetailsView = ({ agent, onBack, currentTheme }) => {
 
     try {
       toast.loading("Downloading...", { id: "download-recording" });
-      
+
       const response = await fetch(recordingUrl);
       const blob = await response.blob();
       const url = window.URL.createObjectURL(blob);
-      
+
       const link = document.createElement("a");
       link.href = url;
       link.download = `recording_${selectedSession.sessionId || selectedSession.callId || selectedSession.id || "audio"}.mp3`;
@@ -317,7 +322,7 @@ const AgentDetailsView = ({ agent, onBack, currentTheme }) => {
       link.click();
       document.body.removeChild(link);
       window.URL.revokeObjectURL(url);
-      
+
       toast.success("Downloaded!", { id: "download-recording" });
     } catch (error) {
       console.error("Download error:", error);
@@ -326,8 +331,11 @@ const AgentDetailsView = ({ agent, onBack, currentTheme }) => {
   };
 
   const handleShareRecording = async () => {
-    const recordingUrl = selectedSession?.recording?.url || selectedSession?.recordingUrl || selectedSession?.recording_url;
-    
+    const recordingUrl =
+      selectedSession?.recording?.url ||
+      selectedSession?.recordingUrl ||
+      selectedSession?.recording_url;
+
     if (!recordingUrl) {
       toast.error("No recording available to share");
       return;
@@ -341,7 +349,11 @@ const AgentDetailsView = ({ agent, onBack, currentTheme }) => {
 
     try {
       // Check if Web Share API is supported
-      if (navigator.share && navigator.canShare && navigator.canShare(shareData)) {
+      if (
+        navigator.share &&
+        navigator.canShare &&
+        navigator.canShare(shareData)
+      ) {
         await navigator.share(shareData);
         toast.success("Shared successfully!");
       } else {
@@ -474,7 +486,9 @@ const AgentDetailsView = ({ agent, onBack, currentTheme }) => {
       </div>
 
       {/* Tab Navigation */}
-      <div className={`${currentTheme.cardBg} border ${currentTheme.border} rounded-lg shadow-lg`}>
+      <div
+        className={`${currentTheme.cardBg} border ${currentTheme.border} rounded-lg shadow-lg`}
+      >
         <div className="flex overflow-x-auto scrollbar-hide border-b border-gray-200 dark:border-gray-700">
           {tabs?.map((tab) => {
             const Icon = tab.icon;
@@ -484,7 +498,7 @@ const AgentDetailsView = ({ agent, onBack, currentTheme }) => {
                 onClick={() => setActiveTab(tab.id)}
                 className={`flex-shrink-0 px-4 py-3 border-b-2 transition-all duration-200 whitespace-nowrap ${
                   activeTab === tab.id
-                    ? 'border-blue-500 text-blue-600 dark:text-blue-400'
+                    ? "border-blue-500 text-blue-600 dark:text-blue-400"
                     : `border-transparent ${currentTheme.textSecondary} hover:${currentTheme.text} hover:border-gray-300 dark:hover:border-gray-600`
                 }`}
               >
@@ -497,8 +511,8 @@ const AgentDetailsView = ({ agent, onBack, currentTheme }) => {
           })}
         </div>
 
-      {/* Tab Content */}
-      {activeTab === "overview" && (
+        {/* Tab Content */}
+        {activeTab === "overview" && (
           <div className="space-y-4 md:space-y-6">
             <div
               className={`${currentTheme.cardBg}  p-4 md:p-6 border ${currentTheme.border} shadow-lg`}
@@ -565,6 +579,55 @@ const AgentDetailsView = ({ agent, onBack, currentTheme }) => {
                   ) : (
                     <p className={`${currentTheme.text} text-base`}>N/A</p>
                   )}
+                </div>
+
+                {/* Agent Embed Script Section */}
+                <div className="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
+                  <div className="flex items-center justify-between mb-3">
+                    <label
+                      className={`text-sm ${currentTheme.textSecondary} font-medium flex items-center gap-2`}
+                    >
+                      <Code className="w-4 h-4" />
+                      Agent Embed Script
+                    </label>
+                    <button
+                      onClick={() => {
+                        const agentId = agent?.id || agent?._id;
+                        const script = `<script src="https://callshivai.com/widget2.js?agentId=${agentId}"></script>`;
+                        navigator.clipboard.writeText(script);
+                        toast.success("Script copied to clipboard!");
+                      }}
+                      className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg ${currentTheme.searchBg} ${currentTheme.text} hover:bg-blue-500 hover:text-white transition-all duration-200`}
+                    >
+                      <Copy className="w-3.5 h-3.5" />
+                      Copy Script
+                    </button>
+                  </div>
+                  <p className={`text-xs ${currentTheme.textSecondary} mb-3`}>
+                    Add this script to your website to embed the AI agent
+                    widget. Place it before the closing{" "}
+                    <code className="px-1 py-0.5 bg-gray-100 dark:bg-gray-800 rounded text-xs">
+                      &lt;/body&gt;
+                    </code>{" "}
+                    tag.
+                  </p>
+                  <div
+                    className={`relative ${currentTheme.searchBg} rounded-lg p-4 border ${currentTheme.border} overflow-x-auto`}
+                  >
+                    <pre
+                      className={`text-xs sm:text-sm ${currentTheme.text} font-mono whitespace-pre-wrap break-all`}
+                    >
+                      <code>
+                        {`<script src="https://callshivai.com/widget2.js?agentId=${agent?.id || agent?._id || "YOUR_AGENT_ID"}"></script>`}
+                      </code>
+                    </pre>
+                  </div>
+                  <p className={`text-xs ${currentTheme.textSecondary} mt-2`}>
+                    Agent ID:{" "}
+                    <span className="font-mono font-medium">
+                      {agent?.id || agent?._id || "N/A"}
+                    </span>
+                  </p>
                 </div>
               </div>
             </div>
@@ -978,7 +1041,12 @@ const AgentDetailsView = ({ agent, onBack, currentTheme }) => {
                               onTimeUpdate={handleTimeUpdate}
                               onLoadedMetadata={handleLoadedMetadata}
                               onEnded={() => setIsPlaying(false)}
-                              src={selectedSession?.recording?.url || selectedSession?.recordingUrl || selectedSession?.recording_url || "#"}
+                              src={
+                                selectedSession?.recording?.url ||
+                                selectedSession?.recordingUrl ||
+                                selectedSession?.recording_url ||
+                                "#"
+                              }
                             />
 
                             {/* Progress bar */}
@@ -1085,10 +1153,16 @@ const AgentDetailsView = ({ agent, onBack, currentTheme }) => {
                                   onClick={handleDownloadRecording}
                                   className={`p-1 sm:p-1.5 hover:${currentTheme.searchBg} rounded transition-colors`}
                                   title="Download recording"
-                                  disabled={!(selectedSession?.recording?.url || selectedSession?.recordingUrl || selectedSession?.recording_url)}
+                                  disabled={
+                                    !(
+                                      selectedSession?.recording?.url ||
+                                      selectedSession?.recordingUrl ||
+                                      selectedSession?.recording_url
+                                    )
+                                  }
                                 >
                                   <Download
-                                    className={`w-3.5 h-3.5 sm:w-5 sm:h-5 ${(selectedSession?.recording?.url || selectedSession?.recordingUrl || selectedSession?.recording_url) ? currentTheme.textSecondary : 'opacity-50 cursor-not-allowed'}`}
+                                    className={`w-3.5 h-3.5 sm:w-5 sm:h-5 ${selectedSession?.recording?.url || selectedSession?.recordingUrl || selectedSession?.recording_url ? currentTheme.textSecondary : "opacity-50 cursor-not-allowed"}`}
                                   />
                                 </button>
 
@@ -1096,10 +1170,16 @@ const AgentDetailsView = ({ agent, onBack, currentTheme }) => {
                                   onClick={handleShareRecording}
                                   className={`p-1 sm:p-1.5 hover:${currentTheme.searchBg} rounded transition-colors`}
                                   title="Share recording"
-                                  disabled={!(selectedSession?.recording?.url || selectedSession?.recordingUrl || selectedSession?.recording_url)}
+                                  disabled={
+                                    !(
+                                      selectedSession?.recording?.url ||
+                                      selectedSession?.recordingUrl ||
+                                      selectedSession?.recording_url
+                                    )
+                                  }
                                 >
                                   <Share2
-                                    className={`w-3.5 h-3.5 sm:w-5 sm:h-5 ${(selectedSession?.recording?.url || selectedSession?.recordingUrl || selectedSession?.recording_url) ? currentTheme.textSecondary : 'opacity-50 cursor-not-allowed'}`}
+                                    className={`w-3.5 h-3.5 sm:w-5 sm:h-5 ${selectedSession?.recording?.url || selectedSession?.recordingUrl || selectedSession?.recording_url ? currentTheme.textSecondary : "opacity-50 cursor-not-allowed"}`}
                                   />
                                 </button>
 
@@ -1790,7 +1870,6 @@ const AgentDetailsView = ({ agent, onBack, currentTheme }) => {
         )}
       </div>
     </div>
-    
   );
 };
 
